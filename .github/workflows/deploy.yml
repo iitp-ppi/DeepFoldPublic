@@ -1,9 +1,9 @@
 name: Deploy Pages
 
 on:
-  push:
+  create:
     branches:
-      - 'gh-pages'
+      - gh-pages
   workflow_dispatch:
 
 jobs:
