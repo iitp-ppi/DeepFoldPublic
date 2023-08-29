@@ -1,0 +1,13 @@
+name: deepfold2
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy=1.25.2
+  - scipy=1.11.1
+  - omegaconf=2.3.0
+  - python=3.10
+  - pytorch=2.0.1
+  - pytorch-cuda=11.7

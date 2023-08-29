@@ -1,0 +1,67 @@
+site_name: "DeepFold"
+site_url: "https://DeepFoldProtein.github.io/deepfold_docs/"
+site_author: "DeepFold Team"
+
+repo_url: "https://github.com/DeepFoldProtein/megafold/"
+remote_branch: "gh-pages"
+
+nav:
+  - Home: index.md
+  - User Guide: user-guide/
+  - Reference Manual: reference-manual/
+  - Developer Guide: dev-guide/
+  - About:
+      - Release Notes: about/release-notes.md
+      - License: about/license.md
+
+theme:
+  name: "material"
+  locale: en
+
+markdown_extensions:
+  - toc:
+      permalink: "#"
+      baselevel: 1
+      separator: "_"
+  - attr_list
+  - def_list
+  - pymdownx.arithmatex:
+      generic: true
+
+copyright: "Copyright &copy; 2023 DeepFold Team"
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            heading_level: 3
+            show_root_heading: true
+            show_root_toc_entry: false
+            # show_symbol_type_heading: true
+            # show_symbol_type_toc: true
+            # show_category_heading: true
+            annotations_path: source
+            line_length: 120
+            show_signature: false
+            separate_signature: false
+            show_signature_annotations: true
+            signature_crossrefs: true
+            docstring_section_style: spacy
+            members_order: source
+            show_sources: false
+            summary: true
+  - literate-nav:
+      nav_file: README.md
+      implicit_index: false
+      tab_length: 2
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css
