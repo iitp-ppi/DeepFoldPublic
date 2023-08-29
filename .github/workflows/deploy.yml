@@ -1,0 +1,69 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches:
+      - gh-pages
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+    
+    # Commit and push all changed files.
+    - name: Copy
+      run: |
+        CLONE_DIRECTORY=$(mktemp -d)
+        
+        echo ">>>" "Cloning destination GitHub repositroy"
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+        git clone --branch "gh-pages" "https://${{ secrets.API_TOKEN_GITHUB }}@github.com/DeepFoldProtein/megafold" "$CLONE_DIRECTORY"
+
+        echo ">>>" "Current repo contents:"
+        ls -lha
+        
+        echo ">>>" "Copying contents to remote GitHub repository"
+        cp -rvf "./" $CLONE_DIRECTORY
+        
+        cd "$CLONE_DIRECTORY"
+        echo ">>>" "Remote repo contents after copying files"
+        ls -la $CLONE_DIRECTORY
+
+        # Remove .git and .github
+        rm -rf ".git"
+        rm -rf ".github"
+
+        git init .
+        REMOTE_URL="https://DeepFoldProtein:${{ secrets.API_TOKEN_GITHUB }}@github.com/DeepFoldProtein/deepfold_docs"
+        git remote add origin $REMOTE_URL
+        git fetch origin
+
+        git add --all
+
+        # Not commit if no changes were made
+        git commit -m "Deploy action"
+        git status
+        TEMP_BRANCH="git-commit-push-action-${{ github.run_id }}-${{ github.job }}"
+        git branch $TEMP_BRANCH
+
+        # Create new branch (if necessary)
+        TARGET_BRANCH="main"
+        BE=$(git ls-remote --heads origin $TARGET_BRANCH | wc -l)
+        if [[ $BE == *"0"* ]]; then
+          echo ">>>" "Target branch doesn't exist. Create a new branch"
+          git checkout -b $TARGET_BRANCH
+        else
+          git checkout $TARGET_BRANCH
+        fi
+        git merge --allow-unrelated-histories -X theirs $TEMP_BRANCH
+        git branch -d $TEMP_BRANCH
+
+        echo ">>>" "Push git commit"
+        git push -f -u origin $TARGET_BRANCH
