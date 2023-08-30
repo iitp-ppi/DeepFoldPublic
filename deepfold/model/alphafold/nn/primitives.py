@@ -164,7 +164,23 @@ class Linear(nn.Linear):
 
 
 class LayerNorm(nn.Module):
+    """
+    A layer normalization layer.
+    """
+
     def __init__(self, c_in: int, eps: float = 1e-05):
+        """
+        Args:
+            c_in:
+                The number of channels
+            eps:
+                Small epsilon to avoid division by zero variance.
+
+        Note:
+            The scales are initialized with a constant value of one.
+            The offsets are zero-initialized.
+        """
+
         super().__init__()
 
         self.c_in = (c_in,)
@@ -214,6 +230,22 @@ def softmax_no_cast(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
     return s
 
 
+def _attention(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    biases: List[torch.Tensor],
+) -> torch.Tensor:
+    a = torch.einsum("bqhc,bkhc->bhqk", query, key)
+
+    for b in biases:
+        a += b
+
+    a = softmax_no_cast(a, -1)
+
+    return a  # [*, H, Q, C_hidden]
+
+
 class Attention(nn.Module):
     """
     Standard multi-head attention used in AlphaFold.
@@ -232,15 +264,15 @@ class Attention(nn.Module):
         """
         Args:
             c_q:
-                Input dimension of query data
+                Input dimension of query data ($C_q$)
             c_k:
-                Input dimension of key data
+                Input dimension of key data ($C_k$)
             c_v:
-                Input dimension of value data
+                Input dimension of value data ($C_v$)
             c_hidden:
-                Per_head hidden dimension
+                Per head hidden dimension ($C$)
             n_heads:
-                Number of attention heads
+                Number of attention heads ($H$)
             gating:
                 Whether the output should be gated using query data
         """
@@ -270,9 +302,67 @@ class Attention(nn.Module):
         k = self.linear_k(kv_x)
         v = self.linear_v(kv_x)
 
-        # [*, Q/=V, H, C_hidden]
+        # [*, Q/K=V, H, C_hidden]
         q = q.view(q.shape[:-1] + (self.no_heads, -1))
         k = k.view(k.shape[:-1] + (self.no_heads, -1))
         v = v.view(v.shape[:-1] + (self.no_heads, -1))
 
-        q /= math.sqrt(self.c_hidden)
+        # [*, H, Q/K=V, C_hidden]
+        q = q.transpose(-2, -3)
+        k = k.transpose(-2, -3)
+        v = v.transpose(-2, -3)
+
+        # Normalize
+        q *= self.c_hidden ** (-0.5)
+
+        return q, k, v
+
+    def _wrap_up(self, o: torch.Tensor, q_x: torch.Tensor) -> torch.Tensor:
+        if self.linear_g is not None:
+            g = self.linear_g(q_x)
+            g = self.sigmoid(g)
+
+            # [*, Q, H, C_hidden]
+            g = g.view(g.shape[:-1] * (self.n_heads, -1))
+            o = o * g
+
+        # [*, Q, H * C_hidden]
+        o = flatten_final_dims(o, 2)
+
+        # [*, Q, C_q]
+        o = self.linear_o(o)
+
+        return o
+
+    def forward(
+        self, q_x: torch.Tensor, kv_x: torch.Tensor, biases: Optional[List[torch.Tensor]] = None, **kwargs
+    ) -> torch.Tensor:
+        """
+        Args:
+            q_x:
+                $(*, Q, C_q)$ A tensor of queries
+            kv_x:
+                $(*, K, C_k)$ A tensor of memories from which the keys and values are projected
+            biases:
+                List of biases that broadcast to $(*, H, Q, K)$
+
+        Returns:
+            $(*, Q, C)$ A tensor of attention update
+
+        Note:
+            Biases valued with `-inf` prevents attention to corresponding positions.
+            Therefore the layer doesn't have an attention mask argument.
+        """
+
+        q, k, v = self._prep_qkv(q_x, kv_x)
+
+        o = _attention(q, k, v, biases)  # [*, H, Q, C_hidden]
+        o = o.transpose(-2, -3)  # [*, Q, H, C_hidden]
+
+        o = self._wrap_up(o, q_x)  # [*, Q, C_q]
+
+        return o
+
+
+class GlobalAttention(nn.Module):
+    pass
