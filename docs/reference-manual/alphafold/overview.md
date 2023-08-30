@@ -11,7 +11,6 @@ It scored above 90 for around two-thirds of the proteins in CASP's global distan
 
 On July 2021 the AlphaFold2 paper was published at Nature. The source code of the inference part and a searchable database of species proteomes were also published together.
 
-
 ## AlphaFold2
 
 ## AlphaFold-Multimer
