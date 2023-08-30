@@ -18,4 +18,4 @@ This model was a collection of the latest findings on artificial neural networks
 ---
 ## Relaxation with the physical force field
 
-Amber ff99SB is used to minimize energy of the configuration which leads the atoms to physically correct positions.
+Amber ff99SB force field is used to minimize energy of the configuration which leads the atoms to physically correct positions.

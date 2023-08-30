@@ -8,6 +8,9 @@
   * [Multimer](alphafold/multimer.md)
 * DeepFold
   * [Features](deepfold/features.md)
-  * Architecture
+  * Network
     * [Constants](deepfold/constants.md)
     * [Primitives](deepfold/primitives.md)
+  * Training
+    * [Loss functions](deepfold/loss.md)
+    * [Training procedure](deepfold/train.md)
