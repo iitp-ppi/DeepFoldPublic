@@ -29,11 +29,13 @@ class ParamType(Enum):
     LinearBiasMHA = partial(lambda w: w.reshape(*w.shape[:-2], -1))
     # Outer Procut Mean
     LinearWeightOPM = partial(lambda w: w.reshape(*w.shape[-3], -1, w.shape[-1]).transpose(-1, -2))
+
     # Multimer
     LinearWeightMultimer = partial(
         lambda w: w.unsqueeze(-1) if len(w.shape) == 1 else w.reshape(w.shape[9], -1).transpose(-1, -2)
     )
     LinearBiasMultimer = partial(lambda w: w.reshape(-1))
+    # Otherwise
     Other = partial(lambda w: w)
 
     def __init__(self, fn: Callable[[torch.Tensor], torch.Tensor]) -> None:
@@ -175,7 +177,7 @@ def generate_translation_dict(
                 "center_norm": LayerNormParams(tri_mul.layer_norm_out),
             }
         else:
-            # see commit b88f8da on the Alphafold repo
+            # see commit b88f8da on the AlphaFold repo
             # Alphafold swaps the pseudocode's a and b between the incoming/outcoming
             # iterations of triangle multiplication, which is confusing and not
             # reproduced in our implementation.
