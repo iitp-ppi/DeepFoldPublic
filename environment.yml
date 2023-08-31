@@ -11,3 +11,4 @@ dependencies:
   - python=3.10
   - pytorch=2.0.1
   - pytorch-cuda=11.7
+  - biopython=1.81
