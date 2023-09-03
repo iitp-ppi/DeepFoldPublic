@@ -22,7 +22,6 @@ import re
 import string
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
-
 DeletionMatrix = Sequence[Sequence[int]]
 
 
