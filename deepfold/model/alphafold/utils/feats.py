@@ -2,7 +2,7 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-from typing import Optional, Tuple, Union, Mapping
+from typing import Mapping, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -10,7 +10,6 @@ import torch.nn as nn
 from deepfold.common import residue_constants as rc
 from deepfold.utils.geometry import Rigid, Rigid3Array
 from deepfold.utils.tensor_utils import batched_gather
-
 
 FeatureDict = Mapping[str, torch.Tensor]
 
@@ -36,6 +35,7 @@ def pseudo_beta_fn(
     Note:
         For gylcine-residues (G, GLY) alpha-carbon is considered as beta-carbon.
     """
+
     is_gly = aatype == rc.restype_order["G"]
     ca_idx = rc.atom_order["CA"]
     cb_idx = rc.atom_order["CB"]
