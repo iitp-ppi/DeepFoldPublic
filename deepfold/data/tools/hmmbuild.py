@@ -20,7 +20,7 @@ import re
 import subprocess
 import tempfile
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 # Internal import (7716).

@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 from typing import Optional, Sequence
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 from deepfold.data import parsers

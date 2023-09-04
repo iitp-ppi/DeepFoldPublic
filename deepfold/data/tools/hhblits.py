@@ -21,7 +21,7 @@ import subprocess
 import tempfile
 from typing import Any, List, Mapping, Optional, Sequence
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 _HHBLITS_DEFAULT_P = 20

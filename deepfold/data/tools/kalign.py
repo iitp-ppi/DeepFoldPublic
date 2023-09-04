@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 from typing import Sequence
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def _to_a3m(sequences: Sequence[str]) -> str:

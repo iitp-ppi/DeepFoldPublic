@@ -23,7 +23,7 @@ from concurrent import futures
 from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 from deepfold.data import parsers
