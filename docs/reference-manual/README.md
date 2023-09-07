@@ -14,3 +14,5 @@
   * Training
     * [Loss functions](deepfold/loss.md)
     * [Training procedure](deepfold/train.md)
+  * Distributed
+    * [Overview](deepfold/distributed/overview.md)
