@@ -6,15 +6,14 @@
     * [Proteins](prepare/proteins.md)
     * [Multiple Sequence Alignment](prepare/msa.md)
     * [Einstein Notation](prepare/einstein.md)
-  * [Pipeline](alphafold/pipeline.md)
+  * [Inference](alphafold/inference.md)
+  * [Training](alphafold/train.md)
   * [Multimer](alphafold/multimer.md)
 * DeepFold
   * [Features](deepfold/features.md)
   * Network
     * [Constants](deepfold/constants.md)
     * [Primitives](deepfold/primitives.md)
-  * Training
-    * [Loss functions](deepfold/loss.md)
-    * [Training procedure](deepfold/train.md)
+  * [Training](deepfold/train.md)
   * Distributed
     * [Overview](deepfold/distributed/overview.md)

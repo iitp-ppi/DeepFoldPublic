@@ -1,4 +1,4 @@
-# AlphaFold2 Pipeline
+# AlphaFold2 Inference Pipeline
 
 ---
 
