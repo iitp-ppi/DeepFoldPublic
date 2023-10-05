@@ -146,6 +146,7 @@ device_mesh = DeviceMesh([[0, 1], [2, 3]])
 spec = [Replicate(), Shard(0)]
 distributed.zeros((128, 64), device="cuda", device_mesh=device_mesh, placements=spec)
 ```
+
 ## Operations
 
 We use `torch_dispatch` along with `torch_function` to implement operations.

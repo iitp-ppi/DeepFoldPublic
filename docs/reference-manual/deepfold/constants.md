@@ -5,9 +5,7 @@
 Some module attributes are frequently used in the package.
 `deepfold.common.residue_constants` is the module where they are declared.
 
-```
-ARNDCQEGHILKMFPSTWYV
-```
+> `ARNDCQEGHILKMFPSTWYV`
 
 There are 20 different amino acids that are used for building proteins.
 You can think of each residue as a token, and every type of amino acid as a different kind of token.

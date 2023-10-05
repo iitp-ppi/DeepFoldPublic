@@ -8,7 +8,7 @@ In this page, we introduce basic neural network layers in the model.
 
 This layer applies a linear transformation to the incoming data: $y = x A^T + b$.
 
-```
+```{r}
 Input: x
 y = einsum('bi,ij->bj', x, w) + b
 ```
@@ -28,7 +28,7 @@ $$ y = \frac{x - \left \langle x \right \rangle}{\sqrt{\mathrm{Var}(x) + \epsilo
 
 This layer is a gated (and biased) multi-head attention used in AlphaFold.
 
-```
+```{r}
 Input:
     q_data  float[batch_size, n_queries, c_q]
     m_data  float[batch_size, n_keys, c_k]
@@ -66,7 +66,7 @@ return output
 
 This layer is global column-wise self-attention in AlphaFold. (Alg. 19)
 
-```
+```{r}
 Input:
     m_data  float[batch_size, num_seq, num_res, c_in]
     mask    int[batch_size, num_seq, num_res]
