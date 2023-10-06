@@ -19,15 +19,16 @@ theme:
   locale: en
 
 markdown_extensions:
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
   - toc:
       permalink: "#"
       baselevel: 1
       separator: "_"
-  - attr_list
-  - def_list
-  - md_in_html
-  - pymdownx.arithmatex:
-      generic: true
 
 copyright: "Copyright &copy; 2023 DeepFold Team"
 
