@@ -7,3 +7,4 @@ To compile the documentation, we need following packages.
 * `mkdocs-literate-nav`
 * `mkdocstrings`
 * `mkdocstrings-python`
+* `markdown`

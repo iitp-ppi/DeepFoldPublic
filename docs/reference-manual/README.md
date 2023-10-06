@@ -4,8 +4,11 @@
   * [Overview](alphafold/overview.md)
   * Prerequisites
     * [Proteins](prepare/proteins.md)
-    * [Multiple Sequence Alignment](prepare/msa.md)
+    * [Sequence Alignment](prepare/msa.md)
+    * [Formats](prepare/formats.md)
+    * [Geometry](prepare/geometry.md)
     * [Einstein Notation](prepare/einstein.md)
+  * [Data Pipeline](alphafold/features.md)
   * [Inference](alphafold/inference.md)
   * [Training](alphafold/train.md)
   * [Multimer](alphafold/multimer.md)
