@@ -27,10 +27,14 @@ The input file is parsed and basic metadata is extracted from it.
 
 Multiple database are searched using `JackHMMER 3.3` and `HHBlits 3.0-beta.3`.
 
-- [UniRef90 2020_01](https://ftp.ebi.ac.uk/pub/databases/uniprot/previous_releases/release-2020_01/uniref/)
+- [UniRef90 2020_01](https://ftp.ebi.ac.uk/pub/databases/uniprot/previous_releases/release-2020_01/uniref/)[^uniref]
 - [BFD](https://bfd.mmseqs.com)
-- [MGnify 2018_12](https://ftp.ebi.ac.uk/pub/databases/metagenomics/peptide_database/2018_12/)
-- [Uniclust 2018_08](https://wwwuser.gwdg.de/~compbiol/uniclust/2018_08/) (to construct a dsitillation structure dataset)
+- [MGnify 2018_12](https://ftp.ebi.ac.uk/pub/databases/metagenomics/peptide_database/2018_12/)[^mgnify]
+- [Uniclust 2018_08](https://wwwuser.gwdg.de/~compbiol/uniclust/2018_08/) (to construct a dsitillation structure dataset)[^uniclust]
+
+[^uniref]: [*Bioinformatics* 31(6):926 (2015)](https://doi.org/10.1093/bioinformatics/btu739)
+[^mgnify]: [*Nucleic Acids Research* 48(D1):D570 (2020)](https://doi.org/10.1093/nar/gkz1035)
+[^uniclust]: [*Nucleic Acids Research* 45(D1):D170 (2016)](https://doi.org/10.1093/nar/gkw1081)
 
 |  Database  |   Engine  | MSA depth |
 |:----------:|:---------:|:---------:|
