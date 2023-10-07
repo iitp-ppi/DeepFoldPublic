@@ -14,8 +14,8 @@ It is recommended that all lines of text be shorter than 80 characters in length
 Example:
 
 ```{plain text}
->1HDD_3|Chains C, D|PROTEIN (ENGRAILED HOMEODOMAIN)|Drosophila melanogaster (7227)
-MDEKRPRTAFSSEQLARLKREFNENRYLTERRRQQLSSELGLNEAQIKIWFQNKRAKIKKS
+>tr|E1L4V1|E1L4V1_9FIRM 4-oxalocrotonate tautomerase family enzyme OS=Veillonella atypica ACS-049-V-Sch6 OX=866776 GN=dmpI PE=3 SV=1
+MPLIHVELVEGRTKEQKKQLGEAITKATVDIVKVPAEAVKVIFVDMKKDEFMEGGILRSER
 ```
 
 A multiple sequence FASTA format would be obtained by concatenating several single sequence FASTA files in a common file.
@@ -66,10 +66,42 @@ The [NCBI](https://blast.ncbi.nlm.nih.gov/doc/blast-topics/#fasta) defined a sta
 
 ## `A3M`
 
-The A3M format consists of aligned fasta, in which alignments are shown with inserts as lower case characters, matches as upper characters, deletions as "`0`", and gaps aligned to insert as "`.`".
-Note that gaps aligned to inserts can be omitted in the A3M format.
+The A3M format consists of aligned fasta, in which alignments are shown with inserts as lower case characters, matches as upper characters, deletions as "`-`".
 
 In the standard A3M format, sequences are separated by "`>`".
+
+Example:
+
+```{plain text}
+>tr|E1L4V1|E1L4V1_9FIRM 4-oxalocrotonate tautomerase family enzyme OS=Veillonella atypica ACS-049-V-Sch6 OX=866776 GN=dmpI PE=3 SV=1
+MPLIHVELVEGRTKEQKKQLGEAITKATVDIVKVPAEAVKVIFVDMKKDEFMEGGILRSER
+>tr|A0A1H7KCH6|A0A1H7KCH6_9NOCA 4-oxalocrotonate tautomerase family enzyme OS=Rhodococcus maanshanensis OX=183556 GN=SAMN05444583_10410 PE=3 SV=1
+MPMVTIKTMQGKSPEAIRKTMSDVGRVVAENLGYDAAHVMVFVEEVADTHFLTAGRTWAEL
+>tr|A0A2N6EKZ9|A0A2N6EKZ9_9DELT Tautomerase OS=Desulfuromonas sp. OX=892 GN=C0619_11485 PE=3 SV=1
+MPVIIVRTVEGVTTQQKEQLIEQFTRTMKEVMGKNPEATHIVIEEIPAENWGIRGRTVAAI
+>tr|C5T5R3|C5T5R3_ACIDE 4-oxalocrotonate tautomerase OS=Acidovorax delafieldii 2AN OX=573060 GN=AcdelDRAFT_2243 PE=4 SV=1
+MPTYHIEMMEGRAIEQTTKRGAEVNRASAPILGCSPDSMDMVVTGAERESRATDGALRPQP
+>tr|A0A1S2C447|A0A1S2C447_9BACI 4-oxalocrotonate tautomerase OS=Bacillus aryabhattai OX=412384 GN=BCV52_11195 PE=3 SV=1
+MPIVQVHLLEGREEKDIKNMLVEVTEALSNSLHVEKDRVRIIVNEVPSSHWGIAGVSRKEI
+>tr|A0A2E0IFC6|A0A2E0IFC6_9RHOB Tautomerase OS=Ahrensia sp. OX=1872419 GN=CL534_01550 PE=3 SV=1
+MPIAEILIFEGRTDDQKREIMREVTDALARSMDAEPERIRVILKEIPTNHFSVAGVSIADS
+>SRR5262249_49533381
+VSDWSSDVCSSDLIEYRKTIGEIVYHAMRDVIDVPKDDKFQIIAEHPGEAFNVS-------
+>AntAceMinimDraft_17_1070374.scaffolds.fasta_scaffold12881_1 # 3 # 206 # 1 # ID=12881_1;partial=10;start_type=Edge;rbs_motif=None;rbs_spacer=None;gc_cont=0.564
+-PSHTLEIINLIKQQHIKAIVMEPyfDRKTPDFIGAKTGAKVVVLYPSVGGKAGLDD--Y---
+>SRR5216683_115507
+--LVEVTRYQDHADRDPAGKLGPArrhagFRNRP-RLQDrrlairrrADEDIRLLDFDNRSQ------------
+>SRR5262249_33036445
+--LIQITLNAGRSLEQKKAFYKRIVDDMHTQLNVRPQEVVINLWKSRRKTGRSVAALR---
+>SRR5438270_10750673
+--LIQITLNTDRRDEEGVLQKDRRRPPcsleraarrrghqpcrgRQGKLVVRRRHRAIRGVEEVAGRLRGKX------
+>SRR3974390_3476593
+MPLIRISLLTGNPDDDRRAIAENLYASLREPFNVPENDFFAPVDELEPRDFIYDRK-----
+>ERR1700722_9471896
+NAaHSHLTarRKAGSLpAgDLRQP----LPR---DARSVERG-RRRSVHDH---------------
+>SRR3954471_21681111
+RHtLATGQS---KTGDSVRVRFNSKKAGNPATVTAPS-QSR--PASSPRGMRvM---------
+```
 
 ## `STO`
 
@@ -77,32 +109,51 @@ In the standard A3M format, sequences are separated by "`>`".
 A stockholm file consists of a header line with a format and verison identifier; mark-up lines starting with "`#=GF`", "`#=GC`", "`#=GS`" or `"#=GR`"; alignment lines with the sequence name and aligned sequence; a "`//`" line indicating the end of the alignment.
 Alignments are shown with inserts as lower case characters, matches as upper case characters, and gaps as '`.`' or '`-`'.
 
+See [HMMER Documentation](http://hmmer.org/documentation.html).
+
 Example:
 
 ```{plain text}
-# STOCKHOLM 1.0
-#=GF ID sp|P10636-7|TAU_HUMAN-i1
-#=GF DE Isoform Tau-E of Microtubule-associated protein tau OS=Homo sapiens OX=9606 GN=MAPT
-#=GF AU jackhmmer (HMMER 3.3.2)
-
-#=GS sp|P10636-7|TAU_HUMAN            DE Isoform Tau-E of Microtubule-associated protein tau OS=Homo sapiens OX=9606 GN=MAPT
-#=GS UniRef90_P10636-7/1-412          DE [subseq from] Isoform Tau-E of Microtubule-associated protein tau n=74 Tax=Boreoeutheria TaxID=1437010 RepID=P10636-7
-#=GS UniRef90_UPI000387CAEE/1-85      DE [subseq from] microtubule-associated protein tau isoform X7 n=5 Tax=Catarrhini TaxID=9526 RepID=UPI000387CAEE
-#=GS UniRef90_UPI000387CAEE/101-187   DE [subseq from] microtubule-associated protein tau isoform X7 n=5 Tax=Catarrhini TaxID=9526 RepID=UPI000387CAEE
+   1 # STOCKHOLM 1.0
+   2 #=GF ID tr|E1L4V1|E1L4V1_9FIRM-i1
+   3 #=GF DE 4-oxalocrotonate tautomerase family enzyme OS=Veillonella atypica ACS-049-V-Sch6 OX=866776 GN=dmpI PE=3 SV=1
+   4 #=GF AU jackhmmer (HMMER 3.3.2)
+   5
+   6 #=GS tr|E1L4V1|E1L4V1_9FIRM        DE 4-oxalocrotonate tautomerase family enzyme OS=Veillonella atypica ACS-049-V-Sch6 OX=866776 GN=dmpI PE=3 SV=1
+   7 #=GS UniRef90_X8HJZ3/1-61          DE [subseq from] 4-oxalocrotonate tautomerase family enzyme n=2 Tax=Veillonella TaxID=29465 RepID=X8HJZ3_9FIRM
+   8 #=GS UniRef90_C4FQC3/5-65          DE [subseq from] 4-oxalocrotonate tautomerase family enzyme n=36 Tax=root TaxID=1 RepID=C4FQC3_9FIRM
+   9 #=GS UniRef90_UPI0013897EF9/1-61   DE [subseq from] 4-oxalocrotonate tautomerase n=1 Tax=Veillonella sp. R32 TaxID=2021312 RepID=UPI0013897EF9
+  10 #=GS UniRef90_A0A096AMA4/1-61      DE [subseq from] 4-oxalocrotonate tautomerase n=3 Tax=Veillonella montpellierensis TaxID=187328 RepID=A0A096AMA4_9FIRM
 (...)
-
-sp|P10636-7|TAU_HUMAN                    MAEPRQEFEVMEDHAG-T--------YGL---------GDRKD---Q--GGYTM--H--Q-D-Q-EGDT--D-A-G-L-K-E-S-------P---L--Q-TP--T---E--D----G---S-------E--E---P-G---S---E--T-S--D-A---K-------ST--P-----T--A--E-A--------E--E--
-UniRef90_P10636-7/1-412                  MAEPRQEFEVMEDHAG-T--------YGL---------GDRKD---Q--GGYTM--H--Q-D-Q-EGDT--D-A-G-L-K-E-S-------P---L--Q-TP--T---E--D----G---S-------E--E---P-G---S---E--T-S--D-A---K-------ST--P-----T--A--E-A--------E--E--
-#=GR UniRef90_P10636-7/1-412          PP 89**************.*........***.........*****...*..*****..*..*.*.*.****..*.*.*.*.*.*.*.......*...*..*.**..*...*..*....*...*.......*..*...*.*...*...*..*.*..*.*...*.......**..*.....*..*..*.*........*..*..
-UniRef90_UPI000387CAEE/1-85              MAEPRQEFEVMEDHAG-T--------YGL---------GDRKD---Q--GGYTM--H--Q-D-Q-EGDT--D-A-G-L-K-E-S-------P---L--Q-TP--T---E--D----G---S-------E--E---P-G---S---E--T-S--D-A---K-------ST--P-----T--A--E-D--------V--T--
-#=GR UniRef90_UPI000387CAEE/1-85      PP 89**************.*........***.........*****...*..*****..*..*.*.*.****..*.*.*.*.*.*.*.......*...*..*.**..*...*..*....*...*.......*..*...*.*...*...*..*.*..*.*...*.......**..*.....*..*..*.9........8..8..
-UniRef90_UPI000387CAEE/101-187           ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------T--T-A--------E--E--
-#=GR UniRef90_UPI000387CAEE/101-187   PP ....................................................................................................................................................................................4..5.8........9..*..
+1609 #=GS UniRef90_UPI001CB4C3EC/1-58   DE [subseq from] tautomerase family protein n=1 Tax=Paraburkholderia tropica TaxID=92647 RepID=UPI001CB4C3EC
+1610 #=GS UniRef90_A0A2V6XG00/14-72     DE [subseq from] 4-oxalocrotonate tautomerase n=9 Tax=Bacteria TaxID=2 RepID=A0A2V6XG00_9BACT
 (...)
-//
+1611
+1612 tr|E1L4V1|E1L4V1_9FIRM                MPLIHVELVEG-RT-K-EQKKQLGEAITKATVDIVK-VPAEA--VKVIFVDMKK-DE-F-M-EGGILRSER
+1613 UniRef90_X8HJZ3/1-61                  MPLIHVELVEG-RT-K-EQKKQLGEAITKATVEIVK-VPVEA--VKVIFVDMKK-DE-F-M-EGGILRSER
+1614 #=GR UniRef90_X8HJZ3/1-61          PP 8**********.**.*.*******************.*****..**********.**.*.*.*******98
+1615 UniRef90_C4FQC3/5-65                  MPLIHVELVEG-RT-K-EQKKQLGEAITKATVDIVN-VPADA--VKVIFVDMKK-DD-Y-M-EGGILRSER
+1616 #=GR UniRef90_C4FQC3/5-65          PP 8**********.**.*.*******************.*****..**********.**.*.*.*******98
+1617 UniRef90_UPI0013897EF9/1-61           MPIIHVELVEG-RT-F-EQKKQLGEAITKAAVDIVK-VPADA--VKVVFVDMKK-DN-Y-M-EGGVMRSEK
+1618 #=GR UniRef90_UPI0013897EF9/1-61   PP 8**********.**.*.*******************.*****..**********.**.*.*.*******96
+1619 UniRef90_A0A096AMA4/1-61              MPMIHVELVEG-RT-K-EQKKELASAITKATVDIIG-VPVEA--VKVMFVDLKA-DE-F-M-EGGVLRSER
+1620 #=GR UniRef90_A0A096AMA4/1-61      PP 8**********.**.*.*******************.*****..**********.**.*.*.*******98
+1621 UniRef90_A0A380NKA4/1-61              MPIIHVELVEG-RT-F-EQKKELGEVITKATVDIIK-VPKEA--VKVIFTDMKK-DN-F-M-EAGVMRSEK
+1622 #=GR UniRef90_A0A380NKA4/1-61      PP 8**********.**.*.*******************.*****..**********.**.*.*.*******96
+(...)
+4817 UniRef90_UPI001CB4C3EC/1-58           MPIIRLEMLTG-RT-H-AQKAELAEVLTRETARIAK-CPLSD--VQLVMTEVER-SM-W-S-VGGTLA---
+4818 #=GR UniRef90_UPI001CB4C3EC/1-58   PP 8**********.**.*.*******************.*****..**********.**.*.9.999885...
+4819 UniRef90_A0A2V6XG00/14-72             MPNITIQWYAG-RT-Q-QQKRELTQAITEAMVKIGK-TTADQ--VHIVFQDVEK-AN-W-G-YNGKLAS--
+4820 #=GR UniRef90_A0A2V6XG00/14-72     PP 78999999***.**.*.*******************.*****..**********.98.8.8.7777665..
+4821 #=GC PP_cons                          89*********.**.*.*******************.*****..**********.*9.9.9.999988876
+4822 #=GC RF                               xxxxxxxxxxx.xx.x.xxxxxxxxxxxxxxxxxxx.xxxxx..xxxxxxxxxx.xx.x.x.xxxxxxxxx
+4823 //
 ```
 
 ## `HHR`
+
+The HHR format is generated by HHsearch or HHblits in HH-suite for hidden Markov models.
+An HHR format contains multiple pairwise alignments for a single query sequence.
 
 ## `PDB`
 

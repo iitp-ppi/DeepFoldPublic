@@ -71,9 +71,26 @@ hhblits \
 1. Structural data for each hit is obtained from the corresponding mmCIF file in the PDB database.
 1. If the sequence from PDB70 does not exactly match the sequence in the mmCIF file then the two are aligned using Kalign.
 
-**At inference time** the top 4 templates are provided to the model, sorted by the expected number of correctly aligned residues (the `sum_probs` feature output by HHSearch).
+```{sh}
+hhsearch \
+    -cpu 4 \
+    -maxseq 1000000 \
+    -i $INPUT_A3M_PATH \
+    -d $DATABASE_PATH \
+    -o $HHR_PATH
 
-**At training time** the available templates up to 20 with the highest `sum_probs` are selected fisrtly. Then random $k$ templates in this restricted set of $n$ templates are choosed, where $k = \min (4, \mathrm{Uniform}[0,n])$.
+# $DATABASE_PATH should be the common prefix for the database files
+# i.e. up to but not including_hhm.ffindex etc.
+
+kalign \
+    -i $INPUT_FASTA_PATH \
+    -o $OUTPUT_A3M_PATH \
+    -format fasta
+```
+
+**At inference time** the top 4 templates are provided to the model, sorted by the expected number of correctly aligned residues (the `Sum_probs` feature output by HHSearch).
+
+**At training time** the available templates up to 20 with the highest `Sum_probs` are selected fisrtly. Then random $k$ templates in this restricted set of $n$ templates are choosed, where $k = \min (4, \mathrm{Uniform}[0,n])$.
 
 This has the effect of showing the network potentially bad templates, or no templates at all so the network cannot relay on just copying the template.
 
