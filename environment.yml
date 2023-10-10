@@ -18,8 +18,9 @@ dependencies:
   - torchvision
   - isort
   - black
-  - mkdocs
-  - mkdocs-literate-nav
-  - mkdocs-material
-  - mkdocstrings-python
-
+  - pip:
+      - mkdocs
+      - mkdocs-literate-nav
+      - mkdocs-material
+      - mkdocstrings-python
+  
