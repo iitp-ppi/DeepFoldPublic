@@ -1,6 +1,6 @@
 # MegaFold
 
-Distributed PyTorch reproduction of AlphaFold
+Distributed PyTorch reproduction of the Google DeepMind's AlphaFold model.
 
 ## Features
 
