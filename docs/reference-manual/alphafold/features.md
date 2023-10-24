@@ -57,9 +57,9 @@ hhblits \
 
 ## Structural template search
 
-1. The UniRef90 MSA obtained in the previous step is used to search PDB70 using HHSearch with `-maxseq 1000000`.
+1. The UniRef90 MSA obtained in the previous step is used to search PDB70 using **hhsearch** with `-maxseq 1000000`.
 1. Structural data for each hit is obtained from the corresponding mmCIF file in the PDB database.
-1. If the sequence from PDB70 does not exactly match the sequence in the mmCIF file then the two are aligned using Kalign.
+1. If the sequence from PDB70 does not exactly match the sequence in the mmCIF file then the two are aligned using **Kalign**.
 
 ```{sh}
 hhsearch \
@@ -78,10 +78,45 @@ kalign \
     -format fasta
 ```
 
-**At inference time** the top 4 templates are provided to the model, sorted by the expected number of correctly aligned residues (the `Sum_probs` feature output by HHSearch).
+**At inference time** the top 4 templates are provided to the model, sorted by the expected number of correctly aligned residues (the `Sum_probs` feature output by hhsearch).
+
+For the **AlphaFold-Multimer** the template search is similar to above with few differences.
+
+- The AlphaFold-Multimer system uses only per-chain templates.
+- The template search is simiilar to the monomer template search, except that it uses **hmmsearch** and **hmmbuild** instead of hhsearch.
+    1. The UniRef90 MSA obtained in the MSA search is converted to an HMM using hmmbuild.
+    1. hmmbuild is then used to search for matches of the HMM against `pdb_seqres.txt`[^seqres].
+    1. The number of templates are limited to 20.
+- Further processing is as described above.
+<!-- 1. Any structure released after 2018-04-30 is excluded from training. -->
+
+```{sh}
+hmmsearch \
+    -F1 0.1 -F2 0.1 -F3 0.1 -incE 100 -E 100 -domE 100 -incdomE 100 \
+    ...
+
+hmmbuild \
+    ...
+```
+
+[^seqres]: <https://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt> (on 2020-05-14)
 
 ## MSA clustering
+
+The computational and peak memory cost of the main Evoformer module scales as $N_\mathrm{seq}^2 \times N_\mathrm{res}$, so it is highly desirable to reduce the number of sequences used in the main Evoformer module for purely computational reasons.
+However, randomly chosing a fixed-size subset of sequences without replacement has a problem that sequences not included in the random subset have no influence on the prediction.
 
 ---
 
 ## Model inputs
+
+For monomer models
+
+- `target_feat` : $[N_\mathrm{res}, 21]$
+- `residue_index` : $[N_\mathrm{res}]$
+- `msa_feat` : $[N_\mathrm{clust}, N_\mathrm{res}, 49]$
+- `extra_msa_feat` : $[N_\mathrm{extra_seq}, N_\mathrm{res}, 25]$
+- `template_pair_feat` : $[N_\mathrm{templ}, N_\mathrm{res}, N_\mathrm{res}, 88]$
+- `template_angle_feat` : $[N_\mathrm{templ}, N_\mathrm{res}, 57]$
+
+For multimer models

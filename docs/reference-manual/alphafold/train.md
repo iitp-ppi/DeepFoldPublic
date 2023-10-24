@@ -56,6 +56,9 @@ Following templates are excluded:
 - Templates that are identical to (or a subset of) the input primary sequence.
 - Too small (less than 10 residues or of length less than 10% of the primary sequence) templates.
 
+The **AlphaFold-Multimer** system usese only per-chain templates.
+Any structure released after 2018-14-30 is excluded from training.
+
 ## Training data
 
 A training example comes from:
@@ -100,12 +103,18 @@ This means that similar sequences are more likely to be adjacent in the MSA and 
 
 During training the residue dimension in all data is cropped in the following way.
 
----
+### Multimer trainig data
 
-## Loss
+- The training data rebalanceing procedure is very similar to the AlphaFold single chain setup.
+- Uniformly sample a chain cluster, then uniformly sample a chain within that cluster and select the mmCIF to which it belongs as input to the pipeline.
+- The chain clusters are 40% identity clusterings of the Protein Data BAnk with MMSeqs2.
 
 ---
 
 ## Training
 
-### Self-distillation
+### Self-distillation procedure
+
+### Loss functions
+
+### Fine-tuning
