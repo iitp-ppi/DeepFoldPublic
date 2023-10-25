@@ -22,6 +22,6 @@ MSA and template search.
 
 Inference procedure for MegaFold framework.
 
-## Relaxing the structure with 
+## Relaxing the structure with physical force field
 
 Using physics-based force field to optimize the structure.
