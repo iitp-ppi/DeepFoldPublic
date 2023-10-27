@@ -16,7 +16,8 @@ git clone
 
 ## Creating a input features
 
-MSA and template search.
+- MSA and template search.
+- Preprocessing.
 
 ## Predict a protein structure from the input features
 
