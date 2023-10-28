@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import torch
 
-import deepfold.distributed.comm as _comm
-from deepfold.distributed import backend as _back
+import deepfold.distributed._comm as _comm
+from deepfold.distributed import _backend as _back
 
 logger = logging.getLogger(__name__)
 

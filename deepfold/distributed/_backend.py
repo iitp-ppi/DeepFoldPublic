@@ -1,11 +1,17 @@
 from torch.distributed.distributed_c10d import (
+    GroupMember,
     ProcessGroup,
+    Work,
     _find_pg_by_ranks_and_tag,
     _get_default_group,
     _get_group_tag,
+    all_to_all,
+    broadcast,
+    get_global_rank,
     get_rank,
     get_world_size,
     init_process_group,
     is_initialized,
     new_group,
+    scatter,
 )
