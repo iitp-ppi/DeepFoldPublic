@@ -22,5 +22,5 @@ dependencies:
       - mkdocs
       - mkdocs-literate-nav
       - mkdocs-material
+      - mkdocstrings
       - mkdocstrings-python
-  
