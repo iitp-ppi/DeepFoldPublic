@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 import torch
 
 import deepfold.distributed._comm as _comm
-from deepfold.distributed import _backend as _back
+from deepfold.distributed import _backend as cc
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class MeshEnv:
 
     @staticmethod
     def num_hosts(device_type: str) -> int:
-        return _back.get_world_size() // MeshEnv.num_devices_per_host(device_type)
+        return cc.get_world_size() // MeshEnv.num_devices_per_host(device_type)
 
 
 class DeviceMesh:
@@ -60,11 +60,11 @@ class DeviceMesh:
             self._init_process_groups(_validate_mesh)
 
     def _get_or_create_default_group(self):
-        default_initialized = _back.is_initialized()
+        default_initialized = cc.is_initialized()
         if not default_initialized:
-            _back.init_process_group()
+            cc.init_process_group()
 
-        world_size = _back.get_world_size()
+        world_size = cc.get_world_size()
         if self.mesh.numel() > world_size:
             raise f"Mesh should not be bigger than default world size, but {self.mesh.numel()}"
 
@@ -77,14 +77,14 @@ class DeviceMesh:
                     f"DeviceMesh only support homogeneous hardware, but found "
                     f"{world_size} ranks and {num_devices_per_host} {self.device_type} devices"
                 )
-            device_handle.set_device(_back.get_rank())
+            device_handle.set_device(cc.get_rank())
 
         # Calculate the coordinates of the current global rank on the mesh
-        rank_coords = (self.mesh == _back.get_rank()).nonzero()
+        rank_coords = (self.mesh == cc.get_rank()).nonzero()
         assert rank_coords.size(0) in (0, 1)
         self._coordinates_on_dim: Optional[List[int]] = rank_coords[0].tolist() if rank_coords.size(0) > 0 else None
 
-        return _back._get_default_group()
+        return cc._get_default_group()
 
     def _init_process_group(self, _validate_mesh):
         if _validate_mesh:
@@ -94,11 +94,9 @@ class DeviceMesh:
         # Each mesh dimension should have one subgroup per rank
         dim_group_infos: List[Tuple[str, List[int]]] = []
 
-        if self.mesh.ndim == 1 and self.mesh.numel() == _back.get_world_size():
+        if self.mesh.ndim == 1 and self.mesh.numel() == cc.get_world_size():
             # If the mesh is the same as world_pg, just append the default pg to the first dim groups
-            dim_group_infos.append(
-                _back._get_group_tag(_back._get_default_group()), list(range(_back.get_world_size()))
-            )
+            dim_group_infos.append(cc._get_group_tag(cc._get_default_group()), list(range(cc.get_world_size())))
         else:
             # Create sub-pgs
             for dim in range(self.mesh.ndim):
@@ -110,7 +108,7 @@ class DeviceMesh:
                     subgroup_ranks = dim_mesh.tolist()
                     # Call new_group regardless of the current rank in the pg or not
                     # It is required that all ranks participate in subgroup construction
-                    dim_group = _back.new_group(ranks=subgroup_ranks)
+                    dim_group = cc.new_group(ranks=subgroup_ranks)
                     # Only add to dim_groups if the current rank in the subgroup
                     if self.get_rank() in subgroup_ranks:
                         if len(dim_group_infos) > dim:
@@ -118,7 +116,7 @@ class DeviceMesh:
                                 f"Each device mesh dimension should get only one process group, "
                                 f"but got {self.get_rank()} in {subgroup_ranks}"
                             )
-                        dim_group_infos.append((_back._get_group_tag(dim_group), subgroup_ranks))
+                        dim_group_infos.append((cc._get_group_tag(dim_group), subgroup_ranks))
 
         self._dim_group_infos = dim_group_infos
 
@@ -139,15 +137,15 @@ class DeviceMesh:
             return True
         return self.mesh.shape == other.mesh.shape and self._flatten_mesh_list == other._flatten_mesh_list
 
-    def get_dim_groups(self, mesh_dim: Optional[int] = None) -> Union[_back.ProcessGroup, List[_back.ProcessGroup]]:
+    def get_dim_groups(self, mesh_dim: Optional[int] = None) -> Union[cc.ProcessGroup, List[cc.ProcessGroup]]:
         if not hasattr(self, "_dim_group_infos"):
             raise RuntimeError("DeviceMesh process groups not initialized")
         if mesh_dim is not None:
-            return _back._find_pg_by_ranks_and_tag(*self._dim_group_infos[mesh_dim])
+            return cc._find_pg_by_ranks_and_tag(*self._dim_group_infos[mesh_dim])
         else:
             dim_groups = []
             for mesh_dim in range(self.mesh.ndim):
-                dim_groups.append(_back._find_pg_by_ranks_and_tag(*self._dim_group_infos[mesh_dim]))
+                dim_groups.append(cc._find_pg_by_ranks_and_tag(*self._dim_group_infos[mesh_dim]))
             return dim_groups
 
     def size(self, dim: Optional[int] = None) -> int:
@@ -158,7 +156,7 @@ class DeviceMesh:
         return self.mesh.ndim
 
     def get_rank(self) -> int:
-        return _back.get_rank()
+        return cc.get_rank()
 
     def get_coordinate(self) -> Optional[List[int]]:
         """
@@ -175,13 +173,13 @@ class DeviceMesh:
 
         # Validate that all calling ranks has the same mesh
         self_mesh = self.mesh.to(self.device_type).contiguous()
-        mesh_tensor = _comm.all_gather_tensor(self_mesh, gather_dim=0, group=_back._get_default_group())
-        mesh_tensor_chunked = torch.chunk(mesh_tensor, _back.get_world_size())
+        mesh_tensor = _comm.all_gather_tensor(self_mesh, gather_dim=0, group=cc._get_default_group())
+        mesh_tensor_chunked = torch.chunk(mesh_tensor, cc.get_world_size())
         for other_rank, other_mesh in enumerate(mesh_tensor_chunked):
             if not torch.equal(self_mesh, other_mesh):
                 raise RuntimeError(
                     f"DeviceMesh initialization does not allow different mesh arguments: "
-                    f"rank {_back.get_rank()} has mesh {self_mesh} while rank {other_rank} "
+                    f"rank {cc.get_rank()} has mesh {self_mesh} while rank {other_rank} "
                     f"has mesh {other_mesh}"
                 )
 
