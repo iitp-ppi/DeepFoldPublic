@@ -48,7 +48,7 @@ class Shard(Placement):
         # Compute chunk size for each chunk for `self.dim`
         chunk_sizes = [tensor_list[idx].size(self.dim) if idx < len(tensor_list) else 0 for idx in range(num_chunks)]
         # Compute pad size on each chunk
-        pad_sizes = [full_chunk_size - chunk_sizes for chunk_size in chunk_sizes]
+        pad_sizes = [full_chunk_size - chunk_size for chunk_size in chunk_sizes]
         # Reuse tensor to fill empty chunk with empty tensor
         num_empty_tensors = num_chunks - len(tensor_list)
         tensor_size = list(tensor_list[0].size())
