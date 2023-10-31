@@ -2,12 +2,11 @@
 
 import logging
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
-
-logger = logging.getLogger(__name__)
-
+from typing import Any, Callable, Dict, List
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 def add(m1: torch.Tensor, m2: torch.Tensor, inplace: bool) -> torch.Tensor:
@@ -32,6 +31,13 @@ def flatten_final_dims(t: torch.Tensor, no_dims: int) -> torch.Tensor:
 def masked_mean(mask: torch.Tensor, value: torch.Tensor, dim: int, eps=1e-4) -> torch.Tensor:
     mask = mask.expand(*value.shape)
     return torch.sum(mask * value, dim=dim) / (eps + torch.sum(mask, dim=dim))
+
+
+def one_hot(x: torch.Tensor, v_bins: torch.Tensor) -> torch.Tensor:
+    reshaped_bins = v_bins.view(((1,) * len(x.shape)) + (len(v_bins),))
+    diffs = x[..., None] - reshaped_bins
+    am = torch.argmin(torch.abs(diffs), dim=-1)
+    return torch.nn.functional.one_hot(am, num_classes=len(v_bins)).float()
 
 
 def dict_multimap(fn: Callable, dicts: List[Dict[Any, Any]]) -> Dict[Any, Any]:
