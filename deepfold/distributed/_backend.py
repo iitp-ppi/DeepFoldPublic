@@ -1,6 +1,7 @@
 from torch.distributed.distributed_c10d import (
     GroupMember,
     ProcessGroup,
+    ReduceOp,
     Work,
     _find_pg_by_ranks_and_tag,
     _get_default_group,

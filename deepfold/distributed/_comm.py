@@ -1,13 +1,20 @@
 import logging
-import math
 from typing import List, Optional
 
 import torch
-from torch.distributed._functional_collectives import all_gather_tensor
+from torch.distributed._functional_collectives import all_gather_tensor, reduce_scatter_tensor
 
 import deepfold.distributed._backend as cc
-import deepfold.distributed.placement_types as placement_types
 from deepfold.distributed.device_mesh import DeviceMesh
+
+__all__ = [
+    "all_gather_tensor",
+    "reduce_scatter_tensor",
+    "mesh_scatter",
+    "mesh_broadcast",
+    "mesh_all_to_all",
+]
+
 
 logger = logging.getLogger(__name__)
 
