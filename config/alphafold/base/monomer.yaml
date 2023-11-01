@@ -1,0 +1,246 @@
+info:
+  tags:
+    - AlphaFold2
+    - protein
+    - monomer
+
+globals:
+  max_recycling_iters: 3 # do once more
+  use_template: True
+  use_template_torsion_angles: True
+  num_ensemble: 1
+  tm_enabled: False
+  eval_dropout: False
+
+data:
+  common:
+    feat:
+      masked_msa: # Suppl. 1.2.7
+        uniform_prob: 0.1
+        profile_prob: 0.1
+        same_prob: 0.1
+        # 70% are masked_msa_token
+      max_recycling_iters: ${globals.max_recycling_iters}
+      msa_cluster_features: True
+      resample_msa_in_recycling: True
+      reduce_msa_clusters_by_max_templates: False
+      use_template: ${globals.use_template}
+      use_template_torsion_angles: ${globals.use_template_torsion_angles}
+  predict:
+    fixed_size: False # Pre-allocation
+    masked_msa_replace_fraction: 0.15 # Suppl. 1.2.7
+    max_msa_clusters: 512
+    max_extra_msa: 1024
+    subsample_templates: False # Top templates only
+    max_template_hits: 4
+    max_templates: 4
+    uniform_recycling: False
+  eval:
+    fixed_size: False
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 128
+    max_extra_msa: 1024
+    subsample_templates: False
+    max_template_hits: 4
+    max_templates: 4
+    uniform_recycling: False
+  train:
+    fixed_size: True
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 128
+    max_extra_msa: 1024
+    subsample_templates: True
+    max_template_hits: 4
+    max_templates: 4
+    shuffle_top_k_prefiltered: 20
+    crop: True
+    crop_size: 256
+    clamp_prob: 0.9 # Suppl. 1.11.5
+    uniform_recycling: False
+    distillation_prob: 0.75
+  loaders:
+    batch_size: 128
+    num_workers: 16
+    pin_mem: True
+
+model:
+  globals:
+    c_z: 256
+    c_m: 128
+    c_t: 64
+    c_e: 64
+    c_s: 384
+    chunk_size: 4
+    attention: torch # torch, memeff, flash
+  model:
+    input_embedder:
+      tf_dim: 22
+      msa_dim: 49
+      c_z: ${model.globals.c_z}
+      c_m: ${model.globals.c_m}
+      relpos_k: 32
+    recycling_embedder:
+      c_z: ${model.globals.c_z}
+      c_m: ${model.globals.c_m}
+      min_bin: 3.25
+      max_bin: 20.75
+      num_bins: 15
+      inf: 1e8 # dgram_from_positions
+    template:
+      enabled: ${globals.use_template}
+      embed_angles: ${globals.use_template_torsion_angles}
+      use_unit_vector: False
+      average_templates: False
+      inf: 1e9
+      eps: 1e-6
+      distogram:
+        min_bin: 3.25
+        max_bin: 50.75
+        num_bins: 39
+      template_angle_embedder:
+        c_in: 57 # Not 51
+        c_out: ${model.globals.c_m}
+      template_pair_embedder:
+        c_in: 88
+        c_out: ${model.globals.c_t}
+      template_pair_stack:
+        c_t: ${model.globals.c_t}
+        c_hidden_tri_att: 16
+        c_hidden_tri_mul: 64
+        num_blocks: 2
+        num_heads: 4
+        pair_transition_factor: 2
+        dropout_rate: 0.25
+        inf: 1e9
+        chunk_size: ${model.globals.chunk_size}
+      template_pointwise_attention:
+        c_t: ${model.globals.c_t}
+        c_z: ${model.globals.c_z}
+        c_hidden: 16
+        num_heads: 4
+        inf: 1e9 # Softmax mask
+    extra_msa:
+      enabled: True
+      extra_msa_embedder:
+        c_in: 25
+        c_out: ${model.globals.c_e}
+      extra_msa_stack:
+        c_m: ${model.globals.c_e}
+        c_z: ${model.globals.c_z}
+        c_hidden_msa_attn: 8
+        c_hidden_opm: 32
+        c_hidden_mul: 128
+        c_hidden_pair_attn: 32
+        num_heads_msa: 8
+        num_heads_pair: 4
+        num_blocks: 4
+        pair_transition_faactor: 4
+        msa_dropout: 0.15
+        pair_dropout: 0.25
+        inf: 1e9
+        eps: 1e-10
+        chunk_size: ${model.globals.chunk_size}
+        clear_cache_between_blocks: False
+    evoformer_stack:
+      c_m: ${model.globals.c_m}
+      c_z: ${model.globals.c_z}
+      c_s: ${model.globals.c_s}
+      c_hidden_msa_attn: 32
+      c_hidden_opm: 32
+      c_hidden_mul: 128
+      c_hidden_pair_attn: 32
+      num_heads_msa: 8
+      num_heads_pair: 4
+      num_blocks: 48
+      pair_transition_faactor: 4
+      msa_dropout: 0.15
+      pair_dropout: 0.25
+      inf: 1e9
+      eps: 1e-10
+      chunk_size: ${model.globals.chunk_size}
+      clear_cache_between_blocks: False
+    structure_module:
+      c_s: ${model.globals.c_s}
+      c_z: ${model.globals.c_z}
+      num_blocks: 8
+      c_resnet: 128
+      c_ipa: 16
+      num_heads_ipa: 12
+      num_qk_points: 4
+      num_v_points: 8
+      dropout_rate: 0.1
+      # num_angles: 7
+      position_scale: 10.0 # nanometers
+      eps: 1e-12
+      inf: 1e5
+    heads:
+      lddt:
+        num_bins: 50
+        c_in: ${model.globals.c_s}
+        c_hidden: 128
+      distogram:
+        c_z: ${model.globals.c_z}
+        num_bins: 64
+      tm:
+        enabled: ${globals.tm_enabled}
+        c_z: ${model.globals.c_z}
+        num_bins: 64
+      masked_msa:
+        c_m: ${model.globals.c_m}
+        c_out: 23
+      experimentally_resolved:
+        c_s: ${model.globals.c_s}
+        c_out: 37
+    # relax:
+    loss:
+      distogram: # Suppl. 1.9.8
+        min_bin: 2.3125
+        max_bin: 21.6875
+        num_bins: 64
+        eps: 1e-6
+        weight: 0.3
+      experimentally_resolved: # Suppl. 1.9.10
+        eps: 1e-8
+        min_resolution: 0.1
+        max_resolution: 3.0
+        weight: 0.0
+      fape: # Suppl. 1.9.2
+        backbone:
+          clamp_distance: 10.0
+          loss_unit_distance: 10.0
+          weights: 0.5
+        sidechain:
+          clamp_distance: 10.0
+          length_scale: 10.0
+          weight: 0.5
+        eps: 1e-4
+      plddt_loss: # Suppl. 1.9.6
+        min_resolution: 0.1
+        max_resolution: 3.0
+        cutoff: 15.0
+        num_bins: 50
+        eps: 1e-10
+        weight: 0.01
+      masked_msa: # Suppl. 1.9.9
+        eps: 1e-8
+        weight: 2.0
+      supervised_chi: # Suppl. 1.9.1
+        chi_weight: 0.5
+        angle_norm_weight: 0.01
+        eps: 1e-6
+        weight: 1.0
+      violation: # Suppl. 1.9.11
+        violation_tolerance_factor: 12.0
+        clash_overlap_tolerance: 1.5
+        eps: 1e-6
+        weight: 0.0
+      tm_loss: # Suppl. 1.9.7
+        enabled: ${globals.tm_enabled}
+        max_bin: 31
+        num_bins: 64
+        min_resolution: 0.1
+        max_resolution: 3.0
+        eps: 1e-8
+        weight: 0.0
+  ema:
+    decay: 0.999
