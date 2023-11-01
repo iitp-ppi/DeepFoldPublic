@@ -66,7 +66,7 @@ def atom14_to_atom37(atom14_data: torch.Tensor, batch: FeatureDict) -> torch.Ten
         atom14_data,
         batch["residx_atom37_to_atom14"],
         dim=-2,
-        no_batch_dims=len(
+        num_batch_dims=len(
             atom14_data.shape[:-2],
         ),
     )
@@ -97,7 +97,7 @@ def dgram_from_positions(
     pos: torch.Tensor,
     min_bin: float = 3.25,
     max_bin: float = 50.75,
-    no_bins: float = 39,
+    num_bins: float = 39,
     inf: float = 1e8,
 ) -> torch.Tensor:
     """
@@ -105,7 +105,7 @@ def dgram_from_positions(
     """
 
     dgram = torch.sum((pos[..., None, :] - pos[..., None, :, :]) ** 2, dim=-1, keepdim=True)
-    lower = torch.linspace(min_bin, max_bin, no_bins, device=pos.device) ** 2
+    lower = torch.linspace(min_bin, max_bin, num_bins, device=pos.device) ** 2
     upper = torch.cat([lower[1:], lower.new_tensor([inf])], dim=-1)
     dgram = ((dgram > lower) * (dgram < upper)).type(dgram.dtype)
 
@@ -116,7 +116,7 @@ def build_template_pair_feat(
     batch: FeatureDict,
     min_bin,
     max_bin,
-    no_bins,
+    num_bins,
     use_unit_vector=False,
     eps=1e-20,
     inf=1e08,
@@ -130,7 +130,7 @@ def build_template_pair_feat(
 
     # Compute distogram (this seems to differ slightly from Alg. 5)
     tpb = batch["template_pseudo_beta"]
-    dgram = dgram_from_positions(tpb, min_bin, max_bin, no_bins, inf)
+    dgram = dgram_from_positions(tpb, min_bin, max_bin, num_bins, inf)
 
     to_concat = [dgram, template_mask_2d[..., None]]
 

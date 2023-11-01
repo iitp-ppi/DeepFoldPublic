@@ -24,8 +24,8 @@ def permute_final_dims(tensor: torch.Tensor, inds: List[int]) -> torch.Tensor:
     return tensor.permute(first_inds + [zero_index + i for i in inds])
 
 
-def flatten_final_dims(t: torch.Tensor, no_dims: int) -> torch.Tensor:
-    return t.reshape(t.shape[:-no_dims] + (-1,))
+def flatten_final_dims(t: torch.Tensor, num_dims: int) -> torch.Tensor:
+    return t.reshape(t.shape[:-num_dims] + (-1,))
 
 
 def masked_mean(mask: torch.Tensor, value: torch.Tensor, dim: int, eps=1e-4) -> torch.Tensor:
@@ -53,15 +53,15 @@ def dict_multimap(fn: Callable, dicts: List[Dict[Any, Any]]) -> Dict[Any, Any]:
     return new_dict
 
 
-def batched_gather(data: torch.Tensor, inds: List[int], dim: int = 0, no_batch_dims: int = 0) -> torch.Tensor:
+def batched_gather(data: torch.Tensor, inds: List[int], dim: int = 0, num_batch_dims: int = 0) -> torch.Tensor:
     ranges = []
-    for i, s in enumerate(data.shape[:no_batch_dims]):
+    for i, s in enumerate(data.shape[:num_batch_dims]):
         r = torch.arange(s)
         r = r.view(*(*((-1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
         ranges.append(r)
 
-    remaining_dims = [slice(None) for _ in range(len(data.shape) - no_batch_dims)]
-    remaining_dims[dim - no_batch_dims if dim >= 0 else dim] = inds
+    remaining_dims = [slice(None) for _ in range(len(data.shape) - num_batch_dims)]
+    remaining_dims[dim - num_batch_dims if dim >= 0 else dim] = inds
     ranges.extend(remaining_dims)
 
     return data[ranges]
