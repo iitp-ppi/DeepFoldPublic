@@ -381,4 +381,8 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,visualstudiocode,windows,macos,linux
 
+# mkdocs
 site/
+
+# Databases
+data/
