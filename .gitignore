@@ -385,4 +385,5 @@ $RECYCLE.BIN/
 site/
 
 # Databases
-data/
+_data
+_data/*
