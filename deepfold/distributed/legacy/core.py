@@ -1,11 +1,11 @@
 # Copyright 2023 Deepfold Team
 
-import importlib
-from typing import Any, Optional
+from typing import Optional
 
-import torch.distributed as dist
+import torch
+import torch.distributed.distributed_c10d as dist
 
-_Group = Optional[Any]
+_Group = Optional[dist.ProcessGroup]
 
 # Data parallel group that the current rank belongs to.
 DATA_PARALLEL_GROUP: _Group = None
@@ -21,13 +21,7 @@ def _ensure_divisibility(n: int, d: int) -> None:
     assert n % d == 0, f"{n} is not divisible by {d}"
 
 
-def init_distributed(
-    world_size: int = -1,
-    rank: int = -1,
-    tensor_model_parallel_size: int = 1,
-    dist_engine: str = "torch",
-    dist_backend: str = "nccl",
-) -> None:
+def init_distributed(tensor_model_parallel_size: Optional[int] = None) -> None:
     """
     Initialize the distributed environment.
 
@@ -37,28 +31,16 @@ def init_distributed(
     - WORLD_SIZE
     - RANK
     """
-    dist_backend = dist_backend.lower()
-    dist_engine = dist_engine.lower()
 
-    if dist_engine == "deepspeed":
-        deepspeed_is_installed = importlib.util.find_spec("deepspeed") is not None
-        if deepspeed_is_installed:
-            global deepspeed
-            import deepspeed
+    world_size = dist.get_world_size()
+    rank = dist.get_global_rank()
 
-            deepspeed.init_distributed(dist_backend=dist_backend)
-        else:
-            raise ValueError("DeepSpeed is not installed")
-    elif dist_engine == "torch":
-        dist.init_process_group(
-            backend=dist_backend,
-            world_size=world_size,
-            rank=rank,
-        )
-    else:
-        raise ValueError(f"{dist_engine} is not supported")
+    if tensor_model_parallel_size is None:
+        tensor_model_parallel_size = 1
 
-    if tensor_model_parallel_size == -1:
+    dist.init_process_group(backend="nccl")
+
+    if tensor_model_parallel_size is None:
         tensor_model_parallel_size = dist.get_world_size()
 
     # Check dist configs
@@ -86,9 +68,9 @@ def init_distributed(
         if rank in ranks:
             TENSOR_MODEL_PARALLEL_GROUP = group
 
-    # if dist.get_rank() == 0: # TODO: Rank zero only logger needed
-    #     print(f"> Initialize tensor parallel with size {tensor_model_parallel_size}")
-    #     print(f"> Initialize data parallel with size {data_parallel_size}")
+    if world_size > 1:
+        torch.cuda.set_device(get_tensor_model_parallel_rank())
+        torch.cuda.synchronize()
 
 
 def get_tensor_model_parallel_group():

@@ -1,5 +1,6 @@
 # Copyright 2023 Deepfold Team
 
+
 from deepfold.distributed.legacy.comm import (
     broadcast_async_begin,
     broadcast_async_end,
@@ -49,6 +50,7 @@ __all__ = [
     "get_tensor_model_parallel_rank",
     "get_tensor_model_parallel_world_size",
     "init_distributed",
+    "pad_size",
     "get_rank",
     "get_world_size",
     "is_master",

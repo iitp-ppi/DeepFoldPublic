@@ -3,7 +3,7 @@
 from typing import Any, List, Optional, Tuple
 
 import torch
-import torch.distributed as dist
+import torch.distributed.distributed_c10d as dist
 from torch import Tensor
 
 from deepfold.distributed.legacy.core import (
@@ -13,7 +13,7 @@ from deepfold.distributed.legacy.core import (
     get_tensor_model_parallel_world_size,
 )
 
-_AsyncHandle = Optional[Any]
+_AsyncHandle = Optional[dist.Work]
 
 
 def _alone() -> bool:
