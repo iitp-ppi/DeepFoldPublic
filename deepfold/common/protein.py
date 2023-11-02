@@ -23,7 +23,7 @@ from typing import Any, Mapping, Optional, Sequence
 import numpy as np
 from Bio.PDB import PDBParser
 
-from . import residue_constants
+from deepfold.common.protein import residue_constants
 
 FeatureDict = Mapping[str, np.ndarray]
 ModelOutput = Mapping[str, Any]  # Is a nested dict.
