@@ -24,6 +24,7 @@ theme:
   palette:
     scheme: default
     primary: blue
+  logo: logo.png
 
 markdown_extensions:
   - attr_list
