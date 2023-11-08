@@ -16,7 +16,7 @@ data:
     max_extra_msa: 5120
   predict:
     max_extra_msa: 5120
-  common:
+  feat:
     reduce_msa_clusterse_by_max_templates: True
     use_templates: True
     use_template_torsion_angles: True
