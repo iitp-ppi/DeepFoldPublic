@@ -17,8 +17,10 @@ On July 2021, the AlphaFold2 paper ([Jumper2021]) was published in Nature. The s
 
 On October 2021, the update named AlphaFold-Multimer ([Evans2022]) was released. There are some modifications in the network, and protein complexes are included in its training data.
 
+## Versions
+
 ---
 
 [AlphaFold GitHub Repository](https://github.com/deepmind/alphafold)
-[Jumper2021]: https://doi.org/10.1038/s41586-021-03819-2
-[Evans2022]: https://doi.org/10.1101/2021.10.04.463034
+[Jumper2021]: <https://doi.org/10.1038/s41586-021-03819-2>
+[Evans2022]: <https://doi.org/10.1101/2021.10.04.463034>
