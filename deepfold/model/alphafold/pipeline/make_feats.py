@@ -74,3 +74,10 @@ def make_msa_features(msas: Sequence[parsers.MSA]) -> FeatureDict:
     features["msa_species_identifiers"] = np.array(species_ids, dtype=np.object_)
 
     return features
+
+
+# TODO: process_templates
+
+# TODO: run_msa_tool
+
+# TODO: AlphaFoldPipeline
