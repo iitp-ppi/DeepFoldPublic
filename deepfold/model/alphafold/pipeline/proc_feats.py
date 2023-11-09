@@ -14,9 +14,7 @@ import torch
 from omegaconf import DictConfig
 
 import deepfold.model.alphafold.pipeline.transforms as dt
-from deepfold.model.alphafold.pipeline.make_feats import FeatureDict
-
-TensorDict = Dict[str, torch.Tensor]
+from deepfold.model.alphafold.pipeline.make_feats import FeatureDict, TensorDict
 
 
 def np_to_tensor_dict(

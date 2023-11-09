@@ -2,15 +2,16 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-from typing import Any, MutableMapping, Optional, Sequence
+from typing import Any, Dict, MutableMapping, Optional, Sequence
 
 import numpy as np
+import torch
 
 from deepfold.common import residue_constants as rc
 from deepfold.data import parsers
 
-
 FeatureDict = MutableMapping[str, np.ndarray]
+TensorDict = Dict[str, torch.Tensor]
 
 
 def empty_template_feats(n_res: int) -> FeatureDict:
