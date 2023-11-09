@@ -3,12 +3,12 @@
 # Copyright 2021 DeepMind Technologies Limited
 
 import logging
-from typing import Any, Mapping, MutableMapping, Optional, Sequence, Union
+from typing import Any, MutableMapping, Optional, Sequence
 
 import numpy as np
 
 from deepfold.common import residue_constants as rc
-from deepfold.data import msa_identifiers, parsers
+from deepfold.data import parsers
 
 logger = logging.getLogger(__name__)
 
@@ -163,9 +163,3 @@ def make_dummy_msa_feats(input_sequence):
 
 
 # TODO: make_sequence_features_with_custom_template
-
-
-# TODO: AlignmentRunner
-
-
-# TODO: DataPipeline
