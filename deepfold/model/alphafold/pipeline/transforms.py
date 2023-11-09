@@ -6,16 +6,16 @@
 import itertools
 from functools import reduce, wraps
 from operator import add
-from typing import Any, Mapping, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, Tuple, Union
 
 import numpy as np
 import torch
 from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
-from deepfold.model.alphafold.pipeline.proc_feats import TensorDict
+from deepfold.model.alphafold.pipeline.types import TensorDict
 from deepfold.utils.geometry import Rigid, Rotation
-from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map, tree_map
+from deepfold.utils.tensor_utils import batched_gather
 
 
 class TransformFn(Protocol):
@@ -40,10 +40,20 @@ def _make_one_hot(x: torch.Tensor, num_classes: int) -> torch.Tensor:
     return x_one_hot
 
 
+def map_fn(fn: TransformFn, x: TensorDict) -> TensorDict:
+    ensembles = [fn(elem) for elem in x]
+    features = ensembles[0].keys()
+    ensembled_dict = {}
+    for feat in features:
+        ensembled_dict[feat] = torch.stack([dict_i[feat] for dict_i in ensembles], dim=-1)
+
+    return ensembled_dict
+
+
 def curry1(f: TransformFn) -> TensorDict:
     @wraps(f)
-    def func(**kwargs):
-        return lambda p: f(p, **kwargs)
+    def func(*args, **kwargs):
+        return lambda p: f(p, *args, **kwargs)
 
     return func
 
@@ -852,7 +862,7 @@ def atom37_to_torsion_angles(p: TensorDict, prefix="") -> TensorDict:
         all_atom_mask,
         atom_indices,
         dim=-1,
-        no_batch_dims=len(atom_indices.shape[:-2]),
+        num_batch_dims=len(atom_indices.shape[:-2]),
     )
     chi_angle_atoms_mask = torch.prod(chi_angle_atoms_mask, dim=-1, dtype=chi_angle_atoms_mask.dtype)
     chis_mask = chis_mask * chi_angle_atoms_mask

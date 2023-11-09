@@ -14,19 +14,36 @@ import torch
 from omegaconf import DictConfig
 
 import deepfold.model.alphafold.pipeline.transforms as dt
-from deepfold.model.alphafold.pipeline.make_feats import FeatureDict, TensorDict
+from deepfold.model.alphafold.pipeline.types import FeatureDict, TensorDict
 
 
 def np_to_tensor_dict(
     np_example: Mapping[str, np.ndarray],
-    features_names: Optional[Sequence[str]] = None,
+    feature_names: Optional[Sequence[str]] = None,
 ) -> TensorDict:
     """
     Convert a dict of ndarray features to dict of (filtered) tensors.
     """
 
+    allow_types = (
+        np.float64,
+        np.float32,
+        np.float16,
+        np.complex64,
+        np.complex128,
+        np.int64,
+        np.int32,
+        np.int16,
+        np.int8,
+        np.uint8,
+        np.bool_,
+    )
     to_tensor = lambda a: torch.tensor(a) if type(a) != torch.Tensor else a.clone().detach()
-    tensor_dict = {k: to_tensor(v) for k, v in np_example.items() if features_names is not None and k in features_names}
+    tensor_dict = {
+        k: to_tensor(v)
+        for k, v in np_example.items()
+        if (feature_names is not None) and (k in feature_names) and (v.dtype in allow_types)
+    }
 
     return tensor_dict
 
@@ -49,22 +66,18 @@ def make_data_config(cfg: DictConfig, mode: str, num_res: int) -> Tuple[DictConf
     if mode_cfg.crop_size is None:
         mode_cfg.crop_size = num_res
 
-    feature_names = [str(name) for name in cfg.data.common.feat.unsupervised_features]
+    feature_names = [str(name) for name in cfg.feat.unsupervised_features]
 
-    if cfg.common.use_template:
-        feature_names += [str(name) for name in cfg.common.feat.template_features]
+    if cfg.feat.use_template:
+        feature_names += [str(name) for name in cfg.feat.template_features]
 
     if cfg[mode].supervised:
-        feature_names += [str(name) for name in cfg.common.feat.supervised_features]
+        feature_names += [str(name) for name in cfg.feat.supervised_features]
 
     return cfg, feature_names
 
 
-def np_example_to_features(
-    np_example: FeatureDict,
-    cfg: DictConfig,
-    mode: str,
-) -> TensorDict:
+def np_example_to_features(np_example: FeatureDict, cfg: DictConfig, mode: str) -> TensorDict:
     """
     Generate processed features.
     """
@@ -76,22 +89,22 @@ def np_example_to_features(
     if "deletion_matrix_int" in np_example:
         np_example["deletion_matrix"] = np_example.pop("deletion_matrix_int").astype(np.float32)
 
-    tensor_dict = np_to_tensor_dict(np_example=np_example, features_names=feature_names)
+    tensor_dict = np_to_tensor_dict(np_example=np_example, feature_names=feature_names)
 
     with torch.no_grad():
-        features = process_tensors_from_config(tensor_dict, cfg.common, cfg[mode])
+        features = process_tensors_from_config(tensor_dict, cfg.feat, cfg[mode])
 
     if mode == "train":
         p = torch.rand(1).item()
         use_clamped_fape_value = float(p < cfg.train.clamp_prob)
         features["use_clamped_fape"] = torch.full(
-            size=[cfg.common.max_recycling_iters + 1],
+            size=[cfg.feat.max_recycling_iters + 1],
             fill_value=use_clamped_fape_value,
             dtype=torch.float32,
         )
     else:  # eval, predict
         features["use_clamped_fape"] = torch.full(
-            size=[cfg.common.max_recycling_iters + 1],
+            size=[cfg.feat.max_recycling_iters + 1],
             fill_value=0.0,
             dtype=torch.float32,
         )
@@ -106,7 +119,7 @@ def nonensembled_transform_fns(
     """Input pipeline data transformers that are not ensembled."""
 
     transforms = [
-        dt.cast_to_64bit_ints,
+        dt.cast_to_int64,
         dt.correct_msa_restypes,
         dt.squeeze_features,
         dt.randomly_replace_msa_with_unknown(0.0),
@@ -194,7 +207,7 @@ def ensembled_transform_fns(
 
     transforms.append(dt.make_msa_feat())
 
-    crop_feats = dict(feat_cfg.feat)
+    crop_feats = dict(feat_cfg.features)
 
     if mode_cfg.fixed_size:
         transforms.append(dt.select_feat(list(crop_feats)))

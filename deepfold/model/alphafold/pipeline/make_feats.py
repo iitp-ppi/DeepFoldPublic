@@ -9,9 +9,7 @@ import torch
 
 from deepfold.common import residue_constants as rc
 from deepfold.data import parsers
-
-FeatureDict = MutableMapping[str, np.ndarray]
-TensorDict = Dict[str, torch.Tensor]
+from deepfold.model.alphafold.pipeline.types import FeatureDict
 
 
 def empty_template_feats(n_res: int) -> FeatureDict:
