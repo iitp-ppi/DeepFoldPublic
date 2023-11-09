@@ -15,63 +15,61 @@ globals:
 data:
   feat:
     features:
-      [
-        aatype: [NUM_RES],
-        all_atom_mask: [NUM_RES, null],
-        all_atom_positions: [NUM_RES, null, null],
-        alt_chi_angles: [NUM_RES, null],
-        atom14_alt_gt_exists: [NUM_RES, null],
-        atom14_alt_gt_positions: [NUM_RES, null, null],
-        atom14_atom_exists: [NUM_RES, null],
-        atom14_atom_is_ambiguous: [NUM_RES, null],
-        atom14_gt_exists: [NUM_RES, null],
-        atom14_gt_positions: [NUM_RES, null, null],
-        atom37_atom_exists: [NUM_RES, null],
-        backbone_rigid_mask: [NUM_RES],
-        backbone_rigid_tensor: [NUM_RES, null, null],
-        bert_mask: [NUM_MSA_SEQ, NUM_RES],
-        chi_angles_sin_cos: [NUM_RES, null, null],
-        chi_mask: [NUM_RES, null],
-        extra_deletion_value: [NUM_EXTRA_SEQ, NUM_RES],
-        extra_has_deletion: [NUM_EXTRA_SEQ, NUM_RES],
-        extra_msa: [NUM_EXTRA_SEQ, NUM_RES],
-        extra_msa_mask: [NUM_EXTRA_SEQ, NUM_RES],
-        extra_msa_row_mask: [NUM_EXTRA_SEQ],
-        is_distillation: [],
-        msa_feat: [NUM_MSA_SEQ, NUM_RES, null],
-        msa_mask: [NUM_MSA_SEQ, NUM_RES],
-        msa_row_mask: [NUM_MSA_SEQ],
-        no_recycling_iters: [],
-        pseudo_beta: [NUM_RES, null],
-        pseudo_beta_mask: [NUM_RES],
-        residue_index: [NUM_RES],
-        residx_atom14_to_atom37: [NUM_RES, null],
-        residx_atom37_to_atom14: [NUM_RES, null],
-        resolution: [],
-        rigidgroups_alt_gt_frames: [NUM_RES, null, null, null],
-        rigidgroups_group_exists: [NUM_RES, null],
-        rigidgroups_group_is_ambiguous: [NUM_RES, null],
-        rigidgroups_gt_exists: [NUM_RES, null],
-        rigidgroups_gt_frames: [NUM_RES, null, null, null],
-        seq_length: [],
-        seq_mask: [NUM_RES],
-        target_feat: [NUM_RES, null],
-        template_aatype: [NUM_TEMPLATES, NUM_RES],
-        template_all_atom_mask: [NUM_TEMPLATES, NUM_RES, null],
-        template_all_atom_positions: [NUM_TEMPLATES, NUM_RES, null, null],
-        template_alt_torsion_angles_sin_cos:
-          [NUM_TEMPLATES, NUM_RES, null, null],
-        template_backbone_rigid_mask: [NUM_TEMPLATES, NUM_RES],
-        template_backbone_rigid_tensor: [NUM_TEMPLATES, NUM_RES, null, null],
-        template_mask: [NUM_TEMPLATES],
-        template_pseudo_beta: [NUM_TEMPLATES, NUM_RES, null],
-        template_pseudo_beta_mask: [NUM_TEMPLATES, NUM_RES],
-        template_sum_probs: [NUM_TEMPLATES, null],
-        template_torsion_angles_mask: [NUM_TEMPLATES, NUM_RES, null],
-        template_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null],
-        true_msa: [NUM_MSA_SEQ, NUM_RES],
-        use_clamped_fape: [],
-      ]
+      aatype: [NUM_RES]
+      all_atom_mask: [NUM_RES, null]
+      all_atom_positions: [NUM_RES, null, null]
+      alt_chi_angles: [NUM_RES, null]
+      atom14_alt_gt_exists: [NUM_RES, null]
+      atom14_alt_gt_positions: [NUM_RES, null, null]
+      atom14_atom_exists: [NUM_RES, null]
+      atom14_atom_is_ambiguous: [NUM_RES, null]
+      atom14_gt_exists: [NUM_RES, null]
+      atom14_gt_positions: [NUM_RES, null, null]
+      atom37_atom_exists: [NUM_RES, null]
+      backbone_rigid_mask: [NUM_RES]
+      backbone_rigid_tensor: [NUM_RES, null, null]
+      bert_mask: [NUM_MSA_SEQ, NUM_RES]
+      chi_angles_sin_cos: [NUM_RES, null, null]
+      chi_mask: [NUM_RES, null]
+      extra_deletion_value: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_has_deletion: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_mask: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_row_mask: [NUM_EXTRA_SEQ]
+      is_distillation: []
+      msa_feat: [NUM_MSA_SEQ, NUM_RES, null]
+      msa_mask: [NUM_MSA_SEQ, NUM_RES]
+      msa_row_mask: [NUM_MSA_SEQ]
+      no_recycling_iters: []
+      pseudo_beta: [NUM_RES, null]
+      pseudo_beta_mask: [NUM_RES]
+      residue_index: [NUM_RES]
+      residx_atom14_to_atom37: [NUM_RES, null]
+      residx_atom37_to_atom14: [NUM_RES, null]
+      resolution: []
+      rigidgroups_alt_gt_frames: [NUM_RES, null, null, null]
+      rigidgroups_group_exists: [NUM_RES, null]
+      rigidgroups_group_is_ambiguous: [NUM_RES, null]
+      rigidgroups_gt_exists: [NUM_RES, null]
+      rigidgroups_gt_frames: [NUM_RES, null, null, null]
+      seq_length: []
+      seq_mask: [NUM_RES]
+      target_feat: [NUM_RES, null]
+      template_aatype: [NUM_TEMPLATES, NUM_RES]
+      template_all_atom_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_all_atom_positions: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_alt_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_backbone_rigid_mask: [NUM_TEMPLATES, NUM_RES]
+      template_backbone_rigid_tensor: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_mask: [NUM_TEMPLATES]
+      template_pseudo_beta: [NUM_TEMPLATES, NUM_RES, null]
+      template_pseudo_beta_mask: [NUM_TEMPLATES, NUM_RES]
+      template_sum_probs: [NUM_TEMPLATES, null]
+      template_torsion_angles_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      true_msa: [NUM_MSA_SEQ, NUM_RES]
+      use_clamped_fape: []
+
     masked_msa: # Suppl. 1.2.7
       uniform_prob: 0.1
       profile_prob: 0.1
@@ -88,7 +86,7 @@ data:
         template_all_atom_positions,
         template_sum_probs,
         template_aatype,
-        template_all_atom_masks,
+        template_all_atom_mask,
         template_domain_names,
       ]
     unsupervised_features:
@@ -120,6 +118,7 @@ data:
     max_template_hits: 4
     max_templates: 4
     uniform_recycling: False
+    crop_size: null
     supervised: False
   eval:
     fixed_size: False
