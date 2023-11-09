@@ -388,3 +388,7 @@ site/
 _data
 _data/*
 Makefile
+
+# Output
+_output
+_output/*
