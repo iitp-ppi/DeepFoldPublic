@@ -99,9 +99,7 @@ def assign(translation_dict, orig_weights):
                 for p, w in zip(ref, weights):
                     p.copy_(w)
             except:
-                print(k)
-                print(ref[0].shape)
-                print(weights[0].shape)
+                logger.debug(f"{k}: {ref[0].shape} vs {weights[0].shape}")
                 raise
 
 
