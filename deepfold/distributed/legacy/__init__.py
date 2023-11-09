@@ -26,7 +26,7 @@ from deepfold.distributed.legacy.core import (
     get_tensor_model_parallel_world_size,
     init_distributed,
 )
-from deepfold.distributed.legacy.pad import pad_size
+from deepfold.distributed.legacy.shard import get_pad_size
 
 __all__ = [
     "broadcast_async_begin",
@@ -50,7 +50,7 @@ __all__ = [
     "get_tensor_model_parallel_rank",
     "get_tensor_model_parallel_world_size",
     "init_distributed",
-    "pad_size",
+    "get_pad_size",
     "get_rank",
     "get_world_size",
     "is_master",

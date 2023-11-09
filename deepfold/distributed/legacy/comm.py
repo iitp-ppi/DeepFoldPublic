@@ -94,7 +94,7 @@ def _gather(tensor: Tensor, dim: int = -1) -> Tensor:
 class Identity(torch.autograd.Function):
     """
     Class for backward reduce operation.
-    It does not communicate forwarldy.
+    It does not communicate forwardly.
     """
 
     @staticmethod
@@ -106,7 +106,6 @@ class Identity(torch.autograd.Function):
         return _reduce(grad_output)
 
 
-# @dump_args
 def identity(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Identity.apply(input)
@@ -119,7 +118,7 @@ def identity(input: Tensor) -> Tensor:
 class Scatter(torch.autograd.Function):
     """
     Class for backward scatter operation.
-    It does not communicate forwarldy.
+    It does not communicate forwardly.
     """
 
     @staticmethod
@@ -133,7 +132,6 @@ class Scatter(torch.autograd.Function):
         return _gather(grad_output, dim=dim), None
 
 
-# @dump_args
 def scatter(input: Tensor, dim: int = -1) -> Tensor:
     """
     Scatter a tensor.
@@ -181,7 +179,6 @@ class Gather(torch.autograd.Function):
         return _split(grad_output, dim=dim), None
 
 
-# @dump_args
 def gather(input: Tensor, dim: int = -1) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Gather.apply(input, dim)
@@ -205,7 +202,6 @@ def _all_to_all_sync(tensor: Tensor, in_dim: int, out_dim: int) -> Tensor:
     return torch.cat(tensor_list, dim=out_dim)
 
 
-# @dump_args
 def col_to_row(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -3, -2)
@@ -214,7 +210,6 @@ def col_to_row(input: Tensor) -> Tensor:
     return input
 
 
-# @dump_args
 def row_to_col(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -2, -3)
@@ -240,7 +235,6 @@ class All_to_All(torch.autograd.Function):
 # Synchronized Broadcast
 
 
-# @dump_args
 def broadcast_sync(src_rank: int, tensor: Tensor, host: bool) -> Tensor:
     """
     Broadcasts the tensor to the whole group.
