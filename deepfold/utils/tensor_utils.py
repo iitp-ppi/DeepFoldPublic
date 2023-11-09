@@ -57,7 +57,7 @@ def batched_gather(data: torch.Tensor, inds: List[int], dim: int = 0, num_batch_
     ranges = []
     for i, s in enumerate(data.shape[:num_batch_dims]):
         r = torch.arange(s)
-        r = r.view(*(*((-1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
+        r = r.view(*(*((1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
         ranges.append(r)
 
     remaining_dims = [slice(None) for _ in range(len(data.shape) - num_batch_dims)]
