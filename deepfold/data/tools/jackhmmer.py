@@ -189,7 +189,7 @@ class Jackhmmer:
             try:
                 os.remove(f)
             except OSError:
-                print(f"OSError while deleting {f}")
+                logger.error(f"OSError while deleting {f}")
 
         # Download the (i+1)-th chunk while Jackhmmer is running on the i-th chunk
         with futures.ThreadPoolExecutor(max_workers=2) as executor:
