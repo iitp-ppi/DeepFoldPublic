@@ -2,15 +2,12 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-import logging
 from typing import Any, MutableMapping, Optional, Sequence
 
 import numpy as np
 
 from deepfold.common import residue_constants as rc
 from deepfold.data import parsers
-
-logger = logging.getLogger(__name__)
 
 
 FeatureDict = MutableMapping[str, np.ndarray]
