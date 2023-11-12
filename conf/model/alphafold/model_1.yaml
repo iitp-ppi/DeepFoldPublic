@@ -2,7 +2,7 @@ include:
   - base/monomer.yaml
 
 info:
-  name: model_1
+  version: model_1
   params_name: params_model_1.npz
 
 globals:
@@ -20,3 +20,12 @@ data:
     reduce_msa_clusterse_by_max_templates: True
     use_templates: True
     use_template_torsion_angles: True
+
+###### TEST ONLY ######
+model:
+  template:
+    enabled: False
+    embed_angles: False
+  extra_msa:
+    enabled: False
+#######################

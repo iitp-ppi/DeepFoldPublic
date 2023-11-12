@@ -160,107 +160,106 @@ model:
     chunk_size: 4
     attention: torch # torch, memeff, flash
 
-  network:
-    input_embedder:
-      tf_dim: 22
-      msa_dim: 49
-      c_z: ${model.globals.c_z}
-      c_m: ${model.globals.c_m}
-      relpos_k: 32
-    recycling_embedder:
-      c_z: ${model.globals.c_z}
-      c_m: ${model.globals.c_m}
+  input_embedder:
+    tf_dim: 22
+    msa_dim: 49
+    c_z: ${model.globals.c_z}
+    c_m: ${model.globals.c_m}
+    relpos_k: 32
+  recycling_embedder:
+    c_z: ${model.globals.c_z}
+    c_m: ${model.globals.c_m}
+    min_bin: 3.25
+    max_bin: 20.75
+    num_bins: 15
+    inf: 1e8 # dgram_from_positions
+  template:
+    enabled: ${globals.use_template}
+    embed_angles: ${globals.use_template_torsion_angles}
+    use_unit_vector: False
+    average_templates: False
+    inf: 1e9
+    eps: 1e-6
+    distogram:
       min_bin: 3.25
-      max_bin: 20.75
-      num_bins: 15
-      inf: 1e8 # dgram_from_positions
-    template:
-      enabled: ${globals.use_template}
-      embed_angles: ${globals.use_template_torsion_angles}
-      use_unit_vector: False
-      average_templates: False
+      max_bin: 50.75
+      num_bins: 39
+    template_angle_embedder:
+      c_in: 57 # Not 51
+      c_out: ${model.globals.c_m}
+    template_pair_embedder:
+      c_in: 88
+      c_out: ${model.globals.c_t}
+    template_pair_stack:
+      c_t: ${model.globals.c_t}
+      c_hidden_tri_att: 16
+      c_hidden_tri_mul: 64
+      num_blocks: 2
+      num_heads: 4
+      transition_n: 2
+      dropout_rate: 0.25
       inf: 1e9
-      eps: 1e-6
-      distogram:
-        min_bin: 3.25
-        max_bin: 50.75
-        num_bins: 39
-      template_angle_embedder:
-        c_in: 57 # Not 51
-        c_out: ${model.globals.c_m}
-      template_pair_embedder:
-        c_in: 88
-        c_out: ${model.globals.c_t}
-      template_pair_stack:
-        c_t: ${model.globals.c_t}
-        c_hidden_tri_att: 16
-        c_hidden_tri_mul: 64
-        num_blocks: 2
-        num_heads: 4
-        pair_transition_factor: 2
-        dropout_rate: 0.25
-        inf: 1e9
-        chunk_size: ${model.globals.chunk_size}
-      template_pointwise_attention:
-        c_t: ${model.globals.c_t}
-        c_z: ${model.globals.c_z}
-        c_hidden: 16
-        num_heads: 4
-        inf: 1e9 # Softmax mask
-    extra_msa:
-      enabled: True
-      extra_msa_embedder:
-        c_in: 25
-        c_out: ${model.globals.c_e}
-      extra_msa_stack:
-        c_m: ${model.globals.c_e}
-        c_z: ${model.globals.c_z}
-        c_hidden_msa_attn: 8
-        c_hidden_opm: 32
-        c_hidden_mul: 128
-        c_hidden_pair_attn: 32
-        num_heads_msa: 8
-        num_heads_pair: 4
-        num_blocks: 4
-        pair_transition_faactor: 4
-        msa_dropout: 0.15
-        pair_dropout: 0.25
-        inf: 1e9
-        eps: 1e-10
-        chunk_size: ${model.globals.chunk_size}
-        clear_cache_between_blocks: False
-    evoformer_stack:
-      c_m: ${model.globals.c_m}
+      chunk_size: ${model.globals.chunk_size}
+    template_pointwise_attention:
+      c_t: ${model.globals.c_t}
       c_z: ${model.globals.c_z}
-      c_s: ${model.globals.c_s}
-      c_hidden_msa_attn: 32
+      c_hidden: 16
+      num_heads: 4
+      inf: 1e9 # Softmax mask
+  extra_msa:
+    enabled: True
+    extra_msa_embedder:
+      c_in: 25
+      c_out: ${model.globals.c_e}
+    extra_msa_stack:
+      c_m: ${model.globals.c_e}
+      c_z: ${model.globals.c_z}
+      c_hidden_msa_attn: 8
       c_hidden_opm: 32
       c_hidden_mul: 128
       c_hidden_pair_attn: 32
       num_heads_msa: 8
       num_heads_pair: 4
-      num_blocks: 48
-      pair_transition_faactor: 4
+      num_blocks: 4
+      transition_n: 4
       msa_dropout: 0.15
       pair_dropout: 0.25
       inf: 1e9
       eps: 1e-10
       chunk_size: ${model.globals.chunk_size}
       clear_cache_between_blocks: False
-    structure_module:
-      c_s: ${model.globals.c_s}
-      c_z: ${model.globals.c_z}
-      num_blocks: 8
-      c_resnet: 128
-      c_ipa: 16
-      num_heads_ipa: 12
-      num_qk_points: 4
-      num_v_points: 8
-      dropout_rate: 0.1
-      # num_angles: 7
-      position_scale: 10.0 # nanometers
-      eps: 1e-12
-      inf: 1e5
+  evoformer_stack:
+    c_m: ${model.globals.c_m}
+    c_z: ${model.globals.c_z}
+    c_s: ${model.globals.c_s}
+    c_hidden_msa_attn: 32
+    c_hidden_opm: 32
+    c_hidden_mul: 128
+    c_hidden_pair_attn: 32
+    num_heads_msa: 8
+    num_heads_pair: 4
+    num_blocks: 48
+    transition_n: 4
+    msa_dropout: 0.15
+    pair_dropout: 0.25
+    inf: 1e9
+    eps: 1e-10
+    chunk_size: ${model.globals.chunk_size}
+    clear_cache_between_blocks: False
+  structure_module:
+    c_s: ${model.globals.c_s}
+    c_z: ${model.globals.c_z}
+    num_blocks: 8
+    c_resnet: 128
+    c_ipa: 16
+    num_heads_ipa: 12
+    num_qk_points: 4
+    num_v_points: 8
+    dropout_rate: 0.1
+    # num_angles: 7
+    position_scale: 10.0 # nanometers
+    eps: 1e-12
+    inf: 1e5
 
   heads:
     lddt:
