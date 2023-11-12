@@ -15,4 +15,4 @@ def get_field_names(cls) -> List[str]:
 
 
 def prod(x: Sequence[int]) -> int:
-    return reduce(mul, x, 0)
+    return reduce(mul, x, 1)
