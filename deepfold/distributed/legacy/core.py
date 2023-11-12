@@ -1,5 +1,6 @@
 # Copyright 2023 Deepfold Team
 
+import os
 from typing import Optional
 
 import torch
@@ -21,7 +22,10 @@ def _ensure_divisibility(n: int, d: int) -> None:
     assert n % d == 0, f"{n} is not divisible by {d}"
 
 
-def init_distributed(tensor_model_parallel_size: Optional[int] = None) -> None:
+def init_distributed(
+    tensor_model_parallel_size: Optional[int] = None,
+    devcie_id: Optional[int] = None,
+) -> None:
     """
     Initialize the distributed environment.
 
@@ -30,15 +34,19 @@ def init_distributed(tensor_model_parallel_size: Optional[int] = None) -> None:
     - MASTER_ADDR
     - WORLD_SIZE
     - RANK
+    - LOCAL_RANK
     """
 
-    world_size = dist.get_world_size()
-    rank = dist.get_global_rank()
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    rank = int(os.environ.get("RANK", 0))
+
+    # world_size = dist.get_world_size()
+    # rank = dist.get_global_rank()
 
     if tensor_model_parallel_size is None:
         tensor_model_parallel_size = 1
 
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl", world_size=world_size, rank=rank)
 
     if tensor_model_parallel_size is None:
         tensor_model_parallel_size = dist.get_world_size()
@@ -69,7 +77,8 @@ def init_distributed(tensor_model_parallel_size: Optional[int] = None) -> None:
             TENSOR_MODEL_PARALLEL_GROUP = group
 
     if world_size > 1:
-        torch.cuda.set_device(get_tensor_model_parallel_rank())
+        if devcie_id is not None:
+            torch.cuda.set_device(device=devcie_id)
         torch.cuda.synchronize()
 
 
