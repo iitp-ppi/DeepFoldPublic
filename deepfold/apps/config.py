@@ -20,6 +20,6 @@ def _load_yaml(cfg: DictConfig, path: Union[str, bytes, os.PathLike]) -> DictCon
         del cfg.include
         cfgs = [_load_yaml(OmegaConf.load(p), p) for p in paths]
         # Merge included configs
-        cfg = OmegaConf.merge(cfg, *cfgs)
+        cfg = OmegaConf.merge(*cfgs, cfg)
 
     return cfg
