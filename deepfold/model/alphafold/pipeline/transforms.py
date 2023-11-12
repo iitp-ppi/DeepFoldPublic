@@ -601,7 +601,7 @@ def make_atom14_positions(p: TensorDict) -> TensorDict:
 
     # Create a mask for known ground truth positions.
     residx_atom14_gt_mask = residx_atom14_mask * batched_gather(
-        p["all_atom_mask"], residx_atom14_to_atom37, dim=-1, no_batch_dims=len(p["all_atom_mask"].shape[:-1])
+        p["all_atom_mask"], residx_atom14_to_atom37, dim=-1, num_batch_dims=len(p["all_atom_mask"].shape[:-1])
     )
 
     # Gather the ground truth positions.
@@ -610,7 +610,7 @@ def make_atom14_positions(p: TensorDict) -> TensorDict:
             p["all_atom_positions"],
             residx_atom14_to_atom37,
             dim=-2,
-            no_batch_dims=len(p["all_atom_positions"].shape[:-2]),
+            num_batch_dims=len(p["all_atom_positions"].shape[:-2]),
         )
     )
 
@@ -705,11 +705,11 @@ def atom37_to_frames(p: TensorDict, eps=1e-8) -> TensorDict:
     )
 
     residx_rigidgroup_base_atom37_idx = batched_gather(
-        restype_rigidgroup_base_atom37_idx, aatype, dim=-3, no_batch_dims=batch_dims
+        restype_rigidgroup_base_atom37_idx, aatype, dim=-3, num_batch_dims=batch_dims
     )
 
     base_atom_pos = batched_gather(
-        all_atom_positions, residx_rigidgroup_base_atom37_idx, dim=-2, no_batch_dims=len(all_atom_positions.shape[:-2])
+        all_atom_positions, residx_rigidgroup_base_atom37_idx, dim=-2, num_batch_dims=len(all_atom_positions.shape[:-2])
     )
 
     gt_frames = Rigid.from_3_points(
@@ -719,10 +719,10 @@ def atom37_to_frames(p: TensorDict, eps=1e-8) -> TensorDict:
         eps=eps,
     )
 
-    group_exists = batched_gather(restype_rigidgroup_mask, aatype, dim=-2, no_batch_dims=batch_dims)
+    group_exists = batched_gather(restype_rigidgroup_mask, aatype, dim=-2, num_batch_dims=batch_dims)
 
     gt_atoms_exist = batched_gather(
-        all_atom_mask, residx_rigidgroup_base_atom37_idx, dim=-1, no_batch_dims=len(all_atom_mask.shape[:-1])
+        all_atom_mask, residx_rigidgroup_base_atom37_idx, dim=-1, num_batch_dims=len(all_atom_mask.shape[:-1])
     )
     gt_exists = torch.min(gt_atoms_exist, dim=-1)[0] * group_exists
 
@@ -749,14 +749,14 @@ def atom37_to_frames(p: TensorDict, eps=1e-8) -> TensorDict:
         restype_rigidgroup_is_ambiguous,
         aatype,
         dim=-2,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     residx_rigidgroup_ambiguity_rot = batched_gather(
         restype_rigidgroup_rots,
         aatype,
         dim=-4,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     residx_rigidgroup_ambiguity_rot = Rotation(rot_mats=residx_rigidgroup_ambiguity_rot)

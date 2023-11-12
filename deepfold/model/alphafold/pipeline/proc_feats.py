@@ -256,8 +256,8 @@ def process_tensors_from_config(
 
     feats = dt.compose(nonensembled)(feats)
 
-    if "no_recycling_iters" in feats:
-        num_recycling = int(feats["no_recycling_iters"])
+    if "num_recycling_iters" in feats:
+        num_recycling = int(feats["num_recycling_iters"])
     else:
         num_recycling = feat_cfg.max_recycling_iters
 
