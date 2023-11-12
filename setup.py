@@ -5,7 +5,7 @@ import os
 
 import setuptools
 
-spec = importlib.util.spec_from_file_location("package_info", "megafold/package_info.py")
+spec = importlib.util.spec_from_file_location("package_info", "deepfold/package_info.py")
 package_info = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package_info)
 
@@ -15,14 +15,14 @@ __package_name__ = package_info.__package_name__
 __version__ = package_info.__version__
 
 
-def req_file(filename: str, folder: str = "megafold"):
+def req_file(filename: str, folder: str = "deepfold"):
     """Read requiremnts file."""
     with open(os.path.join(folder, filename), encoding="utf-8") as f:
         content = f.readlines()
     return [x.strip() for x in content]
 
 
-install_requires = req_file("requirements.txt")
+# install_requires = req_file("requirements.txt")
 
 setuptools.setup(
     name=__package_name__,
@@ -38,7 +38,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
     ],
-    packages=["megafold"],
-    install_requires=install_requires,
+    packages=["deepfold"],
+    # install_requires=install_requires,
     include_package_data=True,
 )
