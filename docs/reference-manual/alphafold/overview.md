@@ -19,6 +19,13 @@ On October 2021, the update named AlphaFold-Multimer ([Evans2022]) was released.
 
 ## Versions
 
+- monomer
+- monomer_casp14
+- monomer_ptm
+- multimer_v1
+- multimer_v2
+- multimer_v3
+
 ---
 
 [AlphaFold GitHub Repository](https://github.com/deepmind/alphafold)

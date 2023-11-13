@@ -119,4 +119,17 @@ For monomer models
 - `template_pair_feat` : $[N_\mathrm{templ}, N_\mathrm{res}, N_\mathrm{res}, 88]$
 - `template_angle_feat` : $[N_\mathrm{templ}, N_\mathrm{res}, 57]$
 
-For multimer models
+The features input to the multimer model are identical to monomer model with three extra features:
+
+- `asym_id` : a unique integer per chain indicating the chain number. $[N_\mathrm{res}]$
+- `entity_id` : a unique integer for each set of identical chains. $[N_\mathrm{res}]$
+- `sym_id` : a unique integer within a set of identical chains. $[N_\mathrm{res}]$
+
+For example in an A3B2 stoichiometry complex all the A chains would have the same `entity_id` and have `sym_id`s 0, 1, 2.
+
+```text
+Chain ID    : A B C D E
+asym_id     : 0 1 2 3 4
+entity_id   : 0 0 0 1 1
+sym_id      : 0 1 2 0 1
+```
