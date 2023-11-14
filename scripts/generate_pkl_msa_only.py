@@ -4,7 +4,7 @@ import pickle
 from typing import Mapping, Optional, Sequence, Tuple
 
 from deepfold.data import parsers
-from deepfold.model.alphafold.pipeline.make_feats import make_msa_features, make_sequence_features
+from deepfold.model.alphafold.pipeline.make_feats import empty_template_feats, make_msa_features, make_sequence_features
 from deepfold.model.alphafold.pipeline.types import FeatureDict
 
 
@@ -81,18 +81,20 @@ class Pipeline:
 
         sequence_features = make_sequence_features(input_sequence, "", num_res)
         msa_features = self._process_msa_feats(alignment_dir, input_sequence)
+        template_features = empty_template_feats(num_res)
 
         return {
             **sequence_features,
             **msa_features,
+            **template_features,
         }
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("fasta_path", type=str, help="Path to a FASTA file")
-    parser.add_argument("--alignment_dir", type=str, default=None, help="Path to alignment directory")
-    parser.add_argument("--output_dir", type=str, default=os.getcwd(), help="Path to output directory")
+    parser.add_argument("--fasta_path", "-s", type=str, required=True, help="Path to a FASTA file")
+    parser.add_argument("--alignment_dir", "-f", type=str, default=None, help="Path to alignment directory")
+    parser.add_argument("--output_dir", "-o", type=str, default=os.getcwd(), help="Path to output directory")
     args = parser.parse_args()
 
     feats = Pipeline().process_msas(fasta_path=args.fasta_path, alignment_dir=args.alignment_dir)
