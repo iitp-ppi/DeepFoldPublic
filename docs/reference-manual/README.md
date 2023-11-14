@@ -4,9 +4,10 @@
   * [Overview](alphafold/overview.md)
   * Prerequisites
     * [Proteins](prepare/proteins.md)
-    * [Sequence Alignment](prepare/msa.md)
-    * [Formats](prepare/formats.md)
+    * [MSA](prepare/msa.md)
     * [Mathematics](prepare/math.md)
+    * [Formats](prepare/formats.md)
+    * [Internal Representations](prepare/internal.md)
   * [Data Pipeline](alphafold/features.md)
   * [Inference](alphafold/inference.md)
   * [Training](alphafold/train.md)

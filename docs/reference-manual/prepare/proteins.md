@@ -1,7 +1,5 @@
 # Proteins
 
----
-
 Proteins are molecular machines, buliding blocks, and arms of a living cell.
 Their major and almost sole function is enzymatic catalysis of chemical conversions in and around the cell.
 In addition, regulatory proteins control gene expression, and receptor proteins (which sit in the lipid membrane) accept inter-cellular signals that are often transmitted by hormones, which are proteins as well.
