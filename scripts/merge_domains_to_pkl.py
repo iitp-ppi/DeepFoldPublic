@@ -44,8 +44,8 @@ def _pad_dict(entry: FeatureDict, start: int, res_num: int) -> FeatureDict:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--feature_pkl", "-pkl", type=str, help="Path to a feature pickle")
-    parser.add_argument("--output_dir", "-o", type=str, default=os.getcwd(), help="Path to output directory")
+    parser.add_argument("--feature_pkl", "-pkl", type=str, help="Path to a input pickle")
+    parser.add_argument("--output_path", "-o", type=str, default=os.getcwd(), help="Path to output pickle file")
     parser.add_argument(
         "--domain_pdbs",
         "-f",
@@ -97,7 +97,7 @@ def main():
     feats = dict(feats, **template_feats)
 
     os.makedirs(args.output_dir, exist_ok=True)
-    with open(os.path.join(args.output_dir, "features.pkl"), "wb") as fp:
+    with open(os.path.join(args.output_path), "wb") as fp:
         pickle.dump(feats, fp)
 
 
