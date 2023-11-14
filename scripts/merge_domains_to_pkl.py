@@ -23,7 +23,7 @@ def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> Feat
         "template_aatype": np.eye(22)[prot.aatype],
         "template_all_atom_positions": all_atom_positions,
         "template_all_atom_masks": prot.atom_mask,
-        "template_sum_probs": np.ma.masked_array(prot.b_factors, mask=binary_mask).mean(axis=-1, keepdims=True).data,
+        "template_sum_probs": np.array([np.ma.masked_array(prot.b_factors, mask=binary_mask).mean()]),
     }
     return entry
 
@@ -32,6 +32,8 @@ def _pad_dict(entry: FeatureDict, start: int, res_num: int) -> FeatureDict:
     """Pad entries with start position and number of residues."""
 
     for k, v in entry.items():
+        if k == "template_sum_probs":
+            continue
         pad_width = [[0, 0] for _ in range(v.ndim)]
         pad_width[0][0] = start - 1
         pad_width[0][1] = res_num - v.shape[0] - start + 1
