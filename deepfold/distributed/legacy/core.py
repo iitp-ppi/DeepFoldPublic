@@ -77,8 +77,9 @@ def init_distributed(
             TENSOR_MODEL_PARALLEL_GROUP = group
 
     if world_size > 1:
-        if devcie_id is not None:
-            torch.cuda.set_device(device=devcie_id)
+        if devcie_id is None:
+            devcie_id = int(os.environ.get("LOCAL_RANK", 0))
+        torch.cuda.set_device(device=devcie_id)
         torch.cuda.synchronize()
 
 
