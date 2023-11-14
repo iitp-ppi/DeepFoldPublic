@@ -1,13 +1,11 @@
 import argparse
 import os
 import pickle
-from typing import Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
 import deepfold.common.protein as protein
 import deepfold.common.residue_constants as rc
-from deepfold.data import parsers
 from deepfold.model.alphafold.pipeline.types import FeatureDict
 
 
@@ -22,7 +20,7 @@ def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> Feat
     all_atom_positions[binary_mask] -= trans_vec
 
     entry = {
-        "template_aatype": prot.aatype,
+        "template_aatype": np.eye(22)[prot.aatype],
         "template_all_atom_positions": all_atom_positions,
         "template_all_atom_masks": prot.atom_mask,
         "template_sum_probs": np.ma.masked_array(prot.b_factors, mask=binary_mask).mean(axis=-1, keepdims=True).data,
