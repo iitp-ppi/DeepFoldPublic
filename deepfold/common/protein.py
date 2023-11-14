@@ -23,7 +23,7 @@ from typing import Any, Mapping, Optional, Sequence
 import numpy as np
 from Bio.PDB import PDBParser
 
-from deepfold.common.protein import residue_constants
+from deepfold.common.protein import residue_constants as rc
 
 FeatureDict = Mapping[str, np.ndarray]
 ModelOutput = Mapping[str, Any]  # Is a nested dict.
@@ -39,7 +39,7 @@ class Protein:
     """Protein structure representation."""
 
     # Cartesian coordinates of atoms in angstroms. The atom types correspond to
-    # residue_constants.atom_types, i.e. the first three are N, CA, CB.
+    # rc.atom_types, i.e. the first three are N, CA, CB.
     atom_positions: np.ndarray  # [num_res, num_atom_type, 3]
 
     # Amino-acid type for each residue represented as an integer between 0 and
@@ -106,17 +106,17 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
         if chain_id is not None and chain.id != chain_id:
             continue
         for res in chain:
-            res_shortname = residue_constants.restype_3to1.get(res.resname, "X")
-            restype_idx = residue_constants.restype_order.get(res_shortname, residue_constants.restype_num)
-            pos = np.zeros((residue_constants.atom_type_num, 3))
-            mask = np.zeros((residue_constants.atom_type_num,))
-            res_b_factors = np.zeros((residue_constants.atom_type_num,))
+            res_shortname = rc.restype_3to1.get(res.resname, "X")
+            restype_idx = rc.restype_order.get(res_shortname, rc.restype_num)
+            pos = np.zeros((rc.atom_type_num, 3))
+            mask = np.zeros((rc.atom_type_num,))
+            res_b_factors = np.zeros((rc.atom_type_num,))
             for atom in res:
-                if atom.name not in residue_constants.atom_types:
+                if atom.name not in rc.atom_types:
                     continue
-                pos[residue_constants.atom_order[atom.name]] = atom.coord
-                mask[residue_constants.atom_order[atom.name]] = 1.0
-                res_b_factors[residue_constants.atom_order[atom.name]] = atom.bfactor
+                pos[rc.atom_order[atom.name]] = atom.coord
+                mask[rc.atom_order[atom.name]] = 1.0
+                res_b_factors[rc.atom_order[atom.name]] = atom.bfactor
             if np.sum(mask) < 0.5:
                 # If no known atom positions are reported for the residue then skip it.
                 continue
@@ -170,30 +170,23 @@ def from_proteinnet_string(proteinnet_str: str) -> Protein:
         if "[PRIMARY]" == g[0]:
             seq = g[1][0].strip()
             for i in range(len(seq)):
-                if seq[i] not in residue_constants.restypes:
+                if seq[i] not in rc.restypes:
                     seq[i] = "X"
-            aatype = np.array(
-                [residue_constants.restype_order.get(res_symbol, residue_constants.restype_num) for res_symbol in seq]
-            )
+            aatype = np.array([rc.restype_order.get(res_symbol, rc.restype_num) for res_symbol in seq])
         elif "[TERTIARY]" == g[0]:
             tertiary = []
             for axis in range(3):
                 tertiary.append(list(map(float, g[1][axis].split())))
             tertiary_np = np.array(tertiary)
-            atom_positions = np.zeros((len(tertiary[0]) // 3, residue_constants.atom_type_num, 3)).astype(np.float32)
+            atom_positions = np.zeros((len(tertiary[0]) // 3, rc.atom_type_num, 3)).astype(np.float32)
             for i, atom in enumerate(atoms):
-                atom_positions[:, residue_constants.atom_order[atom], :] = np.transpose(tertiary_np[:, i::3])
+                atom_positions[:, rc.atom_order[atom], :] = np.transpose(tertiary_np[:, i::3])
             atom_positions *= PICO_TO_ANGSTROM
         elif "[MASK]" == g[0]:
             mask = np.array(list(map({"-": 0, "+": 1}.get, g[1][0].strip())))
-            atom_mask = np.zeros(
-                (
-                    len(mask),
-                    residue_constants.atom_type_num,
-                )
-            ).astype(np.float32)
+            atom_mask = np.zeros((len(mask), rc.atom_type_num)).astype(np.float32)
             for i, atom in enumerate(atoms):
-                atom_mask[:, residue_constants.atom_order[atom]] = 1
+                atom_mask[:, rc.atom_order[atom]] = 1
             atom_mask *= mask[..., None]
 
     return Protein(
@@ -287,9 +280,9 @@ def to_pdb(prot: Protein) -> str:
     Returns:
       PDB string.
     """
-    restypes = residue_constants.restypes + ["X"]
-    res_1to3 = lambda r: residue_constants.restype_1to3.get(restypes[r], "UNK")
-    atom_types = residue_constants.atom_types
+    restypes = rc.restypes + ["X"]
+    res_1to3 = lambda r: rc.restype_1to3.get(restypes[r], "UNK")
+    atom_types = rc.atom_types
 
     pdb_lines = []
 
@@ -300,7 +293,7 @@ def to_pdb(prot: Protein) -> str:
     chain_index = prot.chain_index.astype(np.int32)
     b_factors = prot.b_factors
 
-    if np.any(aatype > residue_constants.restype_num):
+    if np.any(aatype > rc.restype_num):
         raise ValueError("Invalid aatypes.")
 
     # Construct a mapping from chain integer indices to chain ID strings.
@@ -370,7 +363,7 @@ def ideal_atom_mask(prot: Protein) -> np.ndarray:
     Returns:
       An ideal atom mask.
     """
-    return residue_constants.STANDARD_ATOM_MASK[prot.aatype]
+    return rc.STANDARD_ATOM_MASK[prot.aatype]
 
 
 def from_prediction(
