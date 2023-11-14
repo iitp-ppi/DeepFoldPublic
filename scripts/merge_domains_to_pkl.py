@@ -84,19 +84,21 @@ def main():
         for k in [
             "template_aatype",
             "template_all_atom_positions",
-            "template_all_atom_mask",
+            "template_all_atom_masks",
             "template_sum_probs",
         ]
     }
     for d in pdbs:
         for k, v in d.items():
             template_feats[k].append(v[None, ...])
+            if feats[k].shape[0] != 0:
+                template_feats[k].append(feats[k])
     for k, v in template_feats.items():
         template_feats[k] = np.concatenate(v, axis=0)
 
     feats = dict(feats, **template_feats)
 
-    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
     with open(os.path.join(args.output_path), "wb") as fp:
         pickle.dump(feats, fp)
 
