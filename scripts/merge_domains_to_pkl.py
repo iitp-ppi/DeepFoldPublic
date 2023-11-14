@@ -1,6 +1,7 @@
 import argparse
 import os
 import pickle
+from typing import Any, Dict
 
 import numpy as np
 
@@ -9,21 +10,28 @@ import deepfold.common.residue_constants as rc
 from deepfold.model.alphafold.pipeline.types import FeatureDict
 
 
-def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> FeatureDict:
+def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> Dict[str, Any]:
     """Parse PDB to atom37 format array."""
 
     prot = protein.from_pdb_string(pdb_str)
+    name = ""
 
     all_atom_positions = prot.atom_positions
     binary_mask = prot.atom_mask.astype(bool)
     trans_vec = all_atom_positions[binary_mask].mean(axis=0)
     all_atom_positions[binary_mask] -= trans_vec
 
+    seq = "".join(rc.ID_TO_HHBLITS_AA[i] for i in prot.aatype)
+
     entry = {
         "template_aatype": np.eye(22)[prot.aatype],
         "template_all_atom_positions": all_atom_positions,
         "template_all_atom_masks": prot.atom_mask,
-        "template_sum_probs": np.array([np.ma.masked_array(prot.b_factors, mask=binary_mask).mean()]),
+        "template_sum_probs": np.array(
+            [np.ma.masked_array(prot.b_factors, mask=binary_mask).mean(axis=-1).data.mean()]
+        ),
+        "template_sequence": seq,
+        "template_domain_names": name,
     }
     return entry
 
@@ -32,7 +40,10 @@ def _pad_dict(entry: FeatureDict, start: int, res_num: int) -> FeatureDict:
     """Pad entries with start position and number of residues."""
 
     for k, v in entry.items():
-        if k == "template_sum_probs":
+        if k == "template_sequence":
+            entry[k] = _pad_str(v, start, res_num)
+            continue
+        if k in ("template_domain_names", "template_sum_probs"):
             continue
         pad_width = [[0, 0] for _ in range(v.ndim)]
         pad_width[0][0] = start - 1
@@ -40,6 +51,10 @@ def _pad_dict(entry: FeatureDict, start: int, res_num: int) -> FeatureDict:
         entry[k] = np.pad(v, pad_width, mode="constant", constant_values=0.0)
 
     return entry
+
+
+def _pad_str(s: str, start: int, res_num: int) -> str:
+    return "-" * (start - 1) + s + "-" * (res_num - len(s) - start + 1)
 
 
 def main():
@@ -86,15 +101,25 @@ def main():
             "template_all_atom_positions",
             "template_all_atom_masks",
             "template_sum_probs",
+            "template_sequence",
+            "template_domain_names",
         ]
     }
+
     for d in pdbs:
         for k, v in d.items():
-            template_feats[k].append(v[None, ...])
+            if k in ("template_sequence", "template_domain_names"):
+                template_feats[k].append(v)
+            else:
+                template_feats[k].append(v[None, ...])
             if feats[k].shape[0] != 0:
                 template_feats[k].append(feats[k])
+
     for k, v in template_feats.items():
-        template_feats[k] = np.concatenate(v, axis=0)
+        if k in ("template_sequence", "template_domain_names"):
+            template_feats[k] = np.array(v, dtype=np.object_)
+        else:
+            template_feats[k] = np.concatenate(v, axis=0, dtype=np.float32)
 
     feats = dict(feats, **template_feats)
 
