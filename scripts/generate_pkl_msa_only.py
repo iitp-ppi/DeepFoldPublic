@@ -41,9 +41,12 @@ class Pipeline:
 
     def _get_msas(
         self,
-        alignment_dir: str,
+        alignment_dir: Optional[str],
         input_sequence: Optional[str],
     ) -> Tuple[Sequence[str], parsers.DeletionMatrix]:
+        if alignment_dir is None:
+            return [input_sequence], [[0 for _ in input_sequence]]
+
         msa_data = self._parse_msa_data(alignment_dir)
         if len(msa_data) == 0:
             if input_sequence is None:
@@ -59,10 +62,11 @@ class Pipeline:
 
     def _process_msa_feats(
         self,
-        alignment_dir: str,
+        alignment_dir: Optional[str],
         input_sequence: Optional[str],
     ) -> FeatureDict:
         msas, deletion_matrices = self._get_msas(alignment_dir, input_sequence)
+
         return make_msa_features(msas=msas, deletion_matrices=deletion_matrices)
 
     def process_msas(
