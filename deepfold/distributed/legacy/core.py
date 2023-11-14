@@ -24,6 +24,7 @@ def _ensure_divisibility(n: int, d: int) -> None:
 
 def init_distributed(
     tensor_model_parallel_size: Optional[int] = None,
+    random_seed: int = 12345,
     devcie_id: Optional[int] = None,
 ) -> None:
     """
@@ -80,6 +81,8 @@ def init_distributed(
         if devcie_id is None:
             devcie_id = int(os.environ.get("LOCAL_RANK", 0))
         torch.cuda.set_device(device=devcie_id)
+        torch.manual_seed(random_seed)
+        torch.cuda.manual_seed(random_seed)
         torch.cuda.synchronize()
 
 
