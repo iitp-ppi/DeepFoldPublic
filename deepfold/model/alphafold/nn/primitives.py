@@ -243,7 +243,7 @@ def _attention(
 
     a = softmax_no_cast(a, -1)
 
-    return a  # [*, H, Q, C_hidden]
+    return torch.matmul(a, value)  # [*, H, Q, C_hidden]
 
 
 class Attention(nn.Module):
@@ -254,7 +254,7 @@ class Attention(nn.Module):
         c_v: int,
         c_hidden: int,
         c_output: int,
-        n_heads: int,
+        num_heads: int,
         gating: bool = True,
     ) -> None:
         """
@@ -269,7 +269,7 @@ class Attention(nn.Module):
                 Per head hidden dimension ($C$)
             c_output:
                 Output dimension ($C_O$)
-            n_heads:
+            num_heads:
                 Number of attention heads ($H$)
             gating:
                 Whether the output should be gated using query data
@@ -281,20 +281,20 @@ class Attention(nn.Module):
         self.c_v = c_v
         self.c_hidden = c_hidden
         self.c_output = c_output
-        self.n_heads = n_heads
+        self.num_heads = num_heads
         self.gating = gating
 
         # c_hidden is not the per-head channel dimension.
 
-        self.linear_q = Linear(self.c_q, self.c_hidden * self.n_heads, bias=False, init="glorot")
-        self.linear_k = Linear(self.c_k, self.c_hidden * self.n_heads, bias=False, init="glorot")
-        self.linear_v = Linear(self.c_v, self.c_hidden * self.n_heads, bias=False, init="glorot")
+        self.linear_q = Linear(self.c_q, self.c_hidden * self.num_heads, bias=False, init="glorot")
+        self.linear_k = Linear(self.c_k, self.c_hidden * self.num_heads, bias=False, init="glorot")
+        self.linear_v = Linear(self.c_v, self.c_hidden * self.num_heads, bias=False, init="glorot")
 
         self.linear_g = None
         if self.gating:
-            self.linear_g = Linear(self.c_q * self.c_hidden * self.n_heads, init="gating")
+            self.linear_g = Linear(self.c_q, self.c_hidden * self.num_heads, init="gating")
 
-        self.linear_o = Linear(self.c_hidden * self.n_heads, self.c_output, init="final")
+        self.linear_o = Linear(self.c_hidden * self.num_heads, self.c_output, init="final")
         self.sigmoid = nn.Sigmoid()
 
     def _prep_qkv(self, q_x: torch.Tensor, kv_x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -304,9 +304,9 @@ class Attention(nn.Module):
         v = self.linear_v(kv_x)
 
         # [*, Q/K=V, H, C_hidden]
-        q = q.view(q.shape[:-1] + (self.no_heads, -1))
-        k = k.view(k.shape[:-1] + (self.no_heads, -1))
-        v = v.view(v.shape[:-1] + (self.no_heads, -1))
+        q = q.view(q.shape[:-1] + (self.num_heads, -1))
+        k = k.view(k.shape[:-1] + (self.num_heads, -1))
+        v = v.view(v.shape[:-1] + (self.num_heads, -1))
 
         # [*, H, Q/K=V, C_hidden]
         q = q.transpose(-2, -3)
@@ -324,7 +324,7 @@ class Attention(nn.Module):
             g = self.sigmoid(g)
 
             # [*, Q, H, C_hidden]
-            g = g.view(g.shape[:-1] * (self.n_heads, -1))
+            g = g.view(g.shape[:-1] * (self.num_heads, -1))
             o = o * g
 
         # [*, Q, H * C_hidden]
@@ -375,7 +375,7 @@ class GlobalAttention(nn.Module):
         c_in: int,
         c_hidden: int,
         c_output: int,
-        n_heads: int,
+        num_heads: int,
         inf: float,
         eps: float,
     ) -> None:
@@ -387,7 +387,7 @@ class GlobalAttention(nn.Module):
                 Dimension of hidden channel
             c_output:
                 Dimension of output channel
-            n_heads:
+            num_heads:
                 Number of heads
         """
         super().__init__()
@@ -395,15 +395,15 @@ class GlobalAttention(nn.Module):
         self.c_in = c_in
         self.c_hidden = c_hidden
         self.c_output = c_output
-        self.n_heads = n_heads
+        self.num_heads = num_heads
         self.inf = inf
         self.eps = eps
 
-        self.linear_q = Linear(self.c_in, self.c_hidden * self.n_heads, bias=False, init="glorot")
+        self.linear_q = Linear(self.c_in, self.c_hidden * self.num_heads, bias=False, init="glorot")
         self.linear_k = Linear(self.c_in, self.c_hidden, bias=False, init="glorot")
         self.linear_v = Linear(self.c_in, self.c_hidden, bias=False, init="glorot")
-        self.linear_g = Linear(self.c_in, self.c_hidden * self.n_heads, init="gating")
-        self.linear_o = Linear(self.c_output * self.n_heads, self.c_in, init="final")
+        self.linear_g = Linear(self.c_in, self.c_hidden * self.num_heads, init="gating")
+        self.linear_o = Linear(self.c_output * self.num_heads, self.c_in, init="final")
         self.sigmoid = nn.Sigmoid()
 
     def forward(
@@ -429,7 +429,7 @@ class GlobalAttention(nn.Module):
         q = self.linear_q(q)
         q *= self.c_hidden ** (-0.5)
         # [*, N_res, H, C_hidden]
-        q = q.view(q.shape[:-1] + (self.n_heads, -1))
+        q = q.view(q.shape[:-1] + (self.num_heads, -1))
         # [*, N_seq, N_res, C_hidden]
         k = self.linear_k(m)
         v = self.linear_v(m)
@@ -442,7 +442,7 @@ class GlobalAttention(nn.Module):
         # [*, N_res, H, N_seq]
         a = torch.einsum("bnhc,btnc->bnht", q, k)
         a += bias
-        a = softmax_no_cast(a)
+        a = softmax_num_cast(a)
 
         # [*, N_res, H, C_hidden]
         o = torch.einsum("bnht,btnh->bnhc", a, v)
@@ -451,7 +451,7 @@ class GlobalAttention(nn.Module):
         g = self.linear(m)
         g = self.sigmoid(g)
         # [*, N_seq, N_res, H, C_hidden]
-        g = g.view(g.shape[:-1] + (self.n_heads, -1))
+        g = g.view(g.shape[:-1] + (self.num_heads, -1))
 
         # [*, N_seq, N_res, H, C_hidden]
         o = torch.einsum("bnhc,bsnhc->bsnhc", o, g)
