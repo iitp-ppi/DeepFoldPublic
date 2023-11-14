@@ -3,6 +3,7 @@
 # Copyright 2021 DeepMind Technologies Limited
 
 import logging
+import os
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -10,6 +11,8 @@ from typing import List, Union
 
 import numpy as np
 import torch
+
+from deepfold.model.alphafold.nn.evoformer import EvoformerBlock
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +264,7 @@ def generate_translation_dict(
         "output_b": LinearBias(o.linear_out.bias),
     }
 
-    def EvoformerBlockParams(b, is_extra_msa=False):
+    def EvoformerBlockParams(b: EvoformerBlock, is_extra_msa=False):
         if is_extra_msa:
             col_att_name = "msa_column_global_attention"
             msa_col_att_params = MSAGlobalAttParams(b.msa_att_col)
@@ -380,14 +383,14 @@ def generate_translation_dict(
 
 def import_jax_weights_(
     model: torch.nn.Module,
-    npz_path: str,
+    npz_path: Union[str, bytes, os.PathLike],
     version: str = "model_1",
 ):
     # Load jax params
     data = np.load(npz_path)
 
     # Check template usage
-    no_templ = [
+    num_templ = [
         "model_3",
         "model_4",
         "model_5",
@@ -395,7 +398,7 @@ def import_jax_weights_(
         "model_4_ptm",
         "model_5_ptm",
     ]
-    use_template = version not in no_templ
+    use_template = version not in num_templ
 
     # Check ptm usage
     use_ptm = "_ptm" in version

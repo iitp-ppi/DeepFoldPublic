@@ -17,7 +17,7 @@ FeatureDict = Mapping[str, torch.Tensor]
 def pseudo_beta_fn(
     aatype: torch.Tensor,
     all_atom_positions: torch.Tensor,
-    all_atom_masks: Optional[torch.Tensor] = None,
+    all_atom_mask: Optional[torch.Tensor] = None,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """
     Construct pseudo beta-carbon position array and mask optionally.
@@ -27,7 +27,7 @@ def pseudo_beta_fn(
             One-hot amino acid type tensor
         all_atom_position:
             All atom position tensor
-        all_atom_masks:
+        all_atom_mask:
             All atom mask
     Return:
         Tensor of pseudo beta-carbon position (and mask).
@@ -46,11 +46,11 @@ def pseudo_beta_fn(
         all_atom_positions[..., cb_idx, :],
     )
 
-    if all_atom_masks is not None:
+    if all_atom_mask is not None:
         pseudo_beta_mask = torch.where(
             is_gly,
-            all_atom_masks[..., ca_idx],
-            all_atom_masks[..., cb_idx],
+            all_atom_mask[..., ca_idx],
+            all_atom_mask[..., cb_idx],
         )
         return pseudo_beta, pseudo_beta_mask
     else:

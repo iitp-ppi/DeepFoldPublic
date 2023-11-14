@@ -24,7 +24,7 @@ def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> Feat
     entry = {
         "template_aatype": prot.aatype,
         "template_all_atom_positions": all_atom_positions,
-        "template_all_atom_mask": prot.atom_mask,
+        "template_all_atom_masks": prot.atom_mask,
         "template_sum_probs": np.ma.masked_array(prot.b_factors, mask=binary_mask).mean(axis=-1, keepdims=True).data,
     }
     return entry
