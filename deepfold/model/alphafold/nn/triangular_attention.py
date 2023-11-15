@@ -1,13 +1,13 @@
-from functools import partial, partialmethod
+from functools import partial
 from typing import List, Optional
 
 import torch
 import torch.nn as nn
 
+from deepfold.distributed.legacy import gather
 from deepfold.model.alphafold.nn.primitives import Attention, LayerNorm, Linear
 from deepfold.utils.chunk_utils import chunk_layer
 from deepfold.utils.tensor_utils import permute_final_dims
-from deepfold.distributed.legacy import gather
 
 
 class TriangleAttention(nn.Module):
