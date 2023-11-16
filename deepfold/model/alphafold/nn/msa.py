@@ -31,7 +31,7 @@ class MSAAttention(nn.Module):
                 Input channel dimension
             c_hidden:
                 Per-head hidden channel dimension
-            no_heads:
+            num_heads:
                 Number of attention heads
             pair_bias:
                 Whether to use pair embedding bias
@@ -85,7 +85,7 @@ class MSAAttention(nn.Module):
         else:
             fn = partial(fn, biases=None)
 
-        return chunk_layer(fn, inputs, chunk_size=chunk_size, no_batch_dims=len(m.shape[:-2]))
+        return chunk_layer(fn, inputs, chunk_size=chunk_size, num_batch_dims=len(m.shape[:-2]))
 
     def _prep_inputs(
         self,
@@ -125,8 +125,8 @@ class MSAAttention(nn.Module):
             # [*, I, J, H]
             z = gather(z, -3)
 
-            # [*, H, I, J]
-            z = permute_final_dims(z, (2, 0, 1))
+            # [*, 1, H, I, J]
+            z = permute_final_dims(z, (2, 0, 1)).unsqueeze(-4)
 
         return m, mask_bias, z
 
@@ -147,6 +147,9 @@ class MSAAttention(nn.Module):
                 [*, S', N] MSA mask
         """
 
+        # m: row [*, S', N, C_m]
+        # mask_bias: [*, S', 1, 1, N]
+        # z(_bias): [*, 1, H, I, J]
         m, mask_bias, z = self._prep_inputs(m, z, mask)
 
         biases = [mask_bias]
@@ -177,7 +180,7 @@ class MSARowAttentionWithPairBias(MSAAttention):
                 Pair embedding channel dimension
             c_hidden:
                 Per-head hidden channel dimension
-            no_heads:
+            num_heads:
                 Number of attention heads
             inf:
                 Large number used to construct attention masks
@@ -207,7 +210,7 @@ class MSAColumnAttention(nn.Module):
                 MSA channel dimension
             c_hidden:
                 Per-head hidden channel dimension
-            no_heads:
+            num_heads:
                 Number of attention heads
             inf:
                 Large number used to construct attention masks
@@ -233,7 +236,6 @@ class MSAColumnAttention(nn.Module):
         m: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         chunk_size: Optional[int] = None,
-        use_lma: bool = False,
     ) -> torch.Tensor:
         """
         Args:
@@ -256,7 +258,6 @@ class MSAColumnAttention(nn.Module):
             m,
             mask=mask,
             chunk_size=chunk_size,
-            use_lma=use_lma,
         )
 
         # [*, S, N, C_in]
@@ -278,7 +279,7 @@ class MSAColumnGlobalAttention(nn.Module):
 
         self.c_in = c_in
         self.c_hidden = c_hidden
-        self.no_heads = num_heads
+        self.num_heads = num_heads
         self.inf = inf
         self.eps = eps
 
@@ -299,7 +300,7 @@ class MSAColumnGlobalAttention(nn.Module):
             m = self.layer_norm_m(m)
             return self.global_attention(m, mask)
 
-        return chunk_layer(fn, mha_input, chunk_size=chunk_size, no_batch_dims=len(m.shape[:-2]))
+        return chunk_layer(fn, mha_input, chunk_size=chunk_size, num_batch_dims=len(m.shape[:-2]))
 
     def forward(
         self,
