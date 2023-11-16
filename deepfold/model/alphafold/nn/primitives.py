@@ -340,7 +340,6 @@ class Attention(nn.Module):
         q_x: torch.Tensor,
         kv_x: torch.Tensor,
         biases: Optional[List[torch.Tensor]] = None,
-        **kwargs,
     ) -> torch.Tensor:
         """
         Args:
