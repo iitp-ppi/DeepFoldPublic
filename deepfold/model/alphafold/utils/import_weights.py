@@ -215,8 +215,8 @@ def generate_translation_dict(
     }
 
     MSAColAttParams = lambda matt: {
-        "query_norm": LayerNormParams(matt._msa_att.layer_norm_m),
-        "attention": AttentionGatedParams(matt._msa_att.mha),
+        "query_norm": LayerNormParams(matt.layer_norm_m),
+        "attention": AttentionGatedParams(matt._msa_att),
     }
 
     MSAGlobalAttParams = lambda matt: {
@@ -267,21 +267,21 @@ def generate_translation_dict(
     def EvoformerBlockParams(b: EvoformerBlock, is_extra_msa=False):
         if is_extra_msa:
             col_att_name = "msa_column_global_attention"
-            msa_col_att_params = MSAGlobalAttParams(b.msa_att_col)
+            msa_col_att_params = MSAGlobalAttParams(b.msa.msa_att_col)
         else:
             col_att_name = "msa_column_attention"
-            msa_col_att_params = MSAColAttParams(b.msa_att_col)
+            msa_col_att_params = MSAColAttParams(b.msa.msa_att_col)
 
         d = {
-            "msa_row_attention_with_pair_bias": MSAAttPairBiasParams(b.msa_att_row),
+            "msa_row_attention_with_pair_bias": MSAAttPairBiasParams(b.msa.msa_att_row),
             col_att_name: msa_col_att_params,
-            "msa_transition": MSATransitionParams(b.core.msa_transition),
-            "outer_product_mean": OuterProductMeanParams(b.core.outer_product_mean),
-            "triangle_multiplication_outgoing": TriMulOutParams(b.core.tri_mul_out),
-            "triangle_multiplication_incoming": TriMulInParams(b.core.tri_mul_in),
-            "triangle_attention_starting_node": TriAttParams(b.core.tri_att_start),
-            "triangle_attention_ending_node": TriAttParams(b.core.tri_att_end),
-            "pair_transition": PairTransitionParams(b.core.pair_transition),
+            "msa_transition": MSATransitionParams(b.msa.msa_transition),
+            "outer_product_mean": OuterProductMeanParams(b.communication),
+            "triangle_multiplication_outgoing": TriMulOutParams(b.pair.tri_mul_out),
+            "triangle_multiplication_incoming": TriMulInParams(b.pair.tri_mul_in),
+            "triangle_attention_starting_node": TriAttParams(b.pair.tri_att_start),
+            "triangle_attention_ending_node": TriAttParams(b.pair.tri_att_end),
+            "pair_transition": PairTransitionParams(b.pair.pair_transition),
         }
 
         return d
