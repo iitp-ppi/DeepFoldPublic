@@ -32,7 +32,7 @@ class TriangleAttention(nn.Module):
         self.mha = Attention(self.c_z, self.c_z, self.c_z, self.c_hidden, self.c_z, self.num_heads, gating=True)
 
     @torch.jit.ignore
-    def _chunk(self, x: torch.Tensor, biases: List[torch.Tensor], chunk_size: int) -> torch.Tenosr:
+    def _chunk(self, x: torch.Tensor, biases: List[torch.Tensor], chunk_size: int) -> torch.Tensor:
         mha_inputs = {"q_x": x, "kv_x": x, "biases": biases}
         return chunk_layer(
             partial(self.mha),

@@ -334,3 +334,21 @@ class TriangleMultiplicativeUpdate(nn.Module):
             z[..., :, i : i + chunk_size, :] = z_0 + x
 
         return z
+
+
+class TriangleMultiplicationOutgoing(TriangleMultiplicativeUpdate):
+    """
+    Implements Algorithm 11.
+    """
+
+    def __init__(self, c_z: int, c_hidden: int) -> None:
+        super().__init__(c_z, c_hidden, _outgoing=True)
+
+
+class TriangleMultiplicationIncoming(TriangleMultiplicativeUpdate):
+    """
+    Implements Algorithm 12.
+    """
+
+    def __init__(self, c_z: int, c_hidden: int) -> None:
+        super().__init__(c_z, c_hidden, _outgoing=False)

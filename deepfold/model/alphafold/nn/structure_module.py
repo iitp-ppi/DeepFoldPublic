@@ -434,22 +434,21 @@ class StructureModuleTransition(nn.Module):
 class StructureModule(nn.Module):
     def __init__(
         self,
-        c_s,
-        c_z,
-        c_ipa,
-        c_resnet,
-        num_heads_ipa,
-        num_qk_points,
-        num_v_points,
-        dropout_rate,
-        num_blocks,
-        num_transition_layers,
-        num_resnet_blocks,
-        num_angles,
-        position_scale,
-        epsilon,
-        inf,
-        **kwargs,
+        c_s: int,
+        c_z: int,
+        c_ipa: int,
+        c_resnet: int,
+        num_heads_ipa: int,
+        num_qk_points: int,
+        num_v_points: int,
+        dropout_rate: float,
+        num_blocks: int,
+        num_transition_layers: int,
+        num_resnet_blocks: int,
+        num_angles: int,
+        position_scale: float,
+        eps: float,
+        inf: float,
     ):
         """
         Args:
@@ -500,7 +499,7 @@ class StructureModule(nn.Module):
         self.num_resnet_blocks = num_resnet_blocks
         self.num_angles = num_angles
         self.position_scale = position_scale
-        self.epsilon = epsilon
+        self.eps = eps
         self.inf = inf
 
         # Buffers to be lazily initialized later
@@ -522,14 +521,14 @@ class StructureModule(nn.Module):
             self.num_qk_points,
             self.num_v_points,
             inf=self.inf,
-            eps=self.epsilon,
+            eps=self.eps,
         )
 
         self.ipa_dropout = nn.Dropout(self.dropout_rate)
         self.layer_norm_ipa = LayerNorm(self.c_s)
         self.transition = StructureModuleTransition(self.c_s, self.num_transition_layers, self.dropout_rate)
         self.bb_update = BackboneUpdate(self.c_s)
-        self.angle_resnet = AngleResnet(self.c_s, self.c_resnet, self.num_resnet_blocks, self.num_angles, self.epsilon)
+        self.angle_resnet = AngleResnet(self.c_s, self.c_resnet, self.num_resnet_blocks, self.num_angles, self.eps)
 
     def forward(self, evoformer_output_dict, aatype, mask=None):
         """
