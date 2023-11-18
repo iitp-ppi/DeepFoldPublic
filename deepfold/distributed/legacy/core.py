@@ -5,6 +5,7 @@ from typing import Optional
 
 import torch
 import torch.distributed.distributed_c10d as dist
+from torch.distributed import barrier, is_initialized
 
 _Group = Optional[dist.ProcessGroup]
 
