@@ -423,11 +423,11 @@ def import_jax_weights_(
     incorrect = [k for k in flat_keys if k not in keys]
     missing = [k for k in keys if k not in flat_keys]
 
-    for x in incorrect:
-        logger.debug(f"Incorrect: {x}")
+    # for x in incorrect:
+    #     logger.debug(f"Incorrect: {x}")
 
-    for x in missing:
-        logger.debug(f"Missing: {x}")
+    # for x in missing:
+    #     logger.debug(f"Missing: {x}")
 
     assert len(incorrect) == 0
     # assert(sorted(list(flat.keys())) == sorted(list(data.keys())))
