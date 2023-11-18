@@ -1,8 +1,8 @@
 site_name: "DeepFold"
-site_url: "https://DeepFoldProtein.github.io/deepfold_docs/"
+site_url: "https://yoo.skku.edu/deepfold/"
 site_author: "DeepFold Team"
 
-repo_url: "https://github.com/DeepFoldProtein/megafold/"
+repo_url: "https://github.com/DeepFoldProtein/DeepFold/"
 remote_branch: "gh-pages"
 
 nav:

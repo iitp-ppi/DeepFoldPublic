@@ -6,13 +6,13 @@ channels:
   - defaults
 dependencies:
   - python=3.10
-  - numpy=1.26
-  - scipy=1.11
-  - pandas=2.0
+  - numpy
+  - scipy=
+  - pandas
   - biopython=1.81
-  - hydra-core=1.3.2
-  - omegaconf=2.3.0
-  - pytorch=2.1.0
+  - hydra-core
+  - omegaconf
+  - pytorch=2.1.1
   - pytorch-cuda=12.1
   - torchaudio
   - torchvision
@@ -24,3 +24,6 @@ dependencies:
       - mkdocs-material
       - mkdocstrings
       - mkdocstrings-python
+      - jax[cpu]
+      - dm-haiku
+      - dm-tree

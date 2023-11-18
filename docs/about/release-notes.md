@@ -4,7 +4,7 @@
 
 ## Repository
 
-[GitHub Repository](https://github.com/DeepFoldProtein/megafold/)
+[GitHub Repository](https://github.com/DeepFoldProtein/DeepFold/)
 
 ## Team DeepFold
 

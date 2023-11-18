@@ -9,7 +9,7 @@ An introductory tutorial for protein conformation prediction.
 To install DeepFold framework, run the following command from the command line:
 
 ```bash
-git clone git@github.com:DeepFoldProtein/megafold.git
+git clone git@github.com:DeepFoldProtein/DeepFold.git
 ```
 
 ## Get database and parameters

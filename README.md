@@ -1,6 +1,4 @@
-# MegaFold
-
-Distributed PyTorch reproduction of the Google DeepMind's AlphaFold model.
+# DeepFold
 
 ## Features
 
@@ -13,3 +11,5 @@ Distributed PyTorch reproduction of the Google DeepMind's AlphaFold model.
 ## Training
 
 ## Copyright
+
+Copyright 2023 DeepFold Protein Research Team

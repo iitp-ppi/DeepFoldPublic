@@ -2,8 +2,8 @@
 
 """Package constants."""
 
-MAJOR = 0
-MINOR = 1
+MAJOR = 2
+MINOR = 0
 PATCH = 0
 PRE_RELEASE = ""
 
@@ -11,6 +11,6 @@ VERSION = (MAJOR, MINOR, PATCH, PRE_RELEASE)
 
 __version__ = ".".join(map(str, VERSION[:3])) + "".join(VERSION[3:])
 
-__package_name__ = "megafold"
-__description__ = "MegaFold - a scalable framework for protein models"
+__package_name__ = "DeepFold"
+__description__ = "Protein structure prediction framework."
 __license__ = "Apache-2.0"
