@@ -1,10 +1,10 @@
 import logging
 import os
 from pathlib import Path
-from typing import Union, Dict
+from typing import Dict, Union
 
-import torch
 import numpy as np
+import torch
 from omegaconf import DictConfig
 
 from deepfold.common import protein
@@ -48,7 +48,7 @@ def prep_output(
     template_chain_index = None
 
     if config.globals.use_template and "template_domain_names" in feature_dict:
-        template_domain_names = [t.decode() for t in feature_dict["template_domain_names"]]
+        template_domain_names = [t for t in feature_dict["template_domain_names"]]
 
         # Templates are not shuffled during inferece
         template_domain_names = template_domain_names[: config.data.predict.max_templates]
