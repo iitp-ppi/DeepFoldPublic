@@ -69,7 +69,7 @@ class TestDataTransforms(unittest.TestCase):
         assert torch.all(torch.eq(protein["template_aatype"], template_seq_ours))
 
     def test_correct_msa_restypes(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         protein = {"msa": torch.tensor(features["msa"], dtype=torch.int64)}
@@ -77,7 +77,7 @@ class TestDataTransforms(unittest.TestCase):
         assert torch.all(torch.eq(torch.tensor(features["msa"].shape), torch.tensor(protein["msa"].shape)))
 
     def test_squeeze_features(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         features_list = [
@@ -112,7 +112,7 @@ class TestDataTransforms(unittest.TestCase):
                 assert protein_squeezed[k].shape == features[k].shape
 
     def test_randomly_replace_msa_with_unknown(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         protein = {
@@ -126,7 +126,7 @@ class TestDataTransforms(unittest.TestCase):
         unknown_proportion_in_seq = torch.bincount(protein["aatype"].flatten()) / torch.numel(protein["aatype"])
 
     def test_sample_msa(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         max_seq = 1000
@@ -146,7 +146,7 @@ class TestDataTransforms(unittest.TestCase):
                 )
 
     def test_crop_extra_msa(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         max_extra_msa = 10
@@ -169,7 +169,7 @@ class TestDataTransforms(unittest.TestCase):
         assert "extra_msa" not in protein
 
     def test_nearest_neighbor_clusters(self):
-        with gzip.open("tests/test_data/sample_feats.pickle.gz", "rb") as f:
+        with gzip.open("tests/data/sample_feats.pickle.gz", "rb") as f:
             features = pickle.load(f)
 
         protein = {
@@ -182,7 +182,7 @@ class TestDataTransforms(unittest.TestCase):
         assert "extra_cluster_assignment" in protein
 
     def test_make_msa_mask(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         msa_mat = torch.tensor(features["msa"])
@@ -192,7 +192,7 @@ class TestDataTransforms(unittest.TestCase):
         assert protein["msa_row_mask"].shape[0] == msa_mat.shape[0]
 
     def test_make_hhblits_profile(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         protein = {"msa": torch.tensor(features["msa"], dtype=torch.int64)}
@@ -201,7 +201,7 @@ class TestDataTransforms(unittest.TestCase):
         assert protein["hhblits_profile"].shape == torch.Size((protein["msa"].shape[1], 22))
 
     def test_make_masked_msa(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         protein = {
@@ -220,7 +220,7 @@ class TestDataTransforms(unittest.TestCase):
         )
 
     def test_make_msa_feat(self):
-        with open("tests/test_data/features.pkl", "rb") as file:
+        with open("tests/data/features.pkl", "rb") as file:
             features = pickle.load(file)
 
         protein = {
@@ -236,7 +236,7 @@ class TestDataTransforms(unittest.TestCase):
         assert protein["msa_feat"].shape == torch.Size((*protein["msa"].shape, 25))
 
     def test_crop_templates(self):
-        with gzip.open("tests/test_data/sample_feats.pickle.gz", "rb") as f:
+        with gzip.open("tests/data/sample_feats.pickle.gz", "rb") as f:
             features = pickle.load(f)
 
         protein = {
@@ -249,7 +249,7 @@ class TestDataTransforms(unittest.TestCase):
         assert protein["template_all_atom_masks"].shape[0] == max_templates
 
     def test_make_atom14_masks(self):
-        with gzip.open("tests/test_data/sample_feats.pickle.gz", "rb") as file:
+        with gzip.open("tests/data/sample_feats.pickle.gz", "rb") as file:
             features = pickle.load(file)
 
         protein = {"aatype": torch.tensor(features["aatype"][0])}
