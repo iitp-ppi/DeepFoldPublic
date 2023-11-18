@@ -4,8 +4,7 @@ import sys
 from functools import wraps
 
 import torch
-
-from deepfold.distributed.legacy import is_master
+from torch.distributed import get_rank
 
 _CNT = -1
 
@@ -24,7 +23,7 @@ def dump_args(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         global _CNT
-        if is_master():
+        if get_rank() == 0:
             _CNT += 1
             func_args = inspect.signature(func).bind(*args, **kwargs).arguments
             ts = {}
@@ -35,7 +34,7 @@ def dump_args(func):
             s = "│" * _CNT
             print(s, "┌", f"{func.__module__}.{func.__qualname__} <- ( {func_args_str} )", file=sys.stderr, sep="")
         ret = func(*args, **kwargs)
-        if is_master():
+        if get_rank() == 0:
             ts = []
             if isinstance(ret, tuple):
                 for v in ret:
