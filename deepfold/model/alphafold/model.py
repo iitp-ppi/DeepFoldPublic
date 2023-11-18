@@ -9,7 +9,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
-from deepfold.distributed.legacy import get_tensor_model_parallel_world_size, is_initialized
+from deepfold.distributed.legacy import get_tensor_model_parallel_world_size
 from deepfold.model.alphafold.nn.dist_utils import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
@@ -44,9 +44,6 @@ class AlphaFold(nn.Module):
         self.config = config.model
         self.template_cfg = self.config.template
         self.extra_msa_cfg = self.config.extra_msa
-
-        assert is_initialized()
-
         # Main trunk and structure module
 
         self.scatter_features = ScatterFeatures()
