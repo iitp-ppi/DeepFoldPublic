@@ -110,7 +110,7 @@ data:
         is_distillation,
       ]
   predict:
-    fixed_size: False # Pre-allocation
+    fixed_size: True # Pre-allocation
     masked_msa_replace_fraction: 0.15 # Suppl. 1.2.7
     max_msa_clusters: 512
     max_extra_msa: 1024
@@ -121,7 +121,7 @@ data:
     crop_size: null
     supervised: False
   eval:
-    fixed_size: False
+    fixed_size: True
     masked_msa_replace_fraction: 0.15
     max_msa_clusters: 128
     max_extra_msa: 1024
@@ -152,12 +152,12 @@ data:
 
 model:
   globals:
-    c_z: 256
-    c_m: 128
+    c_z: 128
+    c_m: 256
     c_t: 64
     c_e: 64
     c_s: 384
-    chunk_size: 4
+    chunk_size: 32
     attention: torch # torch, memeff, flash
 
   input_embedder:
@@ -212,7 +212,7 @@ model:
       c_in: 25
       c_out: ${model.globals.c_e}
     extra_msa_stack:
-      c_m: ${model.globals.c_e}
+      c_e: ${model.globals.c_e}
       c_z: ${model.globals.c_z}
       c_hidden_msa_attn: 8
       c_hidden_opm: 32
@@ -256,7 +256,9 @@ model:
     num_qk_points: 4
     num_v_points: 8
     dropout_rate: 0.1
-    # num_angles: 7
+    num_transition_layers: 1
+    num_resnet_blocks: 2
+    num_angles: 7
     position_scale: 10.0 # nanometers
     eps: 1e-12
     inf: 1e5
