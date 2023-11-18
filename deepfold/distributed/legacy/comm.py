@@ -81,7 +81,7 @@ def _gather(tensor: Tensor, dim: int = -1) -> Tensor:
     # x.unsqueeze_(dim=dim)
 
     # All-gather.
-    dist.all_gather(tensor_list, tensor, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
+    dist.all_gather(tensor_list, tensor.contiguous(), group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
     # Target dimension will be expanded.
     out = torch.cat(tensor_list, dim=dim)
 
