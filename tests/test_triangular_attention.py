@@ -34,7 +34,7 @@ class TestTriangularAttention(unittest.TestCase):
 
         self.assertTrue(shape_before == shape_after)
 
-    def _tri_att_compare(self, starting=False):
+    def _tri_att_compare(self, starting=False, chunk_size=None):
         name = "triangle_attention_" + ("starting" if starting else "ending") + "_node"
 
         def run_tri_att(pair_act, pair_mask):
@@ -81,7 +81,7 @@ class TestTriangularAttention(unittest.TestCase):
         out_repro = msa_att(
             torch.as_tensor(pair_act, dtype=torch.float32).cuda(),
             mask=torch.as_tensor(pair_mask, dtype=torch.float32).cuda(),
-            chunk_size=32,
+            chunk_size=chunk_size,
         ).cpu()
 
         self.assertTrue(torch.max(torch.abs(out_gt - out_repro)) < consts.eps)
@@ -91,6 +91,12 @@ class TestTriangularAttention(unittest.TestCase):
 
     def test_tri_att_start_compare(self):
         self._tri_att_compare(starting=True)
+
+    def test_tri_att_end_chunk(self):
+        self._tri_att_compare(starting=False, chunk_size=32)
+
+    def test_tri_att_start_chunk(self):
+        self._tri_att_compare(starting=True, chunk_size=32)
 
 
 if __name__ == "__main__":
