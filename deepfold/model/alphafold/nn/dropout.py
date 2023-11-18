@@ -9,6 +9,8 @@ from typing import List, Union
 import torch
 import torch.nn as nn
 
+from deepfold.utils.debug import dump_args
+
 
 class Dropout(nn.Module):
     """
@@ -34,6 +36,7 @@ class Dropout(nn.Module):
         self.batch_dim = batch_dim
         self.dropout = nn.Dropout(self.r)
 
+    @dump_args
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:

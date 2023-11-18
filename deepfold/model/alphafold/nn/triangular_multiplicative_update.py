@@ -8,12 +8,11 @@ from deepfold.distributed.legacy import (
     broadcast_async_end,
     broadcast_sync,
     gather,
-    gather_async_begin,
-    gather_async_end,
     get_rank,
     get_world_size,
 )
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
+from deepfold.utils.debug import dump_args
 from deepfold.utils.precision import is_fp16_enabled
 from deepfold.utils.tensor_utils import permute_final_dims
 
@@ -81,6 +80,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
         # [*, I, J', C] / [*, I', J, C]
         return permute_final_dims(p, (1, 2, 0))
 
+    @dump_args
     def forward(
         self,
         z: torch.Tensor,
@@ -221,26 +221,22 @@ class TriangleMultiplicativeUpdate(nn.Module):
 
                     if k == rank:  # Broadcast it's own right projection
                         p = torch.einsum("...ikc,...jkc->...ijc", a, b)
-
                     else:  # Receive others broadcast
                         p = torch.einsum("...ikc,...jkc->...ijc", a, b_recv)
 
-                    j_0 = para_dim * k + j
-                    j_1 = min(j_0 + chunk_size, para_dim * (k + 1))
-
-                    out[..., i : i + chunk_size, j_0:j_1, :] = p
+                    j_global = para_dim * k + j
+                    j_last = min(j_global + chunk_size, para_dim * (k + 1))
+                    out[..., i : i + chunk_size, j_global:j_last, :] = p
 
         for i in range(0, para_dim, chunk_size):
-            z_0 = z[..., i : i + chunk_size, :, :]
-            g = self.sigmoid(self.linear_g(self.layer_norm_in(z_0)))
-
+            z_chunk = z[..., i : i + chunk_size, :, :]
+            g = self.sigmoid(self.linear_g(self.layer_norm_in(z_chunk)))
             x = self.linear_z(self.layer_norm_out(out[..., i : i + chunk_size, :, :]))
             x = x * g
             del g
+            out[..., i : i + chunk_size, :, :] = z_chunk + x
 
-            z[..., i : i + chunk_size, :, :] = z_0 + x
-
-        return z
+        return out
 
     def _chunk_incoming(
         self,
@@ -288,7 +284,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
                 a = mask[..., :, j : j + chunk_size, :] * a
 
                 work = None
-                a_buf = torch.empty_like(b)
+                a_buf = torch.empty_like(a)
 
                 for k in range(0, world_size):
                     if world_size > 1:
@@ -314,26 +310,22 @@ class TriangleMultiplicativeUpdate(nn.Module):
 
                     if k == rank:  # Broadcast it's own right projection
                         p = torch.einsum("...kic,...kjc->...ijc", a, b)
-
                     else:  # Receive others broadcast
                         p = torch.einsum("...kic,...kjc->...ijc", a_recv, b)
 
-                    j_0 = para_dim * k + j
-                    j_1 = min(j_0 + chunk_size, para_dim * (k + 1))
-
-                    out[..., j_0:j_1, i : i + chunk_size, :] = p
+                    j_global = para_dim * k + j
+                    j_last = min(j_global + chunk_size, para_dim * (k + 1))
+                    out[..., j_global:j_last, i : i + chunk_size, :] = p
 
         for i in range(0, para_dim, chunk_size):
-            z_0 = z[..., :, i : i + chunk_size, :]
-            g = self.sigmoid(self.linear_g(self.layer_norm_in(z_0)))
-
-            x = self.linear_z(self.layer_norm_out(out[..., :, i : i + chunk_size, :]))
+            z_chunk = z[..., i : i + chunk_size, :, :]
+            g = self.sigmoid(self.linear_g(self.layer_norm_in(z_chunk)))
+            x = self.linear_z(self.layer_norm_out(out[..., i : i + chunk_size, :, :]))
             x = x * g
             del g
+            out[..., i : i + chunk_size, :, :] = z_chunk + x
 
-            z[..., :, i : i + chunk_size, :] = z_0 + x
-
-        return z
+        return out
 
 
 class TriangleMultiplicationOutgoing(TriangleMultiplicativeUpdate):

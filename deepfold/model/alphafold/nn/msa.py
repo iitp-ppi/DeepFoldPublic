@@ -11,6 +11,7 @@ import torch.nn as nn
 from deepfold.distributed.legacy import gather
 from deepfold.model.alphafold.nn.primitives import Attention, GlobalAttention, LayerNorm, Linear
 from deepfold.utils.chunk_utils import chunk_layer
+from deepfold.utils.debug import dump_args
 from deepfold.utils.tensor_utils import permute_final_dims
 
 
@@ -43,14 +44,14 @@ class MSAAttention(nn.Module):
         """
         super().__init__()
 
-        self.c_in = c_in
+        self.c_m = c_in
         self.c_hidden = c_hidden
         self.num_heads = num_heads
         self.pair_bias = pair_bias
         self.c_z = c_z
         self.inf = inf
 
-        self.layer_norm_m = LayerNorm(self.c_in)
+        self.layer_norm_m = LayerNorm(self.c_m)
 
         self.layer_norm_z = None
         self.linear_z = None
@@ -60,12 +61,13 @@ class MSAAttention(nn.Module):
             self.linear_z = Linear(self.c_z, self.num_heads, bias=False, init="normal")
 
         self.mha = Attention(
-            self.c_in,
-            self.c_in,
-            self.c_in,
-            self.c_in,
+            self.c_m,
+            self.c_m,
+            self.c_m,
             self.c_hidden,
+            self.c_m,
             self.num_heads,
+            gating=True,
         )
 
     @torch.jit.ignore
@@ -109,18 +111,18 @@ class MSAAttention(nn.Module):
 
             for i in range(0, z.shape[-3], chunk_size):
                 # [*, I', J, C_z]
-                b = z[..., i : i + chunk_size, :, :]
+                z_chunk = z[..., i : i + chunk_size, :, :]
 
                 # [*, I', J, C_z]
-                b = self.layer_norm_z(b)
+                z_chunk = self.layer_norm_z(z_chunk)
 
                 # [*, I', J, H]
-                b = self.linear_z(b)
+                z_chunk = self.linear_z(z_chunk)
 
-                chunks.append(b)
+                chunks.append(z_chunk)
 
             # [*, I', J, H]
-            b = torch.cat(chunks, dim=-3)
+            z = torch.cat(chunks, dim=-3)
 
             # [*, I, J, H]
             z = gather(z, -3)
@@ -130,6 +132,7 @@ class MSAAttention(nn.Module):
 
         return m, mask_bias, z
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
@@ -231,6 +234,7 @@ class MSAColumnAttention(nn.Module):
             inf=inf,
         )
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
@@ -254,11 +258,7 @@ class MSAColumnAttention(nn.Module):
         if mask is not None:
             mask = mask.transpose(-1, -2)
 
-        m = self._msa_att(
-            m,
-            mask=mask,
-            chunk_size=chunk_size,
-        )
+        m = self._msa_att(m, mask=mask, chunk_size=chunk_size)
 
         # [*, S, N, C_in]
         m = m.transpose(-2, -3)
@@ -269,7 +269,7 @@ class MSAColumnAttention(nn.Module):
 class MSAColumnGlobalAttention(nn.Module):
     def __init__(
         self,
-        c_in,
+        c_e,
         c_hidden,
         num_heads,
         inf=1e9,
@@ -277,15 +277,22 @@ class MSAColumnGlobalAttention(nn.Module):
     ):
         super(MSAColumnGlobalAttention, self).__init__()
 
-        self.c_in = c_in
+        self.c_e = c_e
         self.c_hidden = c_hidden
         self.num_heads = num_heads
         self.inf = inf
         self.eps = eps
 
-        self.layer_norm_m = nn.LayerNorm(c_in)
+        self.layer_norm_m = nn.LayerNorm(c_e)
 
-        self.global_attention = GlobalAttention(c_in=c_in, c_hidden=c_hidden, num_heads=num_heads, inf=inf, eps=eps)
+        self.global_attention = GlobalAttention(
+            c_in=self.c_e,
+            c_hidden=self.c_hidden,
+            c_output=self.c_e,
+            num_heads=self.num_heads,
+            inf=self.inf,
+            eps=self.eps,
+        )
 
     @torch.jit.ignore
     def _chunk(
@@ -302,6 +309,7 @@ class MSAColumnGlobalAttention(nn.Module):
 
         return chunk_layer(fn, mha_input, chunk_size=chunk_size, num_batch_dims=len(m.shape[:-2]))
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
@@ -312,7 +320,7 @@ class MSAColumnGlobalAttention(nn.Module):
             # [*, S, N]
             mask = m.new_ones(m.shape[:-1])
 
-        # [*, N, S, C]
+        # [*, N, S, C_m]
         m = m.transpose(-2, -3)
         mask = mask.transpose(-1, -2)
 
@@ -322,7 +330,7 @@ class MSAColumnGlobalAttention(nn.Module):
             m = self.layer_norm_m(m)
             m = self.global_attention(m=m, mask=mask)
 
-        # [*, S, N, C]
+        # [*, N, S, C_m]
         m = m.transpose(-2, -3)
 
         return m

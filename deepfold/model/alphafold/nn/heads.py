@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 
+from deepfold.distributed.legacy import gather, scatter
 from deepfold.model.alphafold.loss import compute_plddt, compute_predicted_aligned_error, compute_tm
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
 from deepfold.utils.precision import is_fp16_enabled
@@ -59,12 +60,7 @@ class AuxiliaryHeads(nn.Module):
             tm_logits = self.tm(outputs["pair"])
             aux_out["tm_logits"] = tm_logits
             aux_out["predicted_tm_score"] = compute_tm(tm_logits, **self.config.tm)
-            aux_out.update(
-                compute_predicted_aligned_error(
-                    tm_logits,
-                    **self.config.tm,
-                )
-            )
+            aux_out.update(compute_predicted_aligned_error(tm_logits, **self.config.tm))
 
         return aux_out
 
@@ -118,17 +114,19 @@ class DistogramHead(nn.Module):
 
         self.linear = Linear(self.c_z, self.num_bins, init="final")
 
-    def _forward(self, z):  # [*, N, N, C_z]
+    def _forward(self, z):  # [*, N', N, C_z]
         """
         Args:
             z:
-                [*, N_res, N_res, C_z] pair embedding
+                [*, N', N, C_z] pair embedding
         Returns:
-            [*, N, N, num_bins] distogram probability distribution
+            [*, N', N, num_bins] distogram probability distribution
         """
-        # [*, N, N, num_bins]
+        # [*, N', N, num_bins]
         logits = self.linear(z)
+        logits = gather(logits, -3)
         logits = logits + logits.transpose(-2, -3)
+        logits = scatter(logits, -3)
         return logits
 
     def forward(self, z):

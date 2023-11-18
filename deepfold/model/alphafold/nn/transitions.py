@@ -51,7 +51,7 @@ class MSATransition(nn.Module):
             self._transition,
             {"m": m, "mask": mask},
             chunk_size=chunk_size,
-            no_batch_dims=len(m.shape[:-2]),
+            num_batch_dims=len(m.shape[:-2]),
         )
 
     def forward(

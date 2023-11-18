@@ -10,6 +10,7 @@ import torch.nn as nn
 
 from deepfold.distributed.legacy import gather
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
+from deepfold.utils.debug import dump_args
 from deepfold.utils.tensor_utils import add, one_hot
 
 
@@ -74,6 +75,7 @@ class InputEmbedder(nn.Module):
         d = one_hot(d, boundaries).to(ri.dtype)
         return self.linear_relpos(d)
 
+    @dump_args
     def forward(
         self,
         tf: torch.Tensor,
@@ -128,8 +130,8 @@ class ParallelInputEmbedder(nn.Module):
         self.tf_dim = tf_dim
         self.msa_dim = msa_dim
 
-        self.c_z = c_z
         self.c_m = c_m
+        self.c_z = c_z
 
         self.linear_tf_z_i = Linear(tf_dim, c_z)
         self.linear_tf_z_j = Linear(tf_dim, c_z)
@@ -143,11 +145,12 @@ class ParallelInputEmbedder(nn.Module):
 
     def relpos(self, ri: torch.Tensor) -> torch.Tensor:
         ri_all = gather(ri, dim=-1)
-        d = ri_all[..., :, None] - ri[..., None, :]
+        d = ri[..., :, None] - ri_all[..., None, :]
         boundaries = torch.arange(start=-self.relpos_k, end=self.relpos_k + 1, device=d.device)
         d = one_hot(d, boundaries).to(ri.dtype)
         return self.linear_relpos(d)
 
+    @dump_args
     def forward(
         self,
         tf: torch.Tensor,
@@ -226,6 +229,7 @@ class RecyclingEmbedder(nn.Module):
         self.layer_norm_m = LayerNorm(self.c_m)
         self.layer_norm_z = LayerNorm(self.c_z)
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
@@ -318,27 +322,29 @@ class ParallelRecyclingEmbedder(nn.Module):
         self.layer_norm_m = LayerNorm(self.c_m)
         self.layer_norm_z = LayerNorm(self.c_z)
 
+    @dump_args
     def forward(
         self,
-        m: torch.Tensor,
+        m_1: torch.Tensor,
         z: torch.Tensor,
         x: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
-            m: [*, N', C_m]
+            m_1:
+                [*, N', C_m]
             z:
                 [*, N', N, C_z]
             x:
                 [*, N', 3]
         Returns:
-            m:
+            m_1:
                 [*, N', C_m]
             z:
                 [*, N', N, C_z]
         """
         # [*, N', C_m]
-        m_update = self.layer_norm_m(m)
+        m_update = self.layer_norm_m(m_1)
 
         # [*, N', N, C_z]
         z_update = self.layer_norm_z(z)
@@ -398,6 +404,7 @@ class TemplateAngleEmbedder(nn.Module):
         self.relu = nn.ReLU()
         self.linear_2 = Linear(self.c_out, self.c_out, init="relu")
 
+    @dump_args
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -483,6 +490,7 @@ class ExtraMSAEmbedder(nn.Module):
 
         self.linear = Linear(self.c_in, self.c_out)
 
+    @dump_args
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:

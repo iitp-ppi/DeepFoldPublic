@@ -7,6 +7,7 @@ import torch.nn as nn
 from deepfold.distributed.legacy import gather
 from deepfold.model.alphafold.nn.primitives import Attention, LayerNorm, Linear
 from deepfold.utils.chunk_utils import chunk_layer
+from deepfold.utils.debug import dump_args
 from deepfold.utils.tensor_utils import permute_final_dims
 
 
@@ -38,9 +39,10 @@ class TriangleAttention(nn.Module):
             partial(self.mha),
             mha_inputs,
             chunk_size=chunk_size,
-            num_batch_dims=len(x.shape[-2]),
+            num_batch_dims=len(x.shape[:-2]),
         )
 
+    @dump_args
     def forward(
         self,
         x: torch.Tensor,

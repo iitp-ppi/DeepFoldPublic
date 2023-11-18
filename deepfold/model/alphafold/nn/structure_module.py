@@ -16,9 +16,10 @@ from deepfold.common.residue_constants import (
     restype_atom14_to_rigid_group,
     restype_rigid_group_default_frame,
 )
-from deepfold.distributed.legacy import gather
+from deepfold.distributed.legacy import gather, scatter
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear, ipa_point_weights_init_
 from deepfold.model.alphafold.utils.feats import frames_and_literature_positions_to_atom14_pos, torsion_angles_to_frames
+from deepfold.utils.debug import dump_args
 from deepfold.utils.geometry import Rigid, Rotation
 from deepfold.utils.precision import is_fp16_enabled
 from deepfold.utils.tensor_utils import dict_multimap, flatten_final_dims, permute_final_dims
@@ -40,6 +41,7 @@ class AngleResnetBlock(nn.Module):
 
         self.relu = nn.ReLU()
 
+    @dump_args
     def forward(self, a: torch.Tensor) -> torch.Tensor:
         s_initial = a
 
@@ -90,6 +92,7 @@ class AngleResnet(nn.Module):
 
         self.relu = nn.ReLU()
 
+    @dump_args
     def forward(self, s: torch.Tensor, s_initial: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
@@ -199,6 +202,7 @@ class InvariantPointAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
         self.softplus = nn.Softplus()
 
+    @dump_args
     def forward(
         self,
         s: torch.Tensor,
@@ -215,7 +219,7 @@ class InvariantPointAttention(nn.Module):
             r:
                 [*, N'] transformation object
             mask:
-                [*, N'] mask
+                [*, N] mask
         Returns:
             [*, N', C_s] single representation update
         """
@@ -286,7 +290,7 @@ class InvariantPointAttention(nn.Module):
         a *= math.sqrt(1.0 / (3 * self.c_hidden))
         a += math.sqrt(1.0 / 3) * permute_final_dims(b, (2, 0, 1))
 
-        k_pts_all = gather(k_pts, -4)
+        k_pts_all = gather(k_pts, -4)  # [*, N, H, P_q, 3]
         # [*, N', N, H, P_q, 3]
         pt_att = q_pts.unsqueeze(-4) - k_pts_all.unsqueeze(-5)
         pt_att = pt_att**2
@@ -297,31 +301,33 @@ class InvariantPointAttention(nn.Module):
         head_weights = head_weights * math.sqrt(1.0 / (3 * (self.num_qk_points * 9.0 / 2)))
         pt_att = pt_att * head_weights
 
-        # [*, N', N, H]
+        # [*, I', J, H]
         pt_att = torch.sum(pt_att, dim=-1) * (-0.5)
 
-        mask_all = gather(mask, -1)
-        # [*, N', N]
-        square_mask = mask_all.unsqueeze(-1) * mask.unsqueeze(-2)
-        square_mask = self.inf * (square_mask - 1)
+        mask_split = scatter(mask, -1)  # [*, N']
 
-        # [*, H, N', N]
+        # [*, I', J]
+        rect_mask = mask_split[..., :, None] * mask[..., None, :]
+        rect_mask = self.inf * (rect_mask - 1)
+
+        # [*, H, I', J]
         pt_att = permute_final_dims(pt_att, (2, 0, 1))
-
         a = a + pt_att
-        a = a + square_mask.unsqueeze(-3)
+        a = a + rect_mask.unsqueeze(-3)
         a = self.softmax(a)
 
         ################
         # Compute output
         ################
-        # [*, N', H, C_hidden]
-        o = torch.matmul(a, v.transpose(-2, -3).to(dtype=a.dtype)).transpose(-2, -3)
 
-        # [*, N', H * C_hidden]
+        v_all = gather(v, -3)  # [*, N, H, C]
+        # [*, N', H, C] <- [*, H, I', C] <- [*, H, I', J] @ [*, H, J, C]
+        o = torch.matmul(a, v_all.transpose(-2, -3).to(dtype=a.dtype)).transpose(-2, -3)
+
+        # [*, N', H * C]
         o = flatten_final_dims(o, 2)
 
-        v_pts_all = gather(v_pts, -4)
+        v_pts_all = gather(v_pts, -4)  # [*, N, H, /P_v, 3]
         # [*, H, 3, N', P_v]
         o_pt = torch.sum(
             (a[..., None, :, :, None] * permute_final_dims(v_pts_all, (1, 3, 0, 2))[..., None, :, :]),
@@ -367,6 +373,7 @@ class BackboneUpdate(nn.Module):
 
         self.linear = Linear(self.c_s, 6, init="final")
 
+    @dump_args
     def forward(self, s: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
@@ -392,6 +399,7 @@ class StructureModuleTransitionLayer(nn.Module):
 
         self.relu = nn.ReLU()
 
+    @dump_args
     def forward(self, s):
         s_initial = s
         s = self.linear_1(s)
@@ -421,6 +429,7 @@ class StructureModuleTransition(nn.Module):
         self.dropout = nn.Dropout(self.dropout_rate)
         self.layer_norm = LayerNorm(self.c)
 
+    @dump_args
     def forward(self, s):
         for l in self.layers:
             s = l(s)
@@ -530,49 +539,50 @@ class StructureModule(nn.Module):
         self.bb_update = BackboneUpdate(self.c_s)
         self.angle_resnet = AngleResnet(self.c_s, self.c_resnet, self.num_resnet_blocks, self.num_angles, self.eps)
 
+    @dump_args
     def forward(self, evoformer_output_dict, aatype, mask=None):
         """
         Args:
             evoformer_output_dict:
                 Dictionary containing:
                     "single":
-                        [*, N, C_s] single representation
+                        [*, N', C_s] single representation
                     "pair":
-                        [*, N, N, C_z] pair representation
+                        [*, N', N, C_z] pair representation
             aatype:
-                [*, N] amino acid indices
+                [*, N'] amino acid indices
             mask:
-                Optional [*, N] sequence mask
+                Optional [*, N'] sequence mask
         Returns:
             A dictionary of outputs
         """
         s = evoformer_output_dict["single"]
 
         if mask is None:
-            # [*, N]
+            # [*, N']
             mask = s.new_ones(s.shape[:-1])
 
-        # [*, N, C_s]
+        # [*, N', C_s]
         s = self.layer_norm_s(s)
 
-        # [*, N, N, C_z]
+        # [*, N', N, C_z]
         z = self.layer_norm_z(evoformer_output_dict["pair"])
 
-        # [*, N, C_s]
+        # [*, N', C_s]
         s_initial = s
         s = self.linear_in(s)
 
-        # [*, N]
+        # [*, N']
         rigids = Rigid.identity(s.shape[:-1], s.dtype, s.device, self.training, fmt="quat")
         outputs = []
         for _ in range(self.num_blocks):
-            # [*, N, C_s]
+            # [*, N', C_s]
             s = s + self.ipa(s, z, rigids, mask)
             s = self.ipa_dropout(s)
             s = self.layer_norm_ipa(s)
             s = self.transition(s)
 
-            # [*, N]
+            # [*, N']
             rigids = rigids.compose_q_update_vec(self.bb_update(s))
 
             # To hew as closely as possible to AlphaFold, we convert our
@@ -582,7 +592,7 @@ class StructureModule(nn.Module):
 
             backb_to_global = backb_to_global.scale_translation(self.position_scale)
 
-            # [*, N, 7, 2]
+            # [*, N', 7, 2]
             unnormalized_angles, angles = self.angle_resnet(s, s_initial)
 
             all_frames_to_global = self.torsion_angles_to_frames(backb_to_global, angles, aatype)

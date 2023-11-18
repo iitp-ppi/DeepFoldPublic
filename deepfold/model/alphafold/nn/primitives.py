@@ -11,7 +11,6 @@ import torch.nn as nn
 from scipy.stats import truncnorm
 
 from deepfold.utils.misc import prod
-from deepfold.utils.precision import is_fp16_enabled
 from deepfold.utils.tensor_utils import flatten_final_dims, permute_final_dims
 
 
@@ -236,14 +235,21 @@ def _attention(
     value: torch.Tensor,
     biases: List[torch.Tensor],
 ) -> torch.Tensor:
-    a = torch.einsum("...qhc,...khc->...hqk", query, key)
+    # [*, H, C, K]
+    key = permute_final_dims(key, (1, 0))
+
+    # [*, H, Q, K]
+    a = torch.matmul(query, key)
 
     for b in biases:
         a += b
 
     a = softmax_no_cast(a, -1)
 
-    return torch.matmul(a, value)  # [*, H, Q, C_hidden]
+    # [*, H, Q, C]
+    a = torch.matmul(a, value)
+
+    return a
 
 
 class Attention(nn.Module):
@@ -298,17 +304,17 @@ class Attention(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def _prep_qkv(self, q_x: torch.Tensor, kv_x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # [*, Q/K=V, H * C_hidden]
+        # [*, Q/K=V, H * C]
         q = self.linear_q(q_x)
         k = self.linear_k(kv_x)
         v = self.linear_v(kv_x)
 
-        # [*, Q/K=V, H, C_hidden]
+        # [*, Q/K=V, H, C]
         q = q.view(q.shape[:-1] + (self.num_heads, -1))
         k = k.view(k.shape[:-1] + (self.num_heads, -1))
         v = v.view(v.shape[:-1] + (self.num_heads, -1))
 
-        # [*, H, Q/K=V, C_hidden]
+        # [*, H, Q/K=V, C]
         q = q.transpose(-2, -3)
         k = k.transpose(-2, -3)
         v = v.transpose(-2, -3)
@@ -323,11 +329,11 @@ class Attention(nn.Module):
             g = self.linear_g(q_x)
             g = self.sigmoid(g)
 
-            # [*, Q, H, C_hidden]
-            g = g.view(g.shape[:-1] * (self.num_heads, -1))
+            # [*, Q, H, C]
+            g = g.view(g.shape[:-1] + (self.num_heads, -1))
             o = o * g
 
-        # [*, Q, H * C_hidden]
+        # [*, Q, H * C]
         o = flatten_final_dims(o, 2)
 
         # [*, Q, C_q]
@@ -357,12 +363,10 @@ class Attention(nn.Module):
             Biases valued with `-inf` prevents attention to corresponding positions.
             Therefore the layer doesn't have an attention mask argument.
         """
-
         q, k, v = self._prep_qkv(q_x, kv_x)
 
-        o = _attention(q, k, v, biases)  # [*, H, Q, C_hidden]
-        o = o.transpose(-2, -3)  # [*, Q, H, C_hidden]
-
+        o = _attention(q, k, v, biases)  # [*, H, Q, C]
+        o = o.transpose(-2, -3)  # [*, Q, H, C]
         o = self._wrap_up(o, q_x)  # [*, Q, C_output]
 
         return o
@@ -402,7 +406,7 @@ class GlobalAttention(nn.Module):
         self.linear_k = Linear(self.c_in, self.c_hidden, bias=False, init="glorot")
         self.linear_v = Linear(self.c_in, self.c_hidden, bias=False, init="glorot")
         self.linear_g = Linear(self.c_in, self.c_hidden * self.num_heads, init="gating")
-        self.linear_o = Linear(self.c_output * self.num_heads, self.c_in, init="final")
+        self.linear_o = Linear(self.c_hidden * self.num_heads, self.c_in, init="final")
         self.sigmoid = nn.Sigmoid()
 
     def forward(
@@ -413,52 +417,47 @@ class GlobalAttention(nn.Module):
     ) -> torch.Tensor:
         """
         Args:
-            m:
-                $(*, S, N, C_m)$ A tensor of MSA representation
-            mask:
-                $(*, S, N)$ A MSA mask
-        Return:
-            $(*, S, N, C_m)$ A tensor of column-wise global attention update
+            m: [*, N, S, C_m]
+            mask: [*, N, S]
+        Return: [*, N, S, C_m]
         """
-        # [*, N_seq, N_res, 1]
-        mask = mask[..., None]
-        # [*, N_res, c_in]
-        q = torch.sum(m * mask, dim=-3) / (torch.sum(mask, dim=-3) + self.eps)
-        # [*, N_res, H * C_hidden]
+        # [*, N, C_m]
+        q = torch.sum(m * mask.unsqueeze(-1), dim=-2) / (torch.sum(mask, dim=-1)[..., None] + self.eps)
+
+        # [*, N, H * C]
         q = self.linear_q(q)
         q *= self.c_hidden ** (-0.5)
-        # [*, N_res, H, C_hidden]
+
+        # [*, N, H, C]
         q = q.view(q.shape[:-1] + (self.num_heads, -1))
-        # [*, N_seq, N_res, C_hidden]
+
+        # [*, N, S, C]
         k = self.linear_k(m)
         v = self.linear_v(m)
 
-        # [*, N_seq, N_res, 1]
-        bias = self.inf * (mask - 1)
-        # [*, N_seq, 1, N_res]
-        bias = torch.einsum("bthn->bnht", bias)
+        # [*, N, 1, S]
+        bias = (self.inf * (mask - 1))[..., :, None, :]
 
-        # [*, N_res, H, N_seq]
-        a = torch.einsum("bnhc,btnc->bnht", q, k)
+        # [*, N, H, S]
+        a = torch.matmul(q, k.transpose(-1, -2))  # [*, N, H, C] @ [*, N, C, S]
         a += bias
-        a = softmax_num_cast(a)
+        a = softmax_no_cast(a)
 
-        # [*, N_res, H, C_hidden]
-        o = torch.einsum("bnht,btnh->bnhc", a, v)
+        #  [*, N, H, C]
+        o = torch.matmul(a, v)  # [*, N, H, S] @ [*, N, S, C]
 
-        # [*, N_seq, N_res, H * C_hidden]
-        g = self.linear(m)
-        g = self.sigmoid(g)
-        # [*, N_seq, N_res, H, C_hidden]
+        # [*, N, S, H * C]
+        g = self.sigmoid(self.linear_g(m))
+        # [*, N, S, H, C]
         g = g.view(g.shape[:-1] + (self.num_heads, -1))
 
-        # [*, N_seq, N_res, H, C_hidden]
-        o = torch.einsum("bnhc,bsnhc->bsnhc", o, g)
+        # [*, N, S, H, C]
+        o = o.unsqueeze(-3) * g  # [*, N, 1, H, C] * [*, N, S, H, C]
 
-        # [*, N_seq, N_res, H * C_hidden]
+        # [*, N, S, H * C]
         o = flatten_final_dims(o, 2)
 
-        # [*, N_seq, N_res, C_output]
+        # [*, N, S, C_m]
         m = self.linear_o(o)
 
         return m

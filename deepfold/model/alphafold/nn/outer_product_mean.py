@@ -9,9 +9,10 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from deepfold.distributed.legacy import gather
+from deepfold.distributed.legacy import gather, scatter
 from deepfold.model.alphafold.nn.primitives import Linear
 from deepfold.utils.chunk_utils import chunk_layer
+from deepfold.utils.debug import dump_args
 from deepfold.utils.precision import is_fp16_enabled
 from deepfold.utils.tensor_utils import flatten_final_dims
 
@@ -75,7 +76,7 @@ class OuterProductMean(nn.Module):
             outer = out[0].unsqueeze(0)
         else:
             outer = torch.stack(out, dim=0)
-        outer = outer.reshaep(a.shape[:-3] + outer.shape[1:])
+        outer = outer.reshape(a.shape[:-3] + outer.shape[1:])
 
         return outer
 
@@ -83,6 +84,7 @@ class OuterProductMean(nn.Module):
         self,
         m: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
+        chunk_size: Optional[int] = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -112,7 +114,10 @@ class OuterProductMean(nn.Module):
         a = a.transpose(-2, -3)
         b = b.transpose(-2, -3)
 
-        outer = self._opm(a, b)
+        if chunk_size is None:
+            outer = self._opm(a, b)
+        else:
+            outer = self._chunk(a, b, chunk_size)
 
         # [*, N_res, N_res, 1]
         norm = torch.einsum("...abc,...adc->...bdc", mask, mask)
@@ -123,16 +128,18 @@ class OuterProductMean(nn.Module):
 
         return outer
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
+        chunk_size: Optional[int] = None,
     ) -> torch.Tensor:
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
-                return self._forward(m.float(), mask)
+                return self._forward(m.float(), mask, chunk_size)
         else:
-            return self._forward(m, mask)
+            return self._forward(m, mask, chunk_size)
 
 
 class ParallelOuterProductMean(nn.Module):
@@ -158,9 +165,17 @@ class ParallelOuterProductMean(nn.Module):
         self.linear_2 = Linear(c_m, c_hidden)
         self.linear_out = Linear(c_hidden**2, c_z, init="final")
 
-    def _opm(self, a, b):
+    def _opm(self, a: torch.Tensor, b: torch.Tensor, norm: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            a: [*, N', S, C]
+            b: [*, N, S, C]
+            norm: [*, N', N, 1]
+        Returns:
+            [*, N', N, C_z]
+        """
         # [*, N', N, C, C]
-        outer = torch.einsum("...bac,...dae->...bdce", a, b)
+        outer = torch.einsum("...isc,...jsd->...ijcd", a, b)
 
         # [*, N', N, C * C]
         outer = outer.reshape(outer.shape[:-2] + (-1,))
@@ -168,23 +183,44 @@ class ParallelOuterProductMean(nn.Module):
         # [*, N', N, C_z]
         outer = self.linear_out(outer)
 
+        # [*, N', N, C_z]
+        outer = outer / norm
+
         return outer
 
-    def _chunk(self, a, b_all, chunk_size):
-        # [*, N', N, C_z]
-        outer = torch.zeros(
-            [*a.shape[:-2], *b_all.shape[-2:-1], self.linear_out.out_features],
-            dtype=a.dtype,
-            device=a.dtype,
-        )
+    def _chunk(
+        self,
+        a: torch.Tensor,
+        b_all: torch.Tensor,
+        norm: torch.Tensor,
+        chunk_size: int,
+    ) -> torch.Tensor:
+        """
+        Args:
+            a: [*, N', S, C]
+            b_all: [*, N, S, C]
+            norm: [*, N', N, 1]
+        Returns:
+            [*, N', N, C_z]
+        """
+        outer_shape = (*norm.shape[:-1], self.linear_out.out_features)
 
-        para_dim = a.size(-2)
-        for ax in range(para_dim, chunk_size):
-            a_part = a[..., :, ax : ax + chunk_size, :]
-            o = torch.einsum("...isd,...jse->...ijde", a_part, b_all)
-            o = flatten_final_dims(o, 2)
-            o = self.linear_out(o)
-            outer[..., ax : ax + chunk_size, :, :] = o
+        # [*, N', N, C_z]
+        out = a.new_zeros(outer_shape)  # TODO: Zero?
+        a_reshape = a.view((-1,) + a.shape[-3:])
+        b_reshape = b_all.view((-1,) + b_all.shape[-3:])
+        norm_reshape = norm.view((-1,) + norm.shape[-3:])
+
+        for a_prime, b_prime, norm_prime in zip(a_reshape, b_reshape, norm_reshape):
+            chunk_layer(
+                partial(self._opm, b=b_prime),
+                {"a": a_prime, "norm": norm_prime},
+                chunk_size=chunk_size,
+                num_batch_dims=1,
+                _out=out,
+            )
+
+        return out
 
     def _forward(
         self,
@@ -197,23 +233,26 @@ class ParallelOuterProductMean(nn.Module):
             m:
                 [*, S, N', C_m] MSA embedding
             mask:
-                [*, S, N'] MSA mask
+                [*, S, N] MSA mask
         Returns:
             [*, N', N, C_z] pair embedding update
         """
         if mask is None:
             mask = m.new_ones(m.shape[:-1])
 
+        # [*, S, N']
+        msa_mask_col = scatter(mask, -1)
+
         # [*, S, N', C_m]
         ln = self.layer_norm(m)
 
         # [*, S, N', C]
-        mask = mask.unsqueeze(-1)
         a = self.linear_1(ln)
-        a = a * mask
+        a = a * msa_mask_col.unsqueeze(-1)
 
+        # [*, S, N', C]
         b = self.linear_2(ln)
-        b = b * mask
+        b = b * msa_mask_col.unsqueeze(-1)
         # [*, S, N, C]
         b_all = gather(b, -2)
 
@@ -224,21 +263,18 @@ class ParallelOuterProductMean(nn.Module):
         # [*, N, S, C]
         b_all = b_all.transpose(-2, -3)
 
-        if chunk_size is not None:
-            outer = self._chunk(a, b_all, chunk_size)
-        else:
-            outer = self._opm(a, b_all)
-
-        mask_all = gather(mask, -1)
         # [*, N', N, 1]
-        norm = torch.einsum("...abc,...adc->...bdc", mask, mask_all)
+        norm = torch.einsum("...si,...sj->...ij", msa_mask_col, mask).unsqueeze(-1)
         norm = norm + self.eps
 
-        # [*, N', N, C_z]
-        outer = outer / norm
+        if chunk_size is not None:
+            outer = self._chunk(a, b_all, norm, chunk_size)
+        else:
+            outer = self._opm(a, b_all, norm)
 
         return outer
 
+    @dump_args
     def forward(
         self,
         m: torch.Tensor,
