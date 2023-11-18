@@ -26,6 +26,4 @@ model:
   template:
     enabled: False
     embed_angles: False
-  extra_msa:
-    enabled: False
 #######################
