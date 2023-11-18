@@ -10,7 +10,10 @@ def pad_tensor(
     dim: int,
     pad_size: int,
 ) -> torch.Tensor:
-    pad = [0, 0] * (tensor.ndim - dim)
+    if dim < 0:
+        pad = [0, 0] * -dim
+    else:
+        pad = [0, 0] * (tensor.ndim - dim)
     pad[-1] = pad_size
     return torch.nn.functional.pad(tensor, pad, mode="constant", value=0.0)
 
