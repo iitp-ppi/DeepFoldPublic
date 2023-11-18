@@ -190,7 +190,7 @@ def gather(input: Tensor, dim: int = -1) -> Tensor:
     return input
 
 
-# Synchronized transpose routines (All to All)
+# Transpose routines (All to All)
 
 
 def _all_to_all_sync(tensor: Tensor, in_dim: int, out_dim: int) -> Tensor:
@@ -237,111 +237,35 @@ class All_to_All(torch.autograd.Function):
         return _all_to_all_sync(grad_output, in_dim=out_dim, out_dim=in_dim), None, None
 
 
-# Synchronized Broadcast
+# Broadcast
 
 
-@dump_args
-def broadcast_sync(src_rank: int, tensor: Tensor, host: bool) -> Tensor:
-    """
-    Broadcasts the tensor to the whole group.
-
-    Args:
-        src_rank (int):
-            Local source rank.
-        tensor (Tensor):
-            Data to be sent.
-    Returns:
-        None if src.
-        Tensor if not src.
-    """
+def _broadcast(tensor: Tensor, root_rank: int) -> Tensor:
     if _alone():
-        return None
+        return tensor
 
-    if host:
-        dist.broadcast(tensor, src_rank, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
-        return None
+    if get_tensor_model_parallel_rank() == root_rank:
+        out = tensor
+        dist.broadcast(tensor, root_rank, TENSOR_MODEL_PARALLEL_GROUP)
     else:
-        out = torch.empty_like(tensor)
-        dist.broadcast(out, src=src_rank, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
-        return out
+        out = tensor.new_empty(tensor.shape)
+        dist.broadcast(out, root_rank, TENSOR_MODEL_PARALLEL_GROUP)
+
+    return out
 
 
-# Asynchronous Broadcast
-
-
-def broadcast_async_begin(src_rank: int, tensor: Tensor, host: bool) -> _AsyncHandle:
-    if _alone():
-        return None
-
-    if host:
-        work = dist.broadcast(tensor, src=src_rank, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=True)
-    else:
-        work = dist.broadcast(tensor, src=src_rank, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=True)
-    return work
-
-
-def broadcast_async_end(work: _AsyncHandle) -> None:
-    if work:
-        work.wait()
-
-
-# Asynchronous All-Gather
-
-
-def _gather_async(tensor: Tensor, dim: int = -1) -> Tuple[Tensor, _AsyncHandle]:
-    if _alone():
-        return tensor, None
-
-    world_size = get_tensor_model_parallel_world_size()
-    output_shape = list(tensor.shape)
-    dim = dim % tensor.ndim
-    output_shape[dim] *= world_size
-    output = torch.empty(output_shape, dtype=tensor.dtype, device=tensor.device)
-    tensor_list = output.chunk(world_size, dim=dim)
-    tensor_list = [tensor.contiguous() for tensor in tensor_list]
-
-    # Async all-gather
-    work = dist.all_gather(list(tensor_list), tensor, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=True)
-
-    return output, work
-
-
-class GatherAsyncBegin(torch.autograd.Function):
+class Broadcast(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Any, input: Tensor, dim: int = -1) -> Tuple[Tensor, _AsyncHandle]:
-        ctx._dim = dim
-        return _gather_async(input, dim=dim)
+    def forward(ctx: Any, tensor: Tensor, root_rank: int):
+        ctx._root_rank = root_rank
+        return _broadcast(tensor, root_rank)
 
-    @staticmethod
-    def backward(ctx: Any, grad_output: Tensor, grad_work=None) -> Tuple[Tensor]:
-        dim = ctx._dim
-        return _split(grad_output, dim=dim).squeeze(dim=dim), None
-
-
-class GatherAsyncEnd(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx: Any, input: Tensor) -> Tensor:
-        # ctx._dim = dim
-        return input
-
-    @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor]:
-        return grad_output, None
+    def backward(ctx: Any, grad_output):
+        grad_reduced = _reduce(grad_output, op="sum")  # TODO: Isn't it 'mean'?
+        if get_tensor_model_parallel_rank() != ctx._root_rank:
+            grad_reduced *= 0
+        return grad_reduced, None
 
 
-def gather_async_begin(input: Tensor, dim: int = -1) -> Tuple[Tensor, _AsyncHandle]:
-    if torch.is_grad_enabled() and input.requires_grad:
-        input, work = GatherAsyncBegin.apply(input, dim)
-    else:
-        input, work = _gather_async(input, dim=dim)
-    return input, work
-
-
-def gather_async_end(input: List[Tensor], work: _AsyncHandle) -> Tensor:
-    if work:
-        work.wait()
-    if torch.is_grad_enabled() and input[0].requires_grad:
-        output = GatherAsyncEnd.apply(input)
-    else:
-        output = input
-    return output
+def broadcast(tensor: Tensor, root_rank: int) -> Tensor:
+    return Broadcast.apply(tensor, root_rank)

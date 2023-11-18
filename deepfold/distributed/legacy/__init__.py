@@ -3,19 +3,7 @@
 
 from torch.distributed import barrier, is_initialized
 
-from deepfold.distributed.legacy.comm import (
-    broadcast_async_begin,
-    broadcast_async_end,
-    broadcast_sync,
-    col_to_row,
-    gather,
-    gather_async_begin,
-    gather_async_end,
-    identity,
-    reduce,
-    row_to_col,
-    scatter,
-)
+from deepfold.distributed.legacy.comm import broadcast, col_to_row, gather, identity, reduce, row_to_col, scatter
 from deepfold.distributed.legacy.core import (
     DATA_PARALLEL_GROUP,
     TENSOR_MODEL_PARALLEL_GROUP,
@@ -33,13 +21,9 @@ from deepfold.distributed.legacy.shard import get_pad_size, pad_tensor
 __all__ = [
     "barrier",
     "is_initialized",
-    "broadcast_async_begin",
-    "broadcast_async_end",
-    "broadcast_sync",
+    "broadcast",
     "col_to_row",
     "gather",
-    "gather_async_begin",
-    "gather_async_end",
     "identity",
     "reduce",
     "row_to_col",
