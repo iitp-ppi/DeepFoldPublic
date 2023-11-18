@@ -210,7 +210,7 @@ def ensembled_transform_fns(
     crop_feats = dict(feat_cfg.features)
 
     if mode_cfg.fixed_size:
-        transforms.append(dt.select_feat(list(crop_feats)))
+        transforms.append(dt.select_features(list(crop_feats)))
         transforms.append(
             dt.random_crop_to_size(
                 mode_cfg.crop_size,

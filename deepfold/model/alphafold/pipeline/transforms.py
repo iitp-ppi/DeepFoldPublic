@@ -574,7 +574,7 @@ def make_atom14_masks(p: TensorDict) -> TensorDict:
     p["residx_atom14_to_atom37"] = residx_atom14_to_atom37.long()
 
     # Create the gather indices for mapping back
-    residx_atom37_to_atom14 = residx_atom14_mask
+    residx_atom37_to_atom14 = restype_atom37_to_atom14[protein_aatype]
     p["residx_atom37_to_atom14"] = residx_atom37_to_atom14.long()
 
     # Create the corresponding mask
