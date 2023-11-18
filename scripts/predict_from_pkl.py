@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import pickle
+import random
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -15,11 +16,11 @@ from omegaconf import DictConfig
 
 import deepfold.distributed.legacy as dist
 from deepfold.apps.config import load as load_config
+from deepfold.common import protein
 from deepfold.model.alphafold.pipeline.monomer_pipeline import FeaturePipeline
 from deepfold.model.alphafold.pipeline.types import FeatureDict
 from deepfold.model.alphafold.utils.script_utils import load_alphafold, prep_output
 from deepfold.utils.tensor_utils import tensor_tree_map
-from deepfold.common import protein
 
 DEBUG_MODE = "DEBUG" in os.environ and os.environ["DEBUG"] != "0"
 
@@ -105,7 +106,17 @@ def predict_structure(
 
     logger.info(f"Predict target '{name}'")
     logger.info(f"Random seed {random_seed}")
-    logger.info("")
+
+    random.seed(random_seed)
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+
+    deterministic = True
+    if deterministic:
+        logger.info("Deterministic mode enabled")
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
     # Output directory
     output_dir = output_dir_base / name
