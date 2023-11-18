@@ -88,7 +88,6 @@ def stacked(param_dict_list, out=None):
 
 
 def assign(translation_dict, orig_weights):
-    logger.debug("Assign JAX parameters to the model")
     for k, param in translation_dict.items():
         with torch.no_grad():
             weights = torch.as_tensor(orig_weights[k])
@@ -425,10 +424,10 @@ def import_jax_weights_(
     missing = [k for k in keys if k not in flat_keys]
 
     for x in incorrect:
-        logging.debug(f"Incorrect: {x}")
+        logger.debug(f"Incorrect: {x}")
 
     for x in missing:
-        logging.debug(f"Missing: {x}")
+        logger.debug(f"Missing: {x}")
 
     assert len(incorrect) == 0
     # assert(sorted(list(flat.keys())) == sorted(list(data.keys())))

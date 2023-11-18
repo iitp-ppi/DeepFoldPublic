@@ -22,7 +22,6 @@ def load_alphafold(
     model = model.eval()
     import_jax_weights_(model, npz_path, version=config.info.version)
     model = model.to(device=device)
-    # logger.info(f"Successfully loaded JAX parameters at {npz_path}")
 
     return model
 
