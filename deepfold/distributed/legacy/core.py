@@ -1,13 +1,15 @@
 # Copyright 2023 Deepfold Team
 
+import logging
 import os
 from typing import Optional
 
 import torch
-import torch.distributed.distributed_c10d as dist
-from torch.distributed import barrier, is_initialized
+import torch.distributed as dist
 
 _Group = Optional[dist.ProcessGroup]
+
+logger = logging.getLogger(__name__)
 
 # Data parallel group that the current rank belongs to.
 DATA_PARALLEL_GROUP: _Group = None
@@ -26,7 +28,6 @@ def _ensure_divisibility(n: int, d: int) -> None:
 def init_distributed(
     tensor_model_parallel_size: Optional[int] = None,
     random_seed: int = 12345,
-    devcie_id: Optional[int] = None,
 ) -> None:
     """
     Initialize the distributed environment.
@@ -41,14 +42,18 @@ def init_distributed(
 
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     rank = int(os.environ.get("RANK", 0))
-
-    # world_size = dist.get_world_size()
-    # rank = dist.get_global_rank()
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    # master_addr = os.environ["MASTER_ADDR"]
+    # master_port = int(os.environ["MASTER_PORT"])
 
     if tensor_model_parallel_size is None:
         tensor_model_parallel_size = 1
 
-    dist.init_process_group(backend="nccl", world_size=world_size, rank=rank)
+    dist.init_process_group(
+        backend="nccl",
+        world_size=world_size,
+        rank=rank,
+    )
 
     if tensor_model_parallel_size is None:
         tensor_model_parallel_size = dist.get_world_size()
@@ -79,12 +84,14 @@ def init_distributed(
             TENSOR_MODEL_PARALLEL_GROUP = group
 
     if world_size > 1:
-        if devcie_id is None:
-            devcie_id = int(os.environ.get("LOCAL_RANK", 0))
+        devcie_id = local_rank
+        logger.debug(f"[{rank}] Set CUDA device to {devcie_id}")
         torch.cuda.set_device(device=devcie_id)
-        torch.manual_seed(random_seed)
-        torch.cuda.manual_seed(random_seed)
-        torch.cuda.synchronize()
+
+    logger.debug(f"[{rank}] Set random seed to {random_seed}")
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    torch.cuda.synchronize()
 
 
 def get_tensor_model_parallel_group():

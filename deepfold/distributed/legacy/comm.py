@@ -12,6 +12,7 @@ from deepfold.distributed.legacy.core import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
+from deepfold.utils.debug import dump_args
 
 _AsyncHandle = Optional[dist.Work]
 
@@ -77,11 +78,9 @@ def _gather(tensor: Tensor, dim: int = -1) -> Tensor:
 
     # Allocate a buffer.
     tensor_list = [torch.empty_like(tensor) for _ in range(get_tensor_model_parallel_world_size())]
-    # for x in tensor_list:
-    # x.unsqueeze_(dim=dim)
-
+    tensor = tensor.contiguous()
     # All-gather.
-    dist.all_gather(tensor_list, tensor.contiguous(), group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
+    dist.all_gather(tensor_list, tensor, group=TENSOR_MODEL_PARALLEL_GROUP, async_op=False)
     # Target dimension will be expanded.
     out = torch.cat(tensor_list, dim=dim)
 
@@ -106,6 +105,7 @@ class Identity(torch.autograd.Function):
         return _reduce(grad_output)
 
 
+@dump_args
 def identity(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Identity.apply(input)
@@ -132,6 +132,7 @@ class Scatter(torch.autograd.Function):
         return _gather(grad_output, dim=dim), None
 
 
+@dump_args
 def scatter(input: Tensor, dim: int = -1) -> Tensor:
     """
     Scatter a tensor.
@@ -156,6 +157,7 @@ class Reduce(torch.autograd.Function):
         return grad_output
 
 
+@dump_args
 def reduce(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Reduce.apply(input)
@@ -179,6 +181,7 @@ class Gather(torch.autograd.Function):
         return _split(grad_output, dim=dim), None
 
 
+@dump_args
 def gather(input: Tensor, dim: int = -1) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Gather.apply(input, dim)
@@ -202,6 +205,7 @@ def _all_to_all_sync(tensor: Tensor, in_dim: int, out_dim: int) -> Tensor:
     return torch.cat(tensor_list, dim=out_dim)
 
 
+@dump_args
 def col_to_row(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -3, -2)
@@ -210,6 +214,7 @@ def col_to_row(input: Tensor) -> Tensor:
     return input
 
 
+@dump_args
 def row_to_col(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -2, -3)
@@ -235,6 +240,7 @@ class All_to_All(torch.autograd.Function):
 # Synchronized Broadcast
 
 
+@dump_args
 def broadcast_sync(src_rank: int, tensor: Tensor, host: bool) -> Tensor:
     """
     Broadcasts the tensor to the whole group.

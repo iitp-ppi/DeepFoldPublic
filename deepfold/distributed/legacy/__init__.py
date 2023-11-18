@@ -1,6 +1,8 @@
 # Copyright 2023 Deepfold Team
 
 
+from torch.distributed import barrier, is_initialized
+
 from deepfold.distributed.legacy.comm import (
     broadcast_async_begin,
     broadcast_async_end,
@@ -17,7 +19,6 @@ from deepfold.distributed.legacy.comm import (
 from deepfold.distributed.legacy.core import (
     DATA_PARALLEL_GROUP,
     TENSOR_MODEL_PARALLEL_GROUP,
-    barrier,
     get_data_parallel_group,
     get_data_parallel_rank,
     get_data_parallel_world_size,
@@ -26,11 +27,12 @@ from deepfold.distributed.legacy.core import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
     init_distributed,
-    is_initialized,
 )
 from deepfold.distributed.legacy.shard import get_pad_size, pad_tensor
 
 __all__ = [
+    "barrier",
+    "is_initialized",
     "broadcast_async_begin",
     "broadcast_async_end",
     "broadcast_sync",
@@ -44,7 +46,6 @@ __all__ = [
     "scatter",
     "DATA_PARALLEL_GROUP",
     "TENSOR_MODEL_PARALLEL_GROUP",
-    "barrier",
     "get_data_parallel_group",
     "get_data_parallel_rank",
     "get_data_parallel_world_size",
@@ -53,7 +54,6 @@ __all__ = [
     "get_tensor_model_parallel_rank",
     "get_tensor_model_parallel_world_size",
     "init_distributed",
-    "is_initialized",
     "get_pad_size",
     "pad_tensor",
     "get_rank",
