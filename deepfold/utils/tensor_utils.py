@@ -53,7 +53,7 @@ def dict_multimap(fn: Callable, dicts: List[Dict[Any, Any]]) -> Dict[Any, Any]:
     return new_dict
 
 
-def batched_gather(data: torch.Tensor, inds: List[int], dim: int = 0, num_batch_dims: int = 0) -> torch.Tensor:
+def batched_gather(data: torch.Tensor, inds: torch.Tensor, dim: int = 0, num_batch_dims: int = 0) -> torch.Tensor:
     ranges = []
     for i, s in enumerate(data.shape[:num_batch_dims]):
         r = torch.arange(s)

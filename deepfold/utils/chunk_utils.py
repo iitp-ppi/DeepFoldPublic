@@ -158,7 +158,7 @@ def _chunk_slice(
     """
     Equivalent to
 
-        t.reshape((-1,) + t.shape[no_batch_dims:])[flat_start:flat_end]
+        t.reshape((-1,) + t.shape[num_batch_dims:])[flat_start:flat_end]
 
     but without the need for the initial reshape call, which can be
     memory-intensive in certain situations. The only reshape operations
@@ -207,7 +207,7 @@ def chunk_layer(
             be tensors and must share the same batch dimensions.
         chunk_size:
             The number of sub-batches per chunk.
-        no_batch_dims:
+        num_batch_dims:
             How many of the initial dimensions of each input tensor can
             be considered batch dimensions.
         low_mem:
@@ -256,7 +256,7 @@ def chunk_layer(
                 _chunk_slice,
                 flat_start=i,
                 flat_end=min(flat_batch_dim, i + chunk_size),
-                no_batch_dims=len(orig_batch_dims),
+                num_batch_dims=len(orig_batch_dims),
             )
 
         chunks = tensor_tree_map(select_chunk, prepped_inputs)
