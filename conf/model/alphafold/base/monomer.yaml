@@ -157,7 +157,7 @@ model:
     c_t: 64
     c_e: 64
     c_s: 384
-    chunk_size: 32
+    chunk_size: 4
     attention: torch # torch, memeff, flash
 
   input_embedder:
