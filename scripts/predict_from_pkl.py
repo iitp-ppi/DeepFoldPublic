@@ -138,10 +138,10 @@ def predict_structure(
     logger.debug("")
 
     # Process features
-    if "template_position_masks" in feature_dict:
-        logger.debug("Key 'template_position_masks' found in input features. Rename to 'template_position_mask'")
-        feature_dict["template_position_mask"] = feature_dict["template_position_masks"]
-        del feature_dict["template_position_masks"]
+    if "template_all_atom_masks" in feature_dict:
+        logger.debug("Key 'template_all_atom_masks' found in input features. Rename to 'template_all_atom_mask'")
+        feature_dict["template_all_atom_mask"] = feature_dict["template_all_atom_masks"]
+        del feature_dict["template_all_atom_masks"]
     processed_feature_dict = FeaturePipeline(config.data).process(feature_dict, mode="predict")
     processed_feature_dict = {k: torch.as_tensor(v, device="cpu") for k, v in processed_feature_dict.items()}
 
@@ -241,8 +241,7 @@ def main():
     )
     parser.add_argument(
         "--deterministic",
-        type=bool,
-        action="store_true",
+        action="store_false",
         help="Turn on deterministic mode",
     )
     parser.add_argument(
@@ -264,12 +263,18 @@ def main():
     if random_seed is None:
         random_seed = random.randrange(2**32)
 
-    ngpus = args.nrpocs
-    cuda_devices = os.environ["CUDA_VISIBLE_DEVICES"]
+    ngpus = args.nprocs
+
+    cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "ALL")
     if cuda_devices == "ALL":
         total_gpus = torch.cuda.device_count()
-        if ngpus > total_gpus:
-            raise RuntimeError(f"Number of GPUSs required ({ngpus}) is larger than total number of GPUs ({total_gpus})")
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(i) for i in range(total_gpus))
+
+    devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+    total_gpus = len(devices)
+
+    if ngpus > total_gpus:
+        raise RuntimeError(f"Number of GPUSs required ({ngpus}) is larger than total number of GPUs ({total_gpus})")
 
     predict_structure(
         config=cfg,
