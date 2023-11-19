@@ -55,6 +55,10 @@ python3 \
 - Turn off IOMMU(Input/Output Memory Management Unit) on BIOS to use RDMA/GPUDirect (if your system supports).
 - You can ACS temporarily by run `scripts/disable_acs.sh` with root permission.
 
+### Environmental variabes
+
+- Set `DEBUG=1` to show debug messages.
+
 ## Training
 
 TBA
