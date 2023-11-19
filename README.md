@@ -17,7 +17,7 @@
 ## Setup
 
 ```bash
-git@github.com:DeepFoldProtein/DeepFold.git
+git clone git@github.com:DeepFoldProtein/DeepFold.git
 cd DeepFold
 conda create -f envrionemnt.yml
 ```
@@ -61,4 +61,3 @@ TBA
 ## Copyright
 
 Copyright 2023 DeepFold Protein Research Team
-s
