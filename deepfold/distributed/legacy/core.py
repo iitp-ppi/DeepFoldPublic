@@ -28,6 +28,7 @@ def _ensure_divisibility(n: int, d: int) -> None:
 def init_distributed(
     tensor_model_parallel_size: Optional[int] = None,
     random_seed: int = 12345,
+    device_id: Optional[int] = None,
 ) -> None:
     """
     Initialize the distributed environment.
@@ -84,9 +85,10 @@ def init_distributed(
             TENSOR_MODEL_PARALLEL_GROUP = group
 
     if world_size > 1:
-        devcie_id = local_rank
-        logger.debug(f"[{rank}] Set CUDA device to {devcie_id}")
-        torch.cuda.set_device(device=devcie_id)
+        if device_id is None:
+            device_id = local_rank
+        logger.debug(f"[{rank}] Set CUDA device to {device_id}")
+        torch.cuda.set_device(device=device_id)
 
     logger.debug(f"[{rank}] Set random seed to {random_seed}")
     torch.manual_seed(random_seed)
