@@ -43,8 +43,8 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     os.environ["RANK"] = str(local_rank)
     os.environ["LOCAL_RANK"] = str(local_rank)
     os.environ["WORLD_SIZE"] = str(world_size)
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = str(32521)
+    os.environ["MASTER_ADDR"] = kwargs["MASTER_ADDR"]
+    os.environ["MASTER_PORT"] = str(kwargs["MASTER_PORT"])
 
     cuda_devices = [int(s) for s in os.environ["CUDA_VISIBLE_DEVICES"].split(",")]
     device_id = cuda_devices[local_rank]
@@ -170,6 +170,8 @@ def predict_structure(
                 "processed_feature_dict": processed_feature_dict,
                 "random_seed": random_seed,
                 "world_size": world_size,
+                "MASTER_ADDR": "localhost",
+                "MASTER_PORT": random.randrange(2**16),
             }
         ],
         nprocs=world_size,
