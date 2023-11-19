@@ -1,0 +1,28 @@
+include:
+  - base/monomer.yaml
+
+info:
+  version: model_3
+  params_name: params_model_3.npz
+
+globals:
+  tm_enabled: False
+  use_template: False
+  use_template_torsion_angles: False
+
+# Jumper et al. (2021) Suppl. Table 5, Model 1.2.1
+data:
+  train:
+    max_extra_msa: 5120
+  predict:
+    max_extra_msa: 5120
+  feat:
+    use_templates: False
+    use_template_torsion_angles: False
+
+###### TEST ONLY ######
+model:
+  template:
+    enabled: False
+    embed_angles: False
+#######################

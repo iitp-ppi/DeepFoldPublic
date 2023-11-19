@@ -1,0 +1,24 @@
+include:
+  - base/monomer.yaml
+
+info:
+  version: model_5s
+  params_name: params_model_5.npz
+
+globals:
+  tm_enabled: False
+  use_template: True
+  use_template_torsion_angles: True
+
+# Jumper et al. (2021) Suppl. Table 5, Model 1.2.3
+data:
+  feat:
+    use_templates: False
+    use_template_torsion_angles: False
+
+###### TEST ONLY ######
+model:
+  template:
+    enabled: False
+    embed_angles: False
+#######################
