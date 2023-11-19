@@ -256,6 +256,7 @@ def main():
     output_dir_base = Path(args.output_dir)
     jax_params_dir = Path(args.jax_params_dir)
 
+    logger.info(f"Load features from '{args.features}'")
     with open(args.features, "rb") as fp:
         feature_dict = pickle.load(fp)
 
