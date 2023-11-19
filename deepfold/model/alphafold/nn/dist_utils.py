@@ -127,6 +127,9 @@ class GatherOutputs(nn.Module):
         fn("distogram_logits", Shard(-3))
         fn("masked_msa_logits", Shard(-2))
         fn("experimentally_resolved_logits", Shard(-2))
+        if self.config.heads.tm.enabled:
+            fn("tm_logits", Shard(-2))
+            fn("predicted_tm_score", Shard(-1))
 
         # Structure module
         fn = partial(self._collect_and_pad, batch=batch["sm"])
