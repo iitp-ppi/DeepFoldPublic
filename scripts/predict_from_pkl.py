@@ -146,7 +146,7 @@ def predict_structure(
     processed_feature_dict = {k: torch.as_tensor(v, device="cpu") for k, v in processed_feature_dict.items()}
 
     processed_feature_path = output_dir / "processed.pkl"
-    logger.info("Write processed features to '{processed_feature_path}'")
+    logger.info(f"Write processed features to '{processed_feature_path}'")
     with open(processed_feature_path, "wb") as fp:
         pickle.dump(processed_feature_dict, fp)
 
