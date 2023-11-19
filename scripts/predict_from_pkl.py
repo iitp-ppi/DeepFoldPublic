@@ -46,7 +46,16 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(32521)
 
-    dist.init_distributed(tensor_model_parallel_size=world_size, random_seed=random_seed)
+    cuda_devices = [int(s) for s in os.environ["CUDA_VISIBLE_DEVICES"].split(",")]
+    device_id = cuda_devices[local_rank]
+
+    dist.init_distributed(
+        tensor_model_parallel_size=world_size,
+        random_seed=random_seed,
+        device_id=device_id,
+    )
+    assert dist.is_initialized()
+    assert dist.is_nccl_available()
 
     with torch.no_grad():
         model = load_alphafold(config=kwargs["config"], params_dir=kwargs["params_dir"], device="cuda")
@@ -218,10 +227,23 @@ def main():
         help="Path to JAX parameters directory",
     )
     parser.add_argument(
-        "--nproc",
+        "--nprocs",
         "-nt",
         type=int,
         default=1,
+        help="How many GPUs to use",
+    )
+    parser.add_argument(
+        "--deterministic",
+        type=bool,
+        action="store_true",
+        help="Turn on deterministic mode",
+    )
+    parser.add_argument(
+        "--data_random_seed",
+        type=int,
+        default=None,
+        help="Random seed for preprocess input features",
     )
     args = parser.parse_args()
 
@@ -232,12 +254,24 @@ def main():
     with open(args.features, "rb") as fp:
         feature_dict = pickle.load(fp)
 
+    random_seed = args.data_random_seed
+    if random_seed is None:
+        random_seed = random.randrange(2**32)
+
+    ngpus = args.nrpocs
+    cuda_devices = os.environ["CUDA_VISIBLE_DEVICES"]
+    if cuda_devices == "ALL":
+        total_gpus = torch.cuda.device_count()
+        if ngpus > total_gpus:
+            raise RuntimeError(f"Number of GPUSs required ({ngpus}) is larger than total number of GPUs ({total_gpus})")
+
     predict_structure(
         config=cfg,
         feature_dict=feature_dict,
         output_dir_base=output_dir_base,
         params_dir=jax_params_dir,
-        world_size=args.nproc,
+        random_seed=random_seed,
+        world_size=args.nprocs,
     )
 
 
