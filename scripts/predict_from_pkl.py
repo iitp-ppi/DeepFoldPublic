@@ -138,10 +138,16 @@ def predict_structure(
     logger.debug("")
 
     # Process features
+    if "template_position_masks" in feature_dict:
+        logger.debug("Key 'template_position_masks' found in input features. Rename to 'template_position_mask'")
+        feature_dict["template_position_mask"] = feature_dict["template_position_masks"]
+        del feature_dict["template_position_masks"]
     processed_feature_dict = FeaturePipeline(config.data).process(feature_dict, mode="predict")
     processed_feature_dict = {k: torch.as_tensor(v, device="cpu") for k, v in processed_feature_dict.items()}
 
-    with open(output_dir / "processed.pkl", "wb") as fp:
+    processed_feature_path = output_dir / "processed.pkl"
+    logger.info("Write processed features to '{processed_feature_path}'")
+    with open(processed_feature_path, "wb") as fp:
         pickle.dump(processed_feature_dict, fp)
 
     logger.debug("Processesd features:")
