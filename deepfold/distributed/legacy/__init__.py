@@ -1,7 +1,7 @@
 # Copyright 2023 Deepfold Team
 
 
-from torch.distributed import barrier, is_initialized
+from torch.distributed import barrier, is_initialized, is_nccl_available
 
 from deepfold.distributed.legacy.comm import broadcast, col_to_row, gather, identity, reduce, row_to_col, scatter
 from deepfold.distributed.legacy.core import (
@@ -21,6 +21,7 @@ from deepfold.distributed.legacy.shard import get_pad_size, pad_tensor
 __all__ = [
     "barrier",
     "is_initialized",
+    "is_nccl_available",
     "broadcast",
     "col_to_row",
     "gather",

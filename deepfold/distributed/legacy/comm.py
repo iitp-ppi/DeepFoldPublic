@@ -244,14 +244,15 @@ def _broadcast(tensor: Tensor, root_rank: int) -> Tensor:
     if _alone():
         return tensor
 
-    if get_tensor_model_parallel_rank() == root_rank:
-        out = tensor
-        dist.broadcast(tensor, root_rank, TENSOR_MODEL_PARALLEL_GROUP)
-    else:
-        out = tensor.new_empty(tensor.shape)
-        dist.broadcast(out, root_rank, TENSOR_MODEL_PARALLEL_GROUP)
+    dist.broadcast(
+        tensor,
+        root_rank,
+        group=TENSOR_MODEL_PARALLEL_GROUP,
+        async_op=False,
+    )
+    # dist.barrier(group=TENSOR_MODEL_PARALLEL_GROUP)
 
-    return out
+    return tensor
 
 
 class Broadcast(torch.autograd.Function):
@@ -267,5 +268,10 @@ class Broadcast(torch.autograd.Function):
         return grad_reduced, None
 
 
+@dump_args
 def broadcast(tensor: Tensor, root_rank: int) -> Tensor:
-    return Broadcast.apply(tensor, root_rank)
+    if torch.is_grad_enabled() and tensor.requires_grad:
+        tensor = Broadcast.apply(tensor, root_rank)
+    else:
+        tensor = _broadcast(tensor, root_rank)
+    return tensor
