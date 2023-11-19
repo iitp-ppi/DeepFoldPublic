@@ -36,7 +36,7 @@ class TestTriangularMultiplicativeUpdate(unittest.TestCase):
 
         self.assertTrue(shape_before == shape_after)
 
-    def _tri_mul_compare(self, incoming=False):
+    def _tri_mul_compare(self, incoming=False, chunk_size=None):
         name = "triangle_multiplication_" + ("incoming" if incoming else "outgoing")
 
         def run_tri_mul(pair_act, pair_mask):
@@ -87,9 +87,10 @@ class TestTriangularMultiplicativeUpdate(unittest.TestCase):
         out_repro = tri_mul(
             torch.as_tensor(pair_act, dtype=torch.float32).cuda(),
             mask=torch.as_tensor(pair_mask, dtype=torch.float32).cuda(),
+            chunk_size=chunk_size,
         ).cpu()
 
-        self.assertTrue(torch.mean(torch.abs(out_gt - out_repro)) < consts.eps)
+        self.assertTrue(torch.max(torch.abs(out_gt - out_repro)) < consts.eps * 0.5)
 
     def test_tri_mul_out_compare(self):
         self._tri_mul_compare(incoming=False)
@@ -97,11 +98,11 @@ class TestTriangularMultiplicativeUpdate(unittest.TestCase):
     def test_tri_mul_in_compare(self):
         self._tri_mul_compare(incoming=True)
 
-    # def test_tri_mul_out_chunk(self):
-    #     self._tri_mul_compare(incoming=False, chunk_size=32)
+    def test_tri_mul_out_chunk(self):
+        self._tri_mul_compare(incoming=False, chunk_size=4)
 
-    # def test_tri_mul_in_chunk(self):
-    #     self._tri_mul_compare(incoming=True, chunk_size=32)
+    def test_tri_mul_in_chunk(self):
+        self._tri_mul_compare(incoming=True, chunk_size=4)
 
 
 if __name__ == "__main__":
