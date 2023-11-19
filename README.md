@@ -17,9 +17,10 @@
 ## Setup
 
 ```bash
-git clone git@github.com:DeepFoldProtein/DeepFold.git
-cd DeepFold
-conda create -f envrionemnt.yml
+git clone git@github.com:DeepFoldProtein/DeepFold.git   # Clone the repository
+cd DeepFold                                             # Change directory
+conda create -f envrionemnt.yml                         # Construct Conda environment
+pip install -e .                                        # Build and install the package
 ```
 
 ## Inference
