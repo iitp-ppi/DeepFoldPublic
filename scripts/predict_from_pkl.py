@@ -114,6 +114,7 @@ def predict_structure(
             name = "protein"
 
     logger.info(f"Predict target '{name}'")
+    logger.info(f"Use model version '{config.info.version}")
     logger.info(f"Random seed {random_seed}")
 
     random.seed(random_seed)
