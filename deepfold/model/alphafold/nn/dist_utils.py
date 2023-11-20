@@ -72,7 +72,7 @@ class ScatterFeatures(nn.Module):
         WORLD_SIZE = get_world_size()  # Model parallel group size
 
         for key, dim in SHARDING_STRATEGIES.items():
-            if dim is None:
+            if (dim is None) or (key not in batch):
                 continue
 
             x = batch[key]

@@ -3,7 +3,7 @@
 # Copyright 2021 DeepMind Technologies Limited
 
 from functools import partial
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -161,7 +161,7 @@ class EvoformerBlock(nn.Module):
         self,
         c_m: int,
         c_z: int,
-        c_hidden_msa_att: int,
+        c_hidden_msa_attn: int,
         c_hidden_opm: int,
         c_hidden_mul: int,
         c_hidden_pair_attn: int,
@@ -178,7 +178,7 @@ class EvoformerBlock(nn.Module):
         self.msa = MSACore(
             c_m,
             c_z,
-            c_hidden_msa_att,
+            c_hidden_msa_attn,
             num_heads_msa,
             transition_n,
             msa_dropout,
@@ -276,13 +276,13 @@ class EvoformerStack(nn.Module):
                 MSA channel dimension
             c_z:
                 Pair channel dimension
-            c_hidden_msa_att:
+            c_hidden_msa_attn:
                 Hidden dimension in MSA attention
             c_hidden_opm:
                 Hidden dimension in outer product mean module
             c_hidden_mul:
                 Hidden dimension in multiplicative updates
-            c_hidden_pair_att:
+            c_hidden_pair_attn:
                 Hidden dimension in triangular attention
             c_s:
                 Channel dimension of the output "single" embedding
@@ -317,7 +317,7 @@ class EvoformerStack(nn.Module):
             block = EvoformerBlock(
                 c_m=c_m,
                 c_z=c_z,
-                c_hidden_msa_att=c_hidden_msa_attn,
+                c_hidden_msa_attn=c_hidden_msa_attn,
                 c_hidden_opm=c_hidden_opm,
                 c_hidden_mul=c_hidden_mul,
                 c_hidden_pair_attn=c_hidden_pair_attn,

@@ -17,8 +17,8 @@ from deepfold.common.residue_constants import (
     restype_rigid_group_default_frame,
 )
 from deepfold.distributed.legacy import gather, scatter
+from deepfold.model.alphafold.feats import frames_and_literature_positions_to_atom14_pos, torsion_angles_to_frames
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear, ipa_point_weights_init_
-from deepfold.model.alphafold.utils.feats import frames_and_literature_positions_to_atom14_pos, torsion_angles_to_frames
 from deepfold.utils.debug import dump_args
 from deepfold.utils.geometry import Rigid, Rotation
 from deepfold.utils.precision import is_fp16_enabled

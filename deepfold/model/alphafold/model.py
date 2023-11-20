@@ -10,6 +10,13 @@ from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
 from deepfold.distributed.legacy import get_tensor_model_parallel_world_size
+from deepfold.model.alphafold.feats import (
+    atom14_to_atom37,
+    build_extra_msa_feat,
+    build_template_angle_feat,
+    build_template_pair_feat,
+    pseudo_beta_fn,
+)
 from deepfold.model.alphafold.nn.dist_utils import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
@@ -21,14 +28,8 @@ from deepfold.model.alphafold.nn.embedders import (
 from deepfold.model.alphafold.nn.evoformer import EvoformerStack, ExtraMSAStack
 from deepfold.model.alphafold.nn.heads import AuxiliaryHeads
 from deepfold.model.alphafold.nn.structure_module import StructureModule
+from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
 from deepfold.model.alphafold.pipeline.types import TensorDict
-from deepfold.model.alphafold.utils.feats import (
-    atom14_to_atom37,
-    build_extra_msa_feat,
-    build_template_angle_feat,
-    build_template_pair_feat,
-    pseudo_beta_fn,
-)
 from deepfold.utils.tensor_utils import tensor_tree_map
 
 
@@ -105,7 +106,7 @@ class AlphaFold(nn.Module):
         for i in range(n_templ):
             idx = batch["template_aatype"].new_tensor(i)
             single_template_feats = tensor_tree_map(
-                lambda t: torch.index_select(t, templ_dim, idx).square(templ_dim),
+                lambda t: torch.index_select(t, templ_dim, idx).squeeze(templ_dim),
                 batch,
             )
 
@@ -130,7 +131,7 @@ class AlphaFold(nn.Module):
         # [*, S_t, N', N, C_z]
         t = self.template_pair_stack(
             t_pair,
-            pair_mask.unsqueeze(-3).to(type=z.dtype),
+            pair_mask.unsqueeze(-3).to(dtype=z.dtype),
             chunk_size=self.template_cfg.template_pair_stack.chunk_size,
         )
         del t_pair
