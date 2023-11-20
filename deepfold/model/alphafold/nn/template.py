@@ -80,7 +80,7 @@ class TemplatePointwiseAttention(nn.Module):
             template_mask: [*, N_templ]
                 template mask
         Returns:
-            [*, N, N', C_z] pair embedding update
+            [*, N', N, C_z] pair embedding update
         """
         if template_mask is None:
             template_mask = t.new_ones(t.shape[-3])
