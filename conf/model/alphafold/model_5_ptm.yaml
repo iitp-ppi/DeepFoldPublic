@@ -1,0 +1,20 @@
+include:
+  - base/monomer.yaml
+
+info:
+  version: model_5s_ptm
+  params_name: params_model_5_ptm.npz
+
+globals:
+  tm_enabled: True
+  use_template: False
+  use_template_torsion_angles: True
+
+# Jumper et al. (2021) Suppl. Table 5, Model 1.2.3
+data:
+  feat:
+    use_templates: False
+    use_template_torsion_angles: False
+  loss:
+    tm_loss:
+      weight: 0.1

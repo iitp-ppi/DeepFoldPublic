@@ -128,8 +128,11 @@ class GatherOutputs(nn.Module):
         fn("masked_msa_logits", Shard(-2))
         fn("experimentally_resolved_logits", Shard(-2))
         if self.config.heads.tm.enabled:
-            fn("tm_logits", Shard(-2))
-            fn("predicted_tm_score", Shard(-1))
+            fn("tm_logits", Shard(-3))
+            fn("aligned_confidence_probs", Shard(-3))
+            fn("predicted_aligned_error", Shard(-2))
+            # Skip "max_predicted_aligned_error"
+            # Skip "predicted_tm_score"
 
         # Structure module
         fn = partial(self._collect_and_pad, batch=batch["sm"])

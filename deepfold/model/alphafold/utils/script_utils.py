@@ -23,7 +23,7 @@ def load_alphafold(
     npz_path = Path(params_dir) / config.info.params_name
     model = AlphaFold(config=config)
     model = model.eval()
-    import_jax_weights_(model, npz_path, version=config.info.version)
+    import_jax_weights_(model, npz_path, config=config)
     model = model.to(device=device)
 
     return model

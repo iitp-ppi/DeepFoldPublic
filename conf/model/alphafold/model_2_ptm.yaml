@@ -1,0 +1,21 @@
+include:
+  - base/monomer.yaml
+
+info:
+  version: model_2_ptm
+  params_name: params_model_2_ptm.npz
+
+globals:
+  tm_enabled: True
+  use_template: True
+  use_template_torsion_angles: True
+
+# Jumper et al. (2021) Suppl. Table 5, Model 1.1.2
+data:
+  feat:
+    reduce_msa_clusterse_by_max_templates: True
+    use_templates: True
+    use_template_torsion_angles: True
+  loss:
+    tm_loss:
+      weight: 0.1

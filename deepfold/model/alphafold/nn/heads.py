@@ -2,14 +2,49 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
+from typing import Optional
+
 
 import torch
 import torch.nn as nn
 
 from deepfold.distributed.legacy import gather, scatter
-from deepfold.model.alphafold.loss import compute_plddt, compute_predicted_aligned_error, compute_tm
+from deepfold.model.alphafold.loss import compute_plddt, compute_predicted_aligned_error, _calculate_bin_centers
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
 from deepfold.utils.precision import is_fp16_enabled
+
+
+def compute_tm(
+    logits: torch.Tensor,  # [*, N, N, num_bins]
+    residue_weights: Optional[torch.Tensor] = None,
+    max_bin: int = 31,
+    num_bins: int = 64,
+    eps: float = 1e-8,
+    **kwargs,
+) -> torch.Tensor:
+    if residue_weights is None:
+        residue_weights = logits.new_ones(logits.shape[-2])  # [N]
+    assert residue_weights.ndim == 1
+
+    boundaries = torch.linspace(0, max_bin, steps=(num_bins - 1), device=logits.device)
+
+    bin_centers = _calculate_bin_centers(boundaries)
+    clipped_n = max(torch.sum(residue_weights), 19)
+
+    d0 = 1.24 * (clipped_n - 15) ** (1.0 / 3) - 1.8
+
+    probs = torch.nn.functional.softmax(logits, dim=-1)  #  [*, N, N, num_bins]
+
+    tm_per_bin = 1.0 / (1 + (bin_centers**2) / (d0**2))
+    predicted_tm_term = torch.sum(probs * tm_per_bin, dim=-1)  # [*, N, N]
+
+    normed_residue_mask = residue_weights / (eps + residue_weights.sum())  # [N]
+    per_alignment = torch.sum(predicted_tm_term * normed_residue_mask, dim=-1)  # [*, N]
+
+    weighted = per_alignment * residue_weights  # [*, N]
+
+    argmax = (weighted == torch.max(weighted)).nonzero()[0]
+    return per_alignment[tuple(argmax)]
 
 
 class AuxiliaryHeads(nn.Module):
@@ -59,7 +94,6 @@ class AuxiliaryHeads(nn.Module):
         if self.config.tm.enabled:
             tm_logits = self.tm(outputs["pair"])
             aux_out["tm_logits"] = tm_logits
-            aux_out["predicted_tm_score"] = compute_tm(tm_logits, **self.config.tm)
             aux_out.update(compute_predicted_aligned_error(tm_logits, **self.config.tm))
 
         return aux_out

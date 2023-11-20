@@ -11,6 +11,7 @@ from typing import List, Union
 
 import numpy as np
 import torch
+from omegaconf import DictConfig
 
 from deepfold.model.alphafold.model import AlphaFold
 from deepfold.model.alphafold.nn.evoformer import EvoformerBlock
@@ -388,7 +389,7 @@ def generate_translation_dict(
 def import_jax_weights_(
     model: torch.nn.Module,
     npz_path: Union[str, bytes, os.PathLike],
-    version: str = "model_1",
+    config: DictConfig,
 ):
     # Load jax params
     data = np.load(npz_path)
@@ -402,15 +403,15 @@ def import_jax_weights_(
         "model_4_ptm",
         "model_5_ptm",
     ]
-    use_template = version not in num_templ
+    use_template = config.globals.use_template
 
     # Check ptm usage
-    use_ptm = "_ptm" in version
+    use_ptm = config.globals.tm_enabled
 
     # Generate translation dictionary
     translations = generate_translation_dict(
         model,
-        enable_template=False,  # use_template, # TODO: Remove
+        enable_template=use_template,
         enable_ptm=use_ptm,
     )
 

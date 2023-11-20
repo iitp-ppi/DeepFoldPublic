@@ -10,6 +10,7 @@ from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
 from deepfold.distributed.legacy import get_tensor_model_parallel_world_size
+from deepfold.model.alphafold.dist_layers import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.feats import (
     atom14_to_atom37,
     build_extra_msa_feat,
@@ -17,7 +18,6 @@ from deepfold.model.alphafold.feats import (
     build_template_pair_feat,
     pseudo_beta_fn,
 )
-from deepfold.model.alphafold.dist_layers import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
     ParallelInputEmbedder,
@@ -31,6 +31,7 @@ from deepfold.model.alphafold.nn.structure_module import StructureModule
 from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
 from deepfold.model.alphafold.pipeline.types import TensorDict
 from deepfold.utils.tensor_utils import tensor_tree_map
+from deepfold.model.alphafold.nn.heads import compute_tm
 
 
 class AlphaFold(nn.Module):
@@ -349,12 +350,16 @@ class AlphaFold(nn.Module):
                     del m_1_prev, z_prev, x_prev
 
         # Run auxiliary heads
-        # TODO: Imply auxilary heads
         outputs.update(self.aux_heads(outputs))
 
         # Gather outputs
         outputs = self.gather_outputs(outputs)
 
-        # Remove non-Tensor values
+        # Calculate pTM score
+        outputs["predicted_tm_score"] = compute_tm(
+            logits=outputs["tm_logits"],
+            residue_weights=feats["seq_mask"],
+            **self.config.heads.tm,
+        )
 
         return outputs
