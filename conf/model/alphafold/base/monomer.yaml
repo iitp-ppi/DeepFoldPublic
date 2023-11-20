@@ -6,8 +6,8 @@ info:
 
 globals:
   max_recycling_iters: 3 # do once more
-  use_template: True
-  use_template_torsion_angles: True
+  use_template: False
+  use_template_torsion_angles: False
   num_ensemble: 1
   tm_enabled: False
   eval_dropout: False
@@ -157,7 +157,7 @@ model:
     c_t: 64
     c_e: 64
     c_s: 384
-    chunk_size: 4
+    chunk_size: 32
     attention: torch # torch, memeff, flash
 
   input_embedder:
@@ -192,14 +192,14 @@ model:
       c_out: ${model.globals.c_t}
     template_pair_stack:
       c_t: ${model.globals.c_t}
-      c_hidden_tri_att: 16
+      c_hidden_tri_attn: 16
       c_hidden_tri_mul: 64
       num_blocks: 2
       num_heads: 4
-      transition_n: 2
+      pair_transition_n: 2
       dropout_rate: 0.25
       inf: 1e9
-      chunk_size: ${model.globals.chunk_size}
+      chunk_size: 256 # ${model.globals.chunk_size}
     template_pointwise_attention:
       c_t: ${model.globals.c_t}
       c_z: ${model.globals.c_z}

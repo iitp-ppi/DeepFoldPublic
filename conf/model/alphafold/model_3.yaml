@@ -19,10 +19,3 @@ data:
   feat:
     use_templates: False
     use_template_torsion_angles: False
-
-###### TEST ONLY ######
-model:
-  template:
-    enabled: False
-    embed_angles: False
-#######################
