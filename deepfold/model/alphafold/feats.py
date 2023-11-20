@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from deepfold.common import residue_constants as rc
+from deepfold.distributed.legacy import gather, scatter
 from deepfold.utils.geometry import Rigid, Rigid3Array
 from deepfold.utils.tensor_utils import batched_gather
 
@@ -77,18 +78,18 @@ def build_template_angle_feat(template_feats: FeatureDict) -> FeatureDict:
     template_aatype = template_feats["template_aatype"]
     torsion_angles_sin_cos = template_feats["template_torsion_angles_sin_cos"]
     alt_torsion_angles_sin_cos = template_feats["template_alt_torsion_angles_sin_cos"]
-    torsion_angles_mask = template_feats["template_torsion_angles_mask"]
+    torsion_angles_mask = scatter(template_feats["template_torsion_angles_mask"], -2)
     template_angle_feat = torch.cat(
         [
             nn.functional.one_hot(template_aatype, 22),
             torsion_angles_sin_cos.reshape(*torsion_angles_sin_cos.shape[:-2], 14),
             alt_torsion_angles_sin_cos.reshape(*alt_torsion_angles_sin_cos.shape[:-2], 14),
-            torsion_angles_mask,
+            torsion_angles_mask,  # 14
         ],
         dim=-1,
     )
 
-    return template_angle_feat
+    return template_angle_feat  # [..., N', 57]
 
 
 def dgram_from_positions(
@@ -101,8 +102,8 @@ def dgram_from_positions(
     """
     Build a distogram from positions
     """
-
-    dgram = torch.sum((pos[..., None, :] - pos[..., None, :, :]) ** 2, dim=-1, keepdim=True)
+    pos_all = gather(pos, -2)  # [..., N, 3]
+    dgram = torch.sum((pos[..., :, None, :] - pos_all[..., None, :, :]) ** 2, dim=-1, keepdim=True)
     lower = torch.linspace(min_bin, max_bin, num_bins, device=pos.device) ** 2
     upper = torch.cat([lower[1:], lower.new_tensor([inf])], dim=-1)
     dgram = ((dgram > lower) * (dgram < upper)).type(dgram.dtype)
@@ -124,7 +125,8 @@ def build_template_pair_feat(
     """
 
     template_mask = batch["template_pseudo_beta_mask"]
-    template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
+    template_mask_row = scatter(template_mask, -1)
+    template_mask_2d = template_mask_row[..., :, None] * template_mask[..., None, :]  # [N, N']
 
     # Compute distogram (this seems to differ slightly from Alg. 5)
     tpb = batch["template_pseudo_beta"]
@@ -132,14 +134,29 @@ def build_template_pair_feat(
 
     to_concat = [dgram, template_mask_2d[..., None]]
 
-    aatype_one_hot = nn.functional.one_hot(
-        batch["template_aatype"],
-        rc.restype_num + 2,
-    )
+    aatype_one_hot = nn.functional.one_hot(batch["template_aatype"], rc.restype_num + 2)  # [..., N', 22]
+    aatype_one_hot_all = gather(aatype_one_hot, -2)  # [..., N, 22]
 
-    n_res = batch["template_aatype"].shape[-1]
-    to_concat.append(aatype_one_hot[..., None, :, :].expand(*aatype_one_hot.shape[:-2], n_res, -1, -1))
-    to_concat.append(aatype_one_hot[..., None, :].expand(*aatype_one_hot.shape[:-2], -1, n_res, -1))
+    # n_res = batch["template_aatype"].shape[-1]  # N'
+    n_res = aatype_one_hot.shape[-2]
+    n_res_all = aatype_one_hot_all.shape[-2]
+
+    to_concat.append(
+        aatype_one_hot_all[..., None, :, :].expand(
+            *aatype_one_hot_all.shape[:-2],
+            n_res,
+            n_res_all,
+            -1,
+        )
+    )
+    to_concat.append(
+        aatype_one_hot[..., :, None, :].expand(
+            *aatype_one_hot.shape[:-2],
+            n_res,
+            n_res_all,
+            -1,
+        )
+    )
 
     n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
     rigids = Rigid.make_transform_from_reference(
@@ -149,16 +166,18 @@ def build_template_pair_feat(
         eps=eps,
     )
     points = rigids.get_trans()[..., None, :, :]
-    rigid_vec = rigids[..., None].invert_apply(points)
+    rigid_vec = rigids[..., None].invert_apply(points)  # [N', N, 3]
+    rigid_vec = gather(rigid_vec, -2)  # [N', N, 3]
 
-    inv_distance_scalar = torch.rsqrt(eps + torch.sum(rigid_vec**2, dim=-1))
+    inv_distance_scalar = torch.rsqrt(eps + torch.sum(rigid_vec**2, dim=-1))  # [N', N]
 
     t_aa_masks = batch["template_all_atom_mask"]
-    template_mask = t_aa_masks[..., n] * t_aa_masks[..., ca] * t_aa_masks[..., c]
-    template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
+    template_mask = t_aa_masks[..., n] * t_aa_masks[..., ca] * t_aa_masks[..., c]  # [N]
+    template_mask_row = scatter(template_mask, -1)  # [N] -> [N']
+    template_mask_2d = template_mask_row[..., :, None] * template_mask[..., None, :]  # [N', N]
 
-    inv_distance_scalar = inv_distance_scalar * template_mask_2d
-    unit_vector = rigid_vec * inv_distance_scalar[..., None]
+    inv_distance_scalar = inv_distance_scalar * template_mask_2d  # [N', N]
+    unit_vector = rigid_vec * inv_distance_scalar[..., None]  # [N', N, 3]
 
     if not use_unit_vector:
         unit_vector = unit_vector * 0.0
@@ -169,7 +188,7 @@ def build_template_pair_feat(
     act = torch.cat(to_concat, dim=-1)
     act = act * template_mask_2d[..., None]
 
-    return act
+    return act  # [N', N, 88]
 
 
 def build_extra_msa_feat(batch: FeatureDict) -> torch.Tensor:
