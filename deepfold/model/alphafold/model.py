@@ -17,7 +17,7 @@ from deepfold.model.alphafold.feats import (
     build_template_pair_feat,
     pseudo_beta_fn,
 )
-from deepfold.model.alphafold.nn.dist_utils import GatherOutputs, ScatterFeatures
+from deepfold.model.alphafold.dist_layers import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
     ParallelInputEmbedder,
