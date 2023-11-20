@@ -4,12 +4,11 @@
 
 from typing import Optional
 
-
 import torch
 import torch.nn as nn
 
 from deepfold.distributed.legacy import gather, scatter
-from deepfold.model.alphafold.loss import compute_plddt, compute_predicted_aligned_error, _calculate_bin_centers
+from deepfold.model.alphafold.loss import _calculate_bin_centers, compute_plddt, compute_predicted_aligned_error
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
 from deepfold.utils.precision import is_fp16_enabled
 

@@ -26,12 +26,11 @@ from deepfold.model.alphafold.nn.embedders import (
     TemplatePairEmbedder,
 )
 from deepfold.model.alphafold.nn.evoformer import EvoformerStack, ExtraMSAStack
-from deepfold.model.alphafold.nn.heads import AuxiliaryHeads
+from deepfold.model.alphafold.nn.heads import AuxiliaryHeads, compute_tm
 from deepfold.model.alphafold.nn.structure_module import StructureModule
 from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
 from deepfold.model.alphafold.pipeline.types import TensorDict
 from deepfold.utils.tensor_utils import tensor_tree_map
-from deepfold.model.alphafold.nn.heads import compute_tm
 
 
 class AlphaFold(nn.Module):
@@ -356,10 +355,11 @@ class AlphaFold(nn.Module):
         outputs = self.gather_outputs(outputs)
 
         # Calculate pTM score
-        outputs["predicted_tm_score"] = compute_tm(
-            logits=outputs["tm_logits"],
-            residue_weights=feats["seq_mask"],
-            **self.config.heads.tm,
-        )
+        if self.config.heads.tm.enabled:
+            outputs["predicted_tm_score"] = compute_tm(
+                logits=outputs["tm_logits"],
+                residue_weights=feats["seq_mask"],
+                **self.config.heads.tm,
+            )
 
         return outputs
