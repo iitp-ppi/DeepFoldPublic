@@ -105,7 +105,7 @@ class Identity(torch.autograd.Function):
         return _reduce(grad_output)
 
 
-@dump_args
+# @dump_args
 def identity(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Identity.apply(input)
@@ -132,7 +132,7 @@ class Scatter(torch.autograd.Function):
         return _gather(grad_output, dim=dim), None
 
 
-@dump_args
+# @dump_args
 def scatter(input: Tensor, dim: int = -1) -> Tensor:
     """
     Scatter a tensor.
@@ -157,7 +157,7 @@ class Reduce(torch.autograd.Function):
         return grad_output
 
 
-@dump_args
+# @dump_args
 def reduce(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Reduce.apply(input)
@@ -181,7 +181,7 @@ class Gather(torch.autograd.Function):
         return _split(grad_output, dim=dim), None
 
 
-@dump_args
+# @dump_args
 def gather(input: Tensor, dim: int = -1) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = Gather.apply(input, dim)
@@ -205,7 +205,7 @@ def _all_to_all_sync(tensor: Tensor, in_dim: int, out_dim: int) -> Tensor:
     return torch.cat(tensor_list, dim=out_dim)
 
 
-@dump_args
+# @dump_args
 def col_to_row(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -3, -2)
@@ -214,7 +214,7 @@ def col_to_row(input: Tensor) -> Tensor:
     return input
 
 
-@dump_args
+# @dump_args
 def row_to_col(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
         input = All_to_All.apply(input, -2, -3)
@@ -268,7 +268,7 @@ class Broadcast(torch.autograd.Function):
         return grad_reduced, None
 
 
-@dump_args
+# @dump_args
 def broadcast(tensor: Tensor, root_rank: int) -> Tensor:
     if torch.is_grad_enabled() and tensor.requires_grad:
         tensor = Broadcast.apply(tensor, root_rank)
