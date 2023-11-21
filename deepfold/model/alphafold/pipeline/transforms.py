@@ -462,18 +462,18 @@ def make_fixed_size(
 
     pad_size_map = {
         "NUM_RES": num_res,
-        "NUM_MSXA_SEQ": msa_cluster_size,
+        "NUM_MSA_SEQ": msa_cluster_size,
         "NUM_EXTRA_SEQ": extra_msa_size,
         "NUM_TEMPLATES": num_templates,
     }
 
-    excludes = [
-        "extra_cluster_assignment",
-    ]
+    excludes = ["extra_cluster_assignment"]
+
     for k, v in p.items():
         # Don't transfer this to the accelerator
         if k in excludes:
             continue
+
         shape = list(v.shape)
         schema = shape_schema[k]
         msg = "Rank mismatch between shape and schema for"
