@@ -33,7 +33,12 @@ if DEBUG_MODE:
     logging.basicConfig(level=logging.DEBUG, **logger_cfg)
 else:
     logging.basicConfig(level=logging.INFO, **logger_cfg)
+
 logger = logging.getLogger(__name__)
+
+# Write logs to a file
+file_handler = logging.FileHandler("predict_from_pkl.logs")
+logger.addHandler(file_handler)
 
 
 def run_model(local_rank: int, kwargs: Dict[str, Any]):
@@ -113,6 +118,13 @@ def predict_structure(
     logger.info(f"Use model version '{config.info.version}")
     logger.info(f"Random seed {random_seed}")
 
+    # Output name
+    try:
+        output_name = f"{config.info.version}_n{world_size}"
+    except:
+        output_name = f"target_n{world_size}"
+
+    # Randomness
     random.seed(random_seed)
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
@@ -125,7 +137,7 @@ def predict_structure(
         torch.backends.cudnn.benchmark = False
 
     # Output directory
-    output_dir = output_dir_base / name
+    output_dir = output_dir_base
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
 
@@ -139,13 +151,16 @@ def predict_structure(
         logger.debug("Key 'template_all_atom_masks' found in input features. Rename to 'template_all_atom_mask'")
         feature_dict["template_all_atom_mask"] = feature_dict["template_all_atom_masks"]
         del feature_dict["template_all_atom_masks"]
+
     processed_feature_dict = FeaturePipeline(config.data).process(feature_dict, mode="predict")
     processed_feature_dict = {k: torch.as_tensor(v, device="cpu") for k, v in processed_feature_dict.items()}
 
-    processed_feature_path = output_dir / "processed.pkl"
+    processed_feature_dict_np = tensor_tree_map(lambda x: x.cpu().numpy(), processed_feature_dict)
+
+    processed_feature_path = output_dir / f"{output_name}_input_dict.pkl"
     logger.info(f"Write processed features to '{processed_feature_path}'")
     with open(processed_feature_path, "wb") as fp:
-        pickle.dump(processed_feature_dict, fp)
+        pickle.dump(processed_feature_dict_np, fp)
 
     logger.debug("Processesd features:")
     for k, v in processed_feature_dict.items():
@@ -175,11 +190,6 @@ def predict_structure(
     )
 
     batch = queue.get()
-
-    try:
-        output_name = f"{config.info.version}_n{world_size}"
-    except:
-        output_name = f"target_n{world_size}"
 
     # Take last one (Toss out the recycling dimensions)
     processed_feature_dict = tensor_tree_map(lambda x: x[..., -1].cpu().numpy(), processed_feature_dict)
