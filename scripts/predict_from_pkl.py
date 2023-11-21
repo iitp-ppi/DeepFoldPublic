@@ -7,7 +7,7 @@ import pickle
 import random
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import torch
@@ -46,9 +46,10 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     os.environ["MASTER_ADDR"] = kwargs["MASTER_ADDR"]
     os.environ["MASTER_PORT"] = str(kwargs["MASTER_PORT"])
 
-    cuda_devices = [int(s) for s in os.environ["CUDA_VISIBLE_DEVICES"].split(",")]
+    cuda_devices = kwargs["devices"]
     device_id = cuda_devices[local_rank]
 
+    logger.info(f"[{local_rank}] Initialize NCCL gpu_id: {device_id}")
     dist.init_distributed(
         tensor_model_parallel_size=world_size,
         random_seed=random_seed,
@@ -103,6 +104,7 @@ def predict_structure(
     output_dir_base: Path,
     params_dir: Path,
     world_size: int,
+    gpu_id: Sequence[int],
     name: Optional[str] = None,
     random_seed: int = 0,
 ) -> Dict[str, np.ndarray]:
@@ -173,6 +175,7 @@ def predict_structure(
                 "world_size": world_size,
                 "MASTER_ADDR": "localhost",
                 "MASTER_PORT": random.randrange(2**16),
+                "devices": list(gpu_id),
             }
         ],
         nprocs=world_size,
@@ -269,12 +272,13 @@ def main():
 
     ngpus = args.nprocs
 
-    cuda_devices = os.environ.get("CUDA_VISIBLE_DEVICES", "ALL")
-    if cuda_devices == "ALL":
-        total_gpus = torch.cuda.device_count()
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(i) for i in range(total_gpus))
+    cuda_env = os.environ.get("CUDA_VISIBLE_DEVICES", "ALL")
+    total_gpus = torch.cuda.device_count()
 
-    devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+    if cuda_env == "ALL":
+        devices = [i for i in range(total_gpus)]
+    else:
+        devices = [int(s) for s in cuda_env.split(",")]
     total_gpus = len(devices)
 
     if ngpus > total_gpus:
@@ -287,6 +291,7 @@ def main():
         params_dir=jax_params_dir,
         random_seed=random_seed,
         world_size=args.nprocs,
+        gpu_id=devices,
     )
 
 
