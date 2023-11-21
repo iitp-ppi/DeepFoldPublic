@@ -49,7 +49,7 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     os.environ["LOCAL_RANK"] = str(local_rank)
     os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["MASTER_ADDR"] = kwargs["MASTER_ADDR"]
-    os.environ["MASTER_PORT"] = str(kwargs["MASTER_PORT"])
+    os.environ["MASTER_PORT"] = os.environ["MASTER_PORT"]
 
     dist.init_distributed(
         tensor_model_parallel_size=world_size,
@@ -183,7 +183,6 @@ def predict_structure(
                 "random_seed": random_seed,
                 "world_size": world_size,
                 "MASTER_ADDR": "localhost",
-                "MASTER_PORT": random.randrange(2**16),
             }
         ],
         nprocs=world_size,
@@ -268,6 +267,12 @@ def main():
     logger.info(f"Load features from '{args.features}'")
     with open(args.features, "rb") as fp:
         feature_dict = pickle.load(fp)
+
+    if "MASTER_PORT" not in os.environ:
+        random.seed()
+        random_port = random.randrange(2**14, 2**16)
+        os.environ["MASTER_PORT"] = str(random_port)
+        logger.info(f"MASTER_PORT is not set. Set to {random_port}")
 
     random_seed = args.data_random_seed
     if random_seed is None:
