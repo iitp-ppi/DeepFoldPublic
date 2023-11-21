@@ -438,13 +438,15 @@ class GlobalAttention(nn.Module):
         # [*, N, 1, S]
         bias = (self.inf * (mask - 1))[..., :, None, :]
 
-        # [*, N, H, S]
-        a = torch.matmul(q, k.transpose(-1, -2))  # [*, N, H, C] @ [*, N, C, S]
-        a += bias
-        a = softmax_no_cast(a)
+        # # [*, N, H, S]
+        # a = torch.matmul(q, k.transpose(-1, -2))  # [*, N, H, C] @ [*, N, C, S]
+        # a += bias
+        # a = softmax_no_cast(a)
 
-        #  [*, N, H, C]
-        o = torch.matmul(a, v)  # [*, N, H, S] @ [*, N, S, C]
+        # #  [*, N, H, C]
+        # o = torch.matmul(a, v)  # [*, N, H, S] @ [*, N, S, C]
+
+        o = _attention(q, k, v, [bias])
 
         # [*, N, S, H * C]
         g = self.sigmoid(self.linear_g(m))
