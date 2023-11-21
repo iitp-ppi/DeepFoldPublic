@@ -2,7 +2,7 @@ include:
   - base/monomer.yaml
 
 info:
-  version: model_5s_ptm
+  version: model_5_ptm
   params_name: params_model_5_ptm.npz
 
 globals:
