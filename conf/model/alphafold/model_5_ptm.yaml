@@ -8,7 +8,7 @@ info:
 globals:
   tm_enabled: True
   use_template: False
-  use_template_torsion_angles: True
+  use_template_torsion_angles: False
 
 # Jumper et al. (2021) Suppl. Table 5, Model 1.2.3
 data:
