@@ -21,6 +21,7 @@ class Shard:
 RECYCLE_DIM = -1
 assert RECYCLE_DIM < 0
 
+# 0th entry must be sharded dimension!
 SHARDING_STRATEGIES: Dict[str, List[int]] = {
     "aatype": [-1],
     "residue_index": [-1],
@@ -30,7 +31,7 @@ SHARDING_STRATEGIES: Dict[str, List[int]] = {
     "template_sum_probs": None,
     "template_all_atom_mask": [-2],
     "seq_mask": [-1],
-    "msa_mask": [-2, -1],
+    "msa_mask": [-1, -2],
     "msa_row_mask": [-1],
     "template_mask": None,
     "template_pseudo_beta": [-2],
@@ -42,14 +43,14 @@ SHARDING_STRATEGIES: Dict[str, List[int]] = {
     "residx_atom14_to_atom37": [-2],
     "residx_atom37_to_atom14": [-2],
     "atom37_atom_exists": [-2],
-    "extra_msa": [-2, -1],
+    "extra_msa": [-1, -2],
     "extra_msa_mask": [-1],
     "extra_msa_row_mask": [-1],
-    "bert_mask": [-2, -1],
-    "true_msa": [-2, -1],
-    "extra_has_deletion": [-2, -1],
-    "extra_deletion_value": [-2, -1],
-    "msa_feat": [-3, -2],
+    "bert_mask": [-1, -2],
+    "true_msa": [-1, -2],
+    "extra_has_deletion": [-1, -2],
+    "extra_deletion_value": [-1, -2],
+    "msa_feat": [-2, -3],
     "target_feat": [-2],
     "use_clamped_fape": None,
 }
@@ -80,7 +81,7 @@ class ScatterFeatures(nn.Module):
             for i, d in enumerate(dim):
                 pad_size = get_pad_size(x, d, WORLD_SIZE)
                 x = pad_tensor(x, d, pad_size)
-                is_shard = len(dim) == 1 or i == 1
+                is_shard = len(dim) == 1 or i == 0  # 0th
 
                 # Don't shard mask
                 # Shard to (*, N', N) and (*, S, N')
