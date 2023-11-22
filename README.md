@@ -2,7 +2,7 @@
 
 ## Features
 
-- Almost perfect(?) replica of AlphaFold2 (monomer) model.
+- Acceptable(?) replica of AlphaFold2 (monomer) model.
 - Distributed inference (over multiple GPUS).
 
 ## TODO
