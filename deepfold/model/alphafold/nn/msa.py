@@ -244,9 +244,9 @@ class MSAColumnAttention(nn.Module):
         """
         Args:
             m:
-                [*, S, N, C_m] MSA embedding
+                [*, S, N', C_m] MSA embedding
             mask:
-                [*, S, N] MSA mask
+                [*, S, N'] MSA mask
             chunk_size:
                 Size of chunks into which the inputs are split along their
                 batch dimensions. A low value decreases memory overhead at the
