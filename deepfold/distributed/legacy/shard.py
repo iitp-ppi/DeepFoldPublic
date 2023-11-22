@@ -19,5 +19,6 @@ def pad_tensor(
 
 
 def get_pad_size(tensor: torch.Tensor, dim: int, num_chunks: int) -> int:
-    chunk_size = (tensor.size(dim) + num_chunks - 1) // num_chunks
-    return num_chunks * chunk_size - tensor.size(dim)
+    seq_len = tensor.size(dim)
+    chunk_size = (seq_len + num_chunks - 1) // num_chunks
+    return (num_chunks * chunk_size) - seq_len
