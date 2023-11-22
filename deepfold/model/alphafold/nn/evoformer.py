@@ -190,7 +190,7 @@ class EvoformerBlock(nn.Module):
             c_m=c_m,
             c_z=c_z,
             c_hidden=c_hidden_opm,
-            eps=eps,
+            eps=1e-3,  # DO NOT MODIFY!
         )
 
         self.pair = PairCore(
