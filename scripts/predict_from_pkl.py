@@ -12,10 +12,10 @@ from typing import Any, Dict, Optional, Sequence
 import numpy as np
 import torch
 import torch.multiprocessing as mp
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 import deepfold.distributed.legacy as dist
-from deepfold.apps.config import load as load_config
+from deepfold.apps.config_utils import load as load_config
 from deepfold.common import protein
 from deepfold.model.alphafold.pipeline.monomer_pipeline import FeaturePipeline
 from deepfold.model.alphafold.pipeline.types import FeatureDict
@@ -155,8 +155,8 @@ def predict_structure(
     processed_feature_dict = FeaturePipeline(config.data).process(feature_dict, mode="predict")
     processed_feature_dict = {k: torch.as_tensor(v, device="cpu") for k, v in processed_feature_dict.items()}
 
+    # Save processed features
     processed_feature_dict_np = tensor_tree_map(lambda x: x.cpu().numpy(), processed_feature_dict)
-
     processed_feature_path = output_dir / f"{output_name}_input_dict.pkl"
     logger.info(f"Write processed features to '{processed_feature_path}'")
     with open(processed_feature_path, "wb") as fp:
@@ -167,6 +167,7 @@ def predict_structure(
         logger.debug(f"{k}: {v.dtype}{list(v.shape)}")
     logger.debug("")
 
+    # Prepare multi-thread system
     manager = mp.Manager()
     queue = manager.Queue()
 
@@ -188,11 +189,13 @@ def predict_structure(
         nprocs=world_size,
     )
 
+    # Get returned batch (from the master rank)
     batch = queue.get()
 
     # Take last one (Toss out the recycling dimensions)
     processed_feature_dict = tensor_tree_map(lambda x: x[..., -1].cpu().numpy(), processed_feature_dict)
 
+    # Save outputs
     unrelaxed_protein = prep_output(batch, processed_feature_dict, feature_dict, config, multimer_ri_gap=200)
     unrelaxed_file_suffix = "_unrelaxed.pdb"
     unrelaxed_output_path = os.path.join(output_dir, f"{output_name}{unrelaxed_file_suffix}")
@@ -258,9 +261,26 @@ def main():
         default=None,
         help="Random seed for preprocess input features",
     )
+    parser.add_argument(
+        "--options",
+        type=str,
+        action="store",
+        dest="options",
+        nargs="*",
+        default=[""],
+        help="Inject options to the config from dot-lists",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    options = OmegaConf.from_dotlist(args.options)
+
+    if not options.is_empty():
+        logger.info("Inject options to the configuration")
+    for line in OmegaConf.to_yaml(options).splitlines():
+        logger.info(line)
+    cfg = OmegaConf.merge(cfg, options)
+
     output_dir_base = Path(args.output_dir)
     jax_params_dir = Path(args.jax_params_dir)
 
