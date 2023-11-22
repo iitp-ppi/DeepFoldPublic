@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
+import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 
@@ -22,15 +23,15 @@ RECYCLE_DIM = -1
 assert RECYCLE_DIM < 0
 
 # 0th entry must be sharded dimension!
-SHARDING_STRATEGIES: Dict[str, List[int]] = {
+NUMRES_SHARDING: Dict[str, List[Optional[int]]] = {
     "aatype": [-1],
     "target_feat": [-2],
     "residue_index": [-1],
     "seq_length": None,
     "seq_mask": [-1],
-    "msa_feat": [-2, -3],
-    "msa_mask": [-1, -2],
-    "msa_row_mask": [-1],
+    "msa_feat": [-2],
+    "msa_mask": [-1],
+    "msa_row_mask": None,
     "template_aatype": [-1],
     "template_mask": None,
     "template_all_atom_positions": [-3],
@@ -55,24 +56,41 @@ SHARDING_STRATEGIES: Dict[str, List[int]] = {
     "use_clamped_fape": None,
 }
 
+MSA_SHARDING: Dict[str, Optional[int]] = {
+    "msa_feat": -3,
+    "msa_mask": -2,
+    "msa_row_mask": -1,
+    "bert_mask": -2,
+    "true_msa": -2,
+}
 
-def _get_shard_dim(dim: int):
-    assert SHARDING_STRATEGIES < 0
 
-    if RECYCLE_DIM < dim:
-        return dim
-    else:
-        return dim + RECYCLE_DIM
+class EvoformerScatter(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, m: torch.Tensor, mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        WORLD_SIZE = get_world_size()
+
+        d = MSA_SHARDING["msa_feat"]
+        pad_size = get_pad_size(m, d, WORLD_SIZE)
+        m = pad_tensor(m, d, pad_size)
+
+        d = MSA_SHARDING["msa_mask"]
+        pad_size = get_pad_size(mask, d, WORLD_SIZE)
+        mask = pad_tensor(mask, d, pad_size)
+
+        return m, mask
 
 
 class ScatterFeatures(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, batch: TensorDict) -> TensorDict:  # , Dict[str, Padding]]:
+    def forward(self, batch: TensorDict) -> TensorDict:
         WORLD_SIZE = get_world_size()  # Model parallel group size
 
-        for key, dim in SHARDING_STRATEGIES.items():
+        for key, dim in NUMRES_SHARDING.items():
             if (dim is None) or (key not in batch):
                 continue
 

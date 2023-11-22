@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from deepfold.distributed.legacy import col_to_row, row_to_col, scatter
+from deepfold.model.alphafold.dist_layers import EvoformerScatter
 from deepfold.model.alphafold.nn.dropout import DropoutColumnwise, DropoutRowwise
 from deepfold.model.alphafold.nn.msa import MSAColumnAttention, MSAColumnGlobalAttention, MSARowAttentionWithPairBias
 from deepfold.model.alphafold.nn.outer_product_mean import ParallelOuterProductMean
@@ -311,6 +312,8 @@ class EvoformerStack(nn.Module):
 
         self.clear_cache_between_blocks = clear_cache_between_blocks
 
+        self.scatter_msa_features = EvoformerScatter()
+
         self.blocks = nn.ModuleList()
 
         for _ in range(num_blocks):
@@ -363,6 +366,8 @@ class EvoformerStack(nn.Module):
             s:
                 [*, N', C_s] single embedding (or None if extra MSA stack)
         """
+
+        m, msa_mask = self.scatter_msa_features(m, msa_mask)
 
         blocks = [
             partial(
