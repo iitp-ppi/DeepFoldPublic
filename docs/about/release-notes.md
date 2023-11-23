@@ -14,6 +14,6 @@ The current and past members of the DeepFold team.
 
 ## Changelog
 
-### 0.0.1 (2023-??-??)
+### 2.0.0 (2023-11-20)
 
 * Initial release

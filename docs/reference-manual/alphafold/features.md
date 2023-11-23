@@ -7,13 +7,13 @@ The data pipeline is the first step when running AlphaFold.
 - The pipeline takes a **FASTA** file in the inference mode.
 - In the multimer inference mode, a single FASTA file can include many sequences and they are considered as a complex.
 
-## Preprocessing
-
 The input file is parsed and basic metadata is extracted from it.
 
 - For FASTA, this is only the sequence and name.
 
-## Multiple sequence alignment
+## Genetic search methods
+
+### Multiple sequence alignment
 
 Multiple database are searched using `JackHMMER 3.3` and `HHBlits 3.0-beta.3`.
 
@@ -53,12 +53,10 @@ hhblits \
     -oa3m $A3M_PATH
 ```
 
----
+### Structural template search
 
-## Structural template search
-
-1. The UniRef90 MSA obtained in the previous step is used to search PDB70 using **hhsearch** with `-maxseq 1000000`.
-1. Structural data for each hit is obtained from the corresponding mmCIF file in the PDB database.
+1. The **UniRef90 MSA** obtained in the previous step is used to search PDB70 using **hhsearch** with `-maxseq 1000000`.
+1. Structural data for each hit is obtained from the corresponding mmCIF file in the **PDB database**.
 1. If the sequence from PDB70 does not exactly match the sequence in the mmCIF file then the two are aligned using **Kalign**.
 
 ```{sh}
@@ -79,6 +77,13 @@ kalign \
 ```
 
 **At inference time** the top 4 templates are provided to the model, sorted by the expected number of correctly aligned residues (the `Sum_probs` feature output by hhsearch).
+
+#### Parsing Stockholm format
+
+1. Search UniRef90 with JackHMMER.
+1. Remove dupliate sequences (ignoring insertions w.r.t. query). (`deepfold.data.parsers.deduplicate_stockholm_msa`)
+1. Remove empty columns (dashes-only). (`deepfold.data.parsers.remove_empty_columns_from_stockholm_msa`)
+1. Ready to search templates with `HHSearch` or `hmmsearch`.
 
 For the **AlphaFold-Multimer** the template search is similar to above with few differences.
 
@@ -101,7 +106,40 @@ hmmbuild \
 
 [^seqres]: <https://ftp.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt> (on 2020-05-14)
 
-## MSA clustering
+---
+
+## Pipeline
+
+After runs alignment tools on the input sequence, features are generated with following procedure.
+
+### Summary
+
+#### Sequence features
+
+- `aatype`
+- `between_segment_residues`
+- `domain_name`
+- `residue_index`
+- `seq_length`
+- `sequence`
+
+#### MSA features
+
+- `deletion_matrix_int`
+- `msa`
+- `num_alignments`
+- `msa_species_identifiers`
+
+#### Template features
+
+- `template_aatype`
+- `template_all_atom_masks`
+- `template_all_atom_positions`
+- `template_domain_names`
+- `template_sequences`
+- `template_sum_probs`
+
+### MSA clustering
 
 The computational and peak memory cost of the main Evoformer module scales as $N_\mathrm{seq}^2 \times N_\mathrm{res}$, so it is highly desirable to reduce the number of sequences used in the main Evoformer module for purely computational reasons.
 However, randomly chosing a fixed-size subset of sequences without replacement has a problem that sequences not included in the random subset have no influence on the prediction.

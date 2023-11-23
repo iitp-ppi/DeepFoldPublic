@@ -13,10 +13,11 @@
   * [Training](alphafold/train.md)
   * [Multimer](alphafold/multimer.md)
 * DeepFold
+  * [Overview](deepfold/overview.md)
   * [Features](deepfold/features.md)
   * Network
     * [Constants](deepfold/constants.md)
     * [Primitives](deepfold/primitives.md)
   * [Training](deepfold/train.md)
-  * Distributed
-    * [Overview](deepfold/distributed/overview.md)
+  * Distributed Computation
+    * [Message Passing](deepfold/distributed/mpi.md)
