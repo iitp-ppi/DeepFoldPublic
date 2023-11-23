@@ -12,6 +12,7 @@ To install DeepFold framework, run the following command from the command line:
 git clone git@github.com:DeepFoldProtein/DeepFold.git   # Clone the repository
 cd DeepFold                                             # Change directory
 conda env create -f environment.yml                     # Construct Conda environment
+conda activate deepfold2-dev
 pip install -e .                                        # Build and install the package
 ```
 
