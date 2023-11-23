@@ -17,7 +17,7 @@ data:
   predict:
     max_extra_msa: 5120
   feat:
-    reduce_msa_clusterse_by_max_templates: True
+    reduce_msa_clusters_by_max_templates: True
     use_templates: True
     use_template_torsion_angles: True
   loss:

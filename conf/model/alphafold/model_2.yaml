@@ -13,6 +13,6 @@ globals:
 # Jumper et al. (2021) Suppl. Table 5, Model 1.1.2
 data:
   feat:
-    reduce_msa_clusterse_by_max_templates: True
+    reduce_msa_clusters_by_max_templates: True
     use_templates: True
     use_template_torsion_angles: True
