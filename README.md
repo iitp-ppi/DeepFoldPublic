@@ -19,7 +19,7 @@
 ```bash
 git clone git@github.com:DeepFoldProtein/DeepFold.git   # Clone the repository
 cd DeepFold                                             # Change directory
-conda env create -f envrionemnt.yml                     # Construct Conda environment
+conda env create -f environment.yml                     # Construct Conda environment
 pip install -e .                                        # Build and install the package
 ```
 
