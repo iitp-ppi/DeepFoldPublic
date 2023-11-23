@@ -18,6 +18,7 @@ from deepfold.model.alphafold.feats import (
     build_template_pair_feat,
     pseudo_beta_fn,
 )
+from deepfold.model.alphafold.loss import compute_tm
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
     ParallelInputEmbedder,
@@ -26,7 +27,7 @@ from deepfold.model.alphafold.nn.embedders import (
     TemplatePairEmbedder,
 )
 from deepfold.model.alphafold.nn.evoformer import EvoformerStack, ExtraMSAStack
-from deepfold.model.alphafold.nn.heads import AuxiliaryHeads, compute_tm
+from deepfold.model.alphafold.nn.heads import AuxiliaryHeads
 from deepfold.model.alphafold.nn.structure_module import StructureModule
 from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
 from deepfold.model.alphafold.pipeline.types import TensorDict

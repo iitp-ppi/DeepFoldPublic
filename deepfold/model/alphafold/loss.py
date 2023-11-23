@@ -7,8 +7,6 @@ from typing import Dict, Optional, Tuple
 
 import torch
 
-from deepfold.distributed.legacy import gather
-
 
 def compute_plddt(logits: torch.Tensor) -> torch.Tensor:
     num_bins = logits.shape[-1]
@@ -76,3 +74,36 @@ def compute_predicted_aligned_error(
         "predicted_aligned_error": predicted_aligned_error,
         "max_predicted_aligned_error": max_predicted_aligned_error,
     }
+
+
+def compute_tm(
+    logits: torch.Tensor,  # [*, N, N, num_bins]
+    residue_weights: Optional[torch.Tensor] = None,
+    max_bin: int = 31,
+    num_bins: int = 64,
+    eps: float = 1e-8,
+    **kwargs,
+) -> torch.Tensor:
+    if residue_weights is None:
+        residue_weights = logits.new_ones(logits.shape[-2])  # [N]
+    assert residue_weights.ndim == 1
+
+    boundaries = torch.linspace(0, max_bin, steps=(num_bins - 1), device=logits.device)
+
+    bin_centers = _calculate_bin_centers(boundaries)
+    clipped_n = max(torch.sum(residue_weights), 19)
+
+    d0 = 1.24 * (clipped_n - 15) ** (1.0 / 3) - 1.8
+
+    probs = torch.nn.functional.softmax(logits, dim=-1)  #  [*, N, N, num_bins]
+
+    tm_per_bin = 1.0 / (1 + (bin_centers**2) / (d0**2))
+    predicted_tm_term = torch.sum(probs * tm_per_bin, dim=-1)  # [*, N, N]
+
+    normed_residue_mask = residue_weights / (eps + residue_weights.sum())  # [N]
+    per_alignment = torch.sum(predicted_tm_term * normed_residue_mask, dim=-1)  # [*, N]
+
+    weighted = per_alignment * residue_weights  # [*, N]
+
+    argmax = (weighted == torch.max(weighted)).nonzero()[0]
+    return per_alignment[tuple(argmax)]
