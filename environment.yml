@@ -9,6 +9,7 @@ dependencies:
   - numpy
   - scipy
   - pandas
+  - matplotlib
   - biopython=1.81
   - hydra-core
   - omegaconf=2.3.0
