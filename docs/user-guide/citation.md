@@ -1,7 +1,5 @@
 # Citation
 
----
-
 Please cite our paper:
 
 ```bib

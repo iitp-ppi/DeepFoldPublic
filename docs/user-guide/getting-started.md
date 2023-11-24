@@ -2,8 +2,6 @@
 
 An introductory tutorial for protein conformation prediction.
 
----
-
 ## Configure environment
 
 To install DeepFold framework, run the following command from the command line:

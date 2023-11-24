@@ -1,6 +1,6 @@
 # Constants
 
----
+## Useful constants
 
 Some module attributes are frequently used in the package.
 `deepfold.common.residue_constants` is the module where they are declared.
@@ -18,6 +18,8 @@ Therefore, there are 22 distinct types for template features.
 MSA featuers has one more token named `MASKED_MSA_TOKEN`.
 This token is for BERT training proceudre.
 Therefore, there are 23 distinct types for MSA features.
+
+## One-hot residue type representation
 
 We follow HHBlits convention.
 The one-hot representation can be inversed with following table.

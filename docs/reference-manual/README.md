@@ -1,23 +1,24 @@
 # Contents
 
-* Prerequisites
+* Background
   * [Proteins](prepare/proteins.md)
   * [MSA](prepare/msa.md)
   * [Mathematics](prepare/math.md)
   * [Formats](prepare/formats.md)
   * [Internal Representations](prepare/internal.md)
+* DeepFold
+  * [Overview](deepfold/overview.md)
+  * [Constants](deepfold/constants.md)
+  * [Configurations](deepfold/config.md)
+  * [Features](deepfold/features.md)
+  * Network
+    * [Primitives](deepfold/primitives.md)
+  * [Training](deepfold/train.md)
+  * Distributed Computing
+    * [Message Passing](deepfold/distributed/mpi.md)
 * AlphaFold
   * [Overview](alphafold/overview.md)
   * [Data Pipeline](alphafold/features.md)
   * [Inference](alphafold/inference.md)
   * [Training](alphafold/train.md)
   * [Multimer](alphafold/multimer.md)
-* DeepFold
-  * [Overview](deepfold/overview.md)
-  * [Features](deepfold/features.md)
-  * Network
-    * [Constants](deepfold/constants.md)
-    * [Primitives](deepfold/primitives.md)
-  * [Training](deepfold/train.md)
-  * Distributed Computation
-    * [Message Passing](deepfold/distributed/mpi.md)
