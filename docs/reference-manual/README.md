@@ -5,10 +5,9 @@
   * [MSA](prepare/msa.md)
   * [Mathematics](prepare/math.md)
   * [Formats](prepare/formats.md)
-  * [Internal Representations](prepare/internal.md)
 * DeepFold
   * [Overview](deepfold/overview.md)
-  * [Constants](deepfold/constants.md)
+  * [Representations](deepfold/repr.md)
   * [Configurations](deepfold/config.md)
   * [Features](deepfold/features.md)
   * Network

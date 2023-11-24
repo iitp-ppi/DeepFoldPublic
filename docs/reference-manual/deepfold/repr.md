@@ -1,6 +1,6 @@
-# Constants
+# Internal Representations
 
-## Useful constants
+## Constants
 
 Some module attributes are frequently used in the package.
 `deepfold.common.residue_constants` is the module where they are declared.
@@ -49,3 +49,7 @@ The one-hot representation can be inversed with following table.
 |  20  | X | UNK | Unknown          |
 |  21  | - | GAP | Gap              |
 |  22  |   |     | Maksed MSA token |
+
+## `atom37` representation
+
+## `atom14` representation
