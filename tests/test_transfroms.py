@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from deepfold.apps.config_utils import load
-from deepfold.model.alphafold.pipeline.transforms import (
+from deepfold.model.alphafold.data.transforms import (
     MSA_FEATURE_NAMES,
     add_distillation_flag,
     correct_msa_restypes,
