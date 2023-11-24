@@ -21,35 +21,37 @@ Therefore, there are 23 distinct types for MSA features.
 
 ## One-hot residue type representation
 
-We follow HHBlits convention.
 The one-hot representation can be inversed with following table.
+See `deepfold.common.residue_constants.restypes_with_x_and_gap`.
 
 | Code | 1 |  3  | Name             |
 |:----:|:-:|:---:|------------------|
 |   0  | A | ALA | Alanine          |
-|   1  | C | CYS | Cysteine         |
-|   2  | D | ASP | Aspartate        |
-|   3  | E | GLU | Glutamate        |
-|   4  | F | PHE | Phenylalanine    |
-|   5  | G | GLY | Glycine          |
-|   6  | H | HIS | Histidine        |
-|   7  | I | ILE | Isoleucine       |
-|   8  | K | LYS | Lysine           |
-|   9  | L | LEU | Leucine          |
-|  10  | M | MET | Methionine       |
-|  11  | N | ASN | Asparagine       |
-|  12  | P | PRO | Proline          |
-|  13  | Q | GLN | Glutamine        |
-|  14  | R | ARG | Arginine         |
+|   1  | R | ARG | Arginine         |
+|   2  | N | ASN | Asparagine       |
+|   3  | D | ASP | Aspartate        |
+|   4  | C | CYS | Cysteine         |
+|   5  | Q | GLN | Glutamine        |
+|   6  | E | GLU | Glutamate        |
+|   7  | G | GLY | Glycine          |
+|   8  | H | HIS | Histidine        |
+|   9  | I | ILE | Isoleucine       |
+|  10  | L | LEU | Leucine          |
+|  11  | M | MET | Methionine       |
+|  12  | K | LYS | Lysine           |
+|  13  | F | PHE | Phenylalanine    |
+|  14  | P | PRO | Proline          |
 |  15  | S | SER | Serine           |
 |  16  | T | THR | Threonine        |
-|  17  | V | VAL | Valine           |
-|  18  | W | TRP | Tryptophan       |
-|  19  | Y | TYR | Tyrosine         |
+|  17  | W | TRP | Tryptophan       |
+|  18  | Y | TYR | Tyrosine         |
+|  19  | V | VAL | Valine           |
 |  20  | X | UNK | Unknown          |
 |  21  | - | GAP | Gap              |
 |  22  |   |     | Maksed MSA token |
 
-## `atom37` representation
+## Atom representation
 
-## `atom14` representation
+- See `deepfold.common.residue_constants.restype_name_to_atom14_names`.
+- See `deepfold.common.residue_constants.RESTYPE_ATOM14_TO_ATOM37`.
+- See `deepfold.common.residue_constants.RESTYPE_ATOM37_TO_ATOM14`.

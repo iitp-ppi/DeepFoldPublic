@@ -16,7 +16,11 @@ VIFEMVHLKELGLYNLMNITRGSVRIEKNNELCYLATIDWSRILDSVEDNYIVLNKDDNE
 
 ### Multiple sequence alignment (MSA)
 
+(...)
+
 ### Structural template search
+
+(...)
 
 ### Summary: `features.pkl`
 
@@ -50,3 +54,7 @@ See [**representations**](../repr).
 - `template_domain_names: str[N_t]` Domain names.
 - `template_sequence: str[N_t]` One-symbol sequences.
 - `template_sum_probs: float32[N_t, 1]` Output from the template aligner. Higher templates are selected.
+
+## Processing features
+
+See `deepfold.model.alphafold.data`.
