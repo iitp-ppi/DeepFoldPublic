@@ -56,11 +56,15 @@ python3 \
 - If the framework stuck on communication, set `NCCL_P2P_DISABLE=1`.
 - Turn off ACS(Access Control Services) on BIOS.
 - Turn off IOMMU(Input/Output Memory Management Unit) on BIOS to use RDMA/GPUDirect (if your system supports).
-- You can ACS temporarily by run `scripts/disable_acs.sh` with root permission.
+- You can disable ACS temporarily by run `scripts/disable_acs.sh` with root permission.
 
 ### Environmental variabes
 
 - Set `DEBUG=1` to show debug messages.
+
+### Override configurations
+
+You can override configurations with dot-list with `--options <DOT_LIST_1> <DOT_LIST_2> ...` argument.
 
 ## Training
 
