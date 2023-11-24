@@ -4,8 +4,8 @@ import pickle
 from typing import Mapping, Optional, Sequence, Tuple
 
 from deepfold.data import parsers
-from deepfold.model.alphafold.pipeline.make_feats import empty_template_feats, make_msa_features, make_sequence_features
-from deepfold.model.alphafold.pipeline.types import FeatureDict
+from deepfold.model.alphafold.data.make_feats import empty_template_feats, make_msa_features, make_sequence_features
+from deepfold.model.alphafold.data.types import FeatureDict
 
 
 class Pipeline:

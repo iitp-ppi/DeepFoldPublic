@@ -30,7 +30,7 @@ from deepfold.model.alphafold.nn.evoformer import EvoformerStack, ExtraMSAStack
 from deepfold.model.alphafold.nn.heads import AuxiliaryHeads
 from deepfold.model.alphafold.nn.structure_module import StructureModule
 from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
-from deepfold.model.alphafold.pipeline.types import TensorDict
+from deepfold.model.alphafold.data.types import TensorDict
 from deepfold.utils.tensor_utils import tensor_tree_map
 
 

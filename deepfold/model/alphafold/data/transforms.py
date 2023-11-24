@@ -13,7 +13,7 @@ import torch
 from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
-from deepfold.model.alphafold.pipeline.types import TensorDict
+from deepfold.model.alphafold.data.types import TensorDict
 from deepfold.utils.geometry import Rigid, Rotation
 from deepfold.utils.tensor_utils import batched_gather
 

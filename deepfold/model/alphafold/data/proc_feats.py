@@ -13,8 +13,8 @@ import numpy as np
 import torch
 from omegaconf import DictConfig
 
-import deepfold.model.alphafold.pipeline.transforms as dt
-from deepfold.model.alphafold.pipeline.types import FeatureDict, TensorDict
+import deepfold.model.alphafold.data.transforms as dt
+from deepfold.model.alphafold.data.types import FeatureDict, TensorDict
 
 
 def np_to_tensor_dict(

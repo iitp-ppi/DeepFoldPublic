@@ -9,7 +9,7 @@ import torch
 
 from deepfold.common import residue_constants as rc
 from deepfold.data import parsers
-from deepfold.model.alphafold.pipeline.types import FeatureDict
+from deepfold.model.alphafold.data.types import FeatureDict
 
 
 def empty_template_feats(n_res: int) -> FeatureDict:

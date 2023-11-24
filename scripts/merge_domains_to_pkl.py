@@ -7,7 +7,7 @@ import numpy as np
 
 import deepfold.common.protein as protein
 import deepfold.common.residue_constants as rc
-from deepfold.model.alphafold.pipeline.types import FeatureDict
+from deepfold.model.alphafold.data.types import FeatureDict
 
 
 def _pdb_to_template(pdb_str: str, _zero_center_positions: bool = False) -> Dict[str, Any]:

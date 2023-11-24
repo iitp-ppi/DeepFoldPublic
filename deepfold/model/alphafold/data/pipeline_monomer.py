@@ -7,8 +7,8 @@ import logging
 
 from omegaconf import DictConfig
 
-from deepfold.model.alphafold.pipeline.proc_feats import np_example_to_features
-from deepfold.model.alphafold.pipeline.types import FeatureDict, TensorDict
+from deepfold.model.alphafold.data.proc_feats import np_example_to_features
+from deepfold.model.alphafold.data.types import FeatureDict, TensorDict
 
 logger = logging.getLogger(__name__)
 

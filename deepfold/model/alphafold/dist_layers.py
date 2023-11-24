@@ -9,7 +9,7 @@ import torch.nn as nn
 from omegaconf import DictConfig
 
 from deepfold.distributed.legacy import gather, get_pad_size, get_world_size, pad_tensor, scatter
-from deepfold.model.alphafold.pipeline.types import TensorDict
+from deepfold.model.alphafold.data.types import TensorDict
 
 
 @dataclass(frozen=True)
