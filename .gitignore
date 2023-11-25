@@ -392,3 +392,4 @@ Makefile
 # Output
 _output
 _output/*
+*.log
