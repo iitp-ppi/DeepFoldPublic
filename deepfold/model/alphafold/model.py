@@ -10,6 +10,7 @@ from omegaconf import DictConfig
 
 import deepfold.common.residue_constants as rc
 from deepfold.distributed.legacy import get_tensor_model_parallel_world_size
+from deepfold.model.alphafold.data.types import TensorDict
 from deepfold.model.alphafold.dist_layers import GatherOutputs, ScatterFeatures
 from deepfold.model.alphafold.feats import (
     atom14_to_atom37,
@@ -30,7 +31,6 @@ from deepfold.model.alphafold.nn.evoformer import EvoformerStack, ExtraMSAStack
 from deepfold.model.alphafold.nn.heads import AuxiliaryHeads
 from deepfold.model.alphafold.nn.structure_module import StructureModule
 from deepfold.model.alphafold.nn.template import TemplatePairStack, TemplatePointwiseAttention
-from deepfold.model.alphafold.data.types import TensorDict
 from deepfold.utils.tensor_utils import tensor_tree_map
 
 
