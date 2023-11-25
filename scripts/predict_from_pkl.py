@@ -36,10 +36,6 @@ else:
 
 logger = logging.getLogger(__name__)
 
-# Write logs to a file
-file_handler = logging.FileHandler("predict_from_pkl.logs")
-logger.addHandler(file_handler)
-
 
 def run_model(local_rank: int, kwargs: Dict[str, Any]):
     world_size = kwargs["world_size"]
@@ -167,7 +163,7 @@ def predict_structure(
         logger.debug(f"{k}: {v.dtype}{list(v.shape)}")
     logger.debug("")
 
-    # Prepare multi-thread system
+    # Prepare multi-process system
     manager = mp.Manager()
     queue = manager.Queue()
 
