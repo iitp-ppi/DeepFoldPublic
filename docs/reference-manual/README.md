@@ -12,13 +12,13 @@
   * [Features](deepfold/features.md)
   * [Distributed Computing](deepfold/dist.md)
   * Network
-    * [Inference Procedure](deepfold/predict.md)
     * [Primitive Layers](deepfold/primitives.md)
     * [Chunk](deepfold/chunk.md)
     * [Embedder](deepfold/embed.md)
     * [Evoformer](deepfold/evoformer.md)
     * [Structure Module](deepfold/sm.md)
     * [Heads](deepfold/heads.md)
+  * [Inference Procedure](deepfold/predict.md)
   * [Training Procedure](deepfold/train.md)
 * AlphaFold
   * [Overview](alphafold/overview.md)
