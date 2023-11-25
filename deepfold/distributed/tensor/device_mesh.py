@@ -1,6 +1,6 @@
 # Copyright 2023 DeepFold Team
 
-import logging
+
 import math
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
@@ -12,9 +12,6 @@ from torch.distributed.distributed_c10d import (
     _get_default_group,
     _get_group_tag,
 )
-
-logger = logging.getLogger(__name__)
-
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
