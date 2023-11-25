@@ -2,8 +2,7 @@
 
 
 import dataclasses
-from functools import reduce
-from operator import mul
+import math
 from typing import List, Sequence
 
 
@@ -15,4 +14,4 @@ def get_field_names(cls) -> List[str]:
 
 
 def prod(x: Sequence[int]) -> int:
-    return reduce(mul, x, 1)
+    return math.prod(prod)
