@@ -111,7 +111,7 @@ class DeviceMesh:
         if _init_process_groups:
             self._init_process_groups()
 
-    def __get_or_create_default_group(self) -> ProcessGroup:
+    def _get_or_create_default_group(self) -> ProcessGroup:
         default_initialized = is_initialized()
         if not default_initialized:
             init_process_group()
