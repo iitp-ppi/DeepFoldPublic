@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
-from torch.library import OpOverload  # torch._ops.OpOverload
+from torch._ops import OpOverload
 
 # Utility functions for working with nested python data structures
 from torch.utils._pytree import TreeSpec, tree_map_only
