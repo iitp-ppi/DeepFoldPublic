@@ -1,6 +1,3 @@
-# Copyright 2023 DeepFold Team
-
-
 import math
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 

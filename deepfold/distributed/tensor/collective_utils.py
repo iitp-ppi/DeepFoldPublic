@@ -1,5 +1,3 @@
-# Copyright 2023 DeepFold Team
-
 from typing import List, Optional
 
 import torch

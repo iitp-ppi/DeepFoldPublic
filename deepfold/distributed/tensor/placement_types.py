@@ -1,6 +1,3 @@
-# Copyright 2023 DeepFold Team
-
-
 from dataclasses import dataclass
 from typing import Any, List, NamedTuple, Optional, Tuple, cast
 
