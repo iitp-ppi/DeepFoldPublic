@@ -37,6 +37,9 @@ else:
 logger = logging.getLogger(__name__)
 
 
+torch.set_grad_enabled(False)
+
+
 def run_model(local_rank: int, kwargs: Dict[str, Any]):
     world_size = kwargs["world_size"]
     random_seed = kwargs["random_seed"]
@@ -54,14 +57,11 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     assert dist.is_initialized()
     assert dist.is_nccl_available()
 
-    with torch.no_grad():
-        model = load_alphafold(config=kwargs["config"], params_dir=kwargs["params_dir"], device="cuda")
-        logger.info(f"[{local_rank}] Model loaded")
+    model = load_alphafold(config=kwargs["config"], params_dir=kwargs["params_dir"], device="cuda")
+    logger.info(f"[{local_rank}] Model loaded")
 
-        processed_feature_dict = {
-            k: torch.as_tensor(v, device="cuda") for k, v in kwargs["processed_feature_dict"].items()
-        }
-        logger.info(f"[{local_rank}] Input feature loaded")
+    processed_feature_dict = {k: torch.as_tensor(v, device="cuda") for k, v in kwargs["processed_feature_dict"].items()}
+    logger.info(f"[{local_rank}] Input feature loaded")
 
     if dist.is_initialized():
         logger.debug(f"[{local_rank}] System initialized")
@@ -75,8 +75,7 @@ def run_model(local_rank: int, kwargs: Dict[str, Any]):
     torch.cuda.reset_peak_memory_stats()
     t = time.perf_counter()
 
-    with torch.no_grad():
-        out = model(processed_feature_dict)
+    out = model(processed_feature_dict)
 
     t = time.perf_counter() - t
     torch.cuda.synchronize()
