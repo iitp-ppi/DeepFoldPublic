@@ -49,6 +49,7 @@ python3 \
 - If you want to enable deterministic mode (for validation) add `--deterministic` flag.
 - You can fix feature processing random seed with `-data_random_seed` option.
 - You can determine how many GPUs to use with `-nt` flags and `NVIDIA_VISIBLE_DEVICES` environmental variable.
+- You can override the configuration with `--options <dot-list-1> <dot-list-2> ...`.
 
 ### About NCCL
 
