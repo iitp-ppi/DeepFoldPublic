@@ -1,5 +1,7 @@
 # Distributed Computing
 
+## Introduction
+
 > 백지장도 맞들면 낫다
 
 Computer software has been written for serial computation.
@@ -19,7 +21,7 @@ Consider NVIDIA's H100 GPUs (maybe the best on earth).
 
 This is why we should introduce distributed computing.
 
-## Message passing interface routines
+## Concept: Message passing interface routines
 
 ### Broadcast
 
@@ -71,8 +73,10 @@ Sharded right projection $\mathbf{b}_{ij}$ is gathered.
 
 ![tri-mul-dist](tri-mul-2.png)
 
-## Mixed strategy
+## Concept: Mixed strategy
 
 Combine data parallelism and model parallelism to speed up training.
 
 ![strategy](strategy.png)
+
+## `deepfold.distributed`
