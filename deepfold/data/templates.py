@@ -780,15 +780,17 @@ def _process_single_hit(
     template_sequence = hit.hit_sequence.replace("-", "")
 
     cif_path = os.path.join(mmcif_dir, hit_pdb_code + ".cif")
-    logger.info(
-        "Reading PDB entry from %s. Query: %s, template: %s",
-        cif_path,
-        query_sequence,
-        template_sequence,
-    )
+    logger.info(f"Reading PDB entry from {cif_path}. Query: {query_sequence}, template: {template_sequence}")
     # Fail if we can't find the mmCIF file.
-    with open(cif_path, "r") as cif_file:
-        cif_string = cif_file.read()
+    try:
+        with open(cif_path, "r") as cif_file:
+            cif_string = cif_file.read()
+    except FileNotFoundError:
+        logger.info(f"Cannot read PDB entry from {cif_path}")
+        cif_path = os.path.join(mmcif_dir, hit_pdb_code, ".cif.gz")
+        logger.info(f"Reading PDB entry from {cif_path}")
+        with gzip.open(cif_path, "rb") as f:
+            cif_string = f.read().decode()
 
     parsing_result = mmcif_parsing.parse(file_id=hit_pdb_code, mmcif_string=cif_string)
 
@@ -855,7 +857,11 @@ def _process_single_hit(
 
 
 def get_custom_template_features(
-    mmcif_path: str, query_sequence: str, pdb_id: str, chain_id: str, kalign_binary_path: str
+    mmcif_path: str,
+    query_sequence: str,
+    pdb_id: str,
+    chain_id: str,
+    kalign_binary_path: str,
 ):
     with open(mmcif_path, "r") as mmcif_path:
         cif_string = mmcif_path.read()
