@@ -8,6 +8,7 @@
 import dataclasses
 import datetime
 import glob
+import gzip
 import json
 import logging
 import os
@@ -15,11 +16,11 @@ import re
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
+
+from deepfold.common import residue_constants as rc
 from deepfold.data import mmcif_parsing, parsers
 from deepfold.data.errors import Error
 from deepfold.data.tools import kalign
-from deepfold.common import residue_constants as rc
-
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,10 @@ TEMPLATE_FEATURES = {
     "template_sequence": np.object,
     "template_sum_probs": np.float32,
 }
+
+
+def _to_date(s: str):
+    return datetime.datetime(year=int(s[:4]), month=int(s[5:7]), day=int(s[8:10]))
 
 
 def _get_pdb_id_and_chain(hit: parsers.TemplateHit) -> Tuple[str, str]:
@@ -181,7 +186,7 @@ def _parse_release_dates(path: str) -> Mapping[str, datetime.datetime]:
     with open(path, "r") as fp:
         data = json.load(fp)
 
-    return {pdb.upper(): to_date(v) for pdb, d in data.items() for k, v in d.items() if k == "release_date"}
+    return {pdb.upper(): _to_date(v) for pdb, d in data.items() for k, v in d.items() if k == "release_date"}
 
 
 def _assess_hhsearch_hit(
