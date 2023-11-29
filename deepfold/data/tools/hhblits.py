@@ -96,7 +96,7 @@ class HHBlits:
         self.p = p
         self.z = z
 
-    def query(self, input_fasta_path: str) -> List[Mapping[str, Any]]:
+    def query(self, input_fasta_path: str) -> Mapping[str, Any]:
         """Queries the database using HHblits."""
         with tempfile.TemporaryDirectory() as query_tmp_dir:
             a3m_path = os.path.join(query_tmp_dir, "output.a3m")
@@ -160,4 +160,4 @@ class HHBlits:
                 a3m = f.read()
 
         raw_output = dict(a3m=a3m, output=stdout, stderr=stderr, n_iter=self.n_iter, e_value=self.e_value)
-        return [raw_output]
+        return raw_output
