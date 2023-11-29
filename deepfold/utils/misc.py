@@ -14,4 +14,4 @@ def get_field_names(cls) -> List[str]:
 
 
 def prod(x: Sequence[int]) -> int:
-    return math.prod(prod)
+    return math.prod(x)
