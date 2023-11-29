@@ -161,29 +161,11 @@ class DataPipeline:
 
         return msa_features
 
-    # Load and process sequence embedding features
-    def _process_seqemb_features(
-        self,
-        alignment_dir: str,
-    ) -> Mapping[str, Any]:
-        seqemb_features = {}
-        for f in os.listdir(alignment_dir):
-            path = os.path.join(alignment_dir, f)
-            ext = os.path.splitext(f)[-1]
-
-            if ext == ".pt":
-                # Load embedding file
-                seqemb_data = torch.load(path)
-                seqemb_features["seq_embedding"] = seqemb_data["representations"][33]
-
-        return seqemb_features
-
     def process_fasta(
         self,
         fasta_path: str,
         alignment_dir: str,
         alignment_index: Optional[str] = None,
-        seqemb_mode: bool = False,
     ) -> FeatureDict:
         """Assembles features for a single sequence in a FASTA file"""
         with open(fasta_path) as f:
@@ -209,12 +191,8 @@ class DataPipeline:
         )
 
         sequence_embedding_features = {}
-        # If using seqemb mode, generate a dummy MSA features using just the sequence
-        if seqemb_mode:
-            msa_features = make_dummy_msa_feats(input_sequence)
-            sequence_embedding_features = self._process_seqemb_features(alignment_dir)
-        else:
-            msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
         return {
             **sequence_features,
@@ -229,7 +207,6 @@ class DataPipeline:
         alignment_dir: str,
         chain_id: Optional[str] = None,
         alignment_index: Optional[str] = None,
-        seqemb_mode: bool = False,
     ) -> FeatureDict:
         """
         Assembles features for a specific chain in an mmCIF object.
@@ -256,12 +233,8 @@ class DataPipeline:
         )
 
         sequence_embedding_features = {}
-        # If using seqemb mode, generate a dummy MSA features using just the sequence
-        if seqemb_mode:
-            msa_features = make_dummy_msa_feats(input_sequence)
-            sequence_embedding_features = self._process_seqemb_features(alignment_dir)
-        else:
-            msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
         return {**mmcif_feats, **template_features, **msa_features, **sequence_embedding_features}
 
@@ -273,7 +246,6 @@ class DataPipeline:
         chain_id: Optional[str] = None,
         _structure_index: Optional[str] = None,
         alignment_index: Optional[str] = None,
-        seqemb_mode: bool = False,
     ) -> FeatureDict:
         """
         Assembles features for a protein in a PDB file.
@@ -304,12 +276,8 @@ class DataPipeline:
         )
 
         sequence_embedding_features = {}
-        # If in sequence embedding mode, generate dummy MSA features using just the input sequence
-        if seqemb_mode:
-            msa_features = make_dummy_msa_feats(input_sequence)
-            sequence_embedding_features = self._process_seqemb_features(alignment_dir)
-        else:
-            msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
         return {**pdb_feats, **template_features, **msa_features, **sequence_embedding_features}
 
