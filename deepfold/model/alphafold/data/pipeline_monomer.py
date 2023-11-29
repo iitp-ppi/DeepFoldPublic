@@ -190,16 +190,9 @@ class DataPipeline:
             num_res=num_res,
         )
 
-        sequence_embedding_features = {}
-
         msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
-        return {
-            **sequence_features,
-            **msa_features,
-            **template_features,
-            **sequence_embedding_features,
-        }
+        return {**sequence_features, **msa_features, **template_features}
 
     def process_mmcif(
         self,
@@ -232,11 +225,9 @@ class DataPipeline:
             query_release_date=templates.to_date(mmcif.header["release_date"]),
         )
 
-        sequence_embedding_features = {}
-
         msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
-        return {**mmcif_feats, **template_features, **msa_features, **sequence_embedding_features}
+        return {**mmcif_feats, **template_features, **msa_features}
 
     def process_pdb(
         self,
@@ -275,11 +266,9 @@ class DataPipeline:
             self.template_featurizer,
         )
 
-        sequence_embedding_features = {}
-
         msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
-        return {**pdb_feats, **template_features, **msa_features, **sequence_embedding_features}
+        return {**pdb_feats, **template_features, **msa_features}
 
     def process_multiseq_fasta(
         self,
