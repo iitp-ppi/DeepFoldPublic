@@ -32,7 +32,7 @@ from deepfold.data import parsers
 class HHSearch:
     """Python wrapper of the HHsearch binary."""
 
-    def __init__(self, *, binary_path: str, databases: Sequence[str], maxseq: int = 1_000_000):
+    def __init__(self, *, binary_path: str, databases: Sequence[str], maxseq: int = 1_000_000, n_cpu: int = 2):
         """Initializes the Python HHsearch wrapper.
 
         Args:
@@ -49,6 +49,7 @@ class HHSearch:
         self.binary_path = binary_path
         self.databases = databases
         self.maxseq = maxseq
+        self.n_cpu = n_cpu
 
         for database_path in self.databases:
             if not glob.glob(database_path + "_*"):
@@ -75,7 +76,17 @@ class HHSearch:
             for db_path in self.databases:
                 db_cmd.append("-d")
                 db_cmd.append(db_path)
-            cmd = [self.binary_path, "-i", input_path, "-o", hhr_path, "-maxseq", str(self.maxseq)] + db_cmd
+            cmd = [
+                self.binary_path,
+                "-i",
+                input_path,
+                "-o",
+                hhr_path,
+                "-maxseq",
+                str(self.maxseq),
+                "-cpu",
+                str(self.n_cpu),
+            ] + db_cmd
 
             logger.info('Launching subprocess "%s"', " ".join(cmd))
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
