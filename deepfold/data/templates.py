@@ -84,7 +84,7 @@ TEMPLATE_FEATURES = {
 }
 
 
-def _to_date(s: str):
+def to_date(s: str):
     return datetime.datetime(year=int(s[:4]), month=int(s[5:7]), day=int(s[8:10]))
 
 
@@ -186,7 +186,7 @@ def _parse_release_dates(path: str) -> Mapping[str, datetime.datetime]:
     with open(path, "r") as fp:
         data = json.load(fp)
 
-    return {pdb.upper(): _to_date(v) for pdb, d in data.items() for k, v in d.items() if k == "release_date"}
+    return {pdb.upper(): to_date(v) for pdb, d in data.items() for k, v in d.items() if k == "release_date"}
 
 
 def _assess_hhsearch_hit(
