@@ -2,6 +2,7 @@ name: deepfold2-dev
 channels:
   - pytorch
   - nvidia
+  - bioconda
   - conda-forge
   - defaults
 dependencies:
@@ -10,13 +11,16 @@ dependencies:
   - scipy
   - pandas
   - matplotlib
-  - biopython=1.81
+  - biopython==1.81
   - hydra-core
-  - omegaconf=2.3.0
+  - omegaconf==2.3.0
   - pytorch=2.1.1
-  - pytorch-cuda=12.1
+  - pytorch-cuda==12.1
   - torchaudio
   - torchvision
+  - hmmer==3.3.2
+  - hhsuite==3.3.0
+  - kalign2==2.04
   - isort
   - black
   - pip:
