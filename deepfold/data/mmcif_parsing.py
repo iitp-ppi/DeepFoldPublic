@@ -12,7 +12,7 @@ from typing import Any, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 from Bio import PDB
-from Bio.Data import SCOPData
+from Bio.Data import PDBData
 
 import deepfold.common.residue_constants as residue_constants
 from deepfold.data.errors import MultipleChainsError
@@ -253,7 +253,7 @@ def parse(*, file_id: str, mmcif_string: str, catch_all_errors: bool = True) -> 
             author_chain = mmcif_to_author_chain_id[chain_id]
             seq = []
             for monomer in seq_info:
-                code = SCOPData.protein_letters_3to1.get(monomer.id, "X")
+                code = PDBData.protein_letters_3to1.get(monomer.id, "X")
                 seq.append(code if len(code) == 1 else "X")
             seq = "".join(seq)
             author_chain_to_sequence[author_chain] = seq
