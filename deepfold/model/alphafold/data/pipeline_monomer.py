@@ -16,11 +16,9 @@ from deepfold.data import mmcif_parsing, parsers, templates
 from deepfold.data.tools import hhblits, hhsearch, jackhmmer
 from deepfold.model.alphafold.data.make_feats import (
     _aatype_to_str_sequence,
-    make_dummy_msa_feats,
     make_mmcif_features,
     make_msa_features,
     make_pdb_features,
-    make_protein_features,
     make_sequence_features,
     make_template_features,
     unify_template_features,
