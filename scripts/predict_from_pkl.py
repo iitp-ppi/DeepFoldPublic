@@ -104,7 +104,7 @@ def predict_structure(
 ) -> Dict[str, np.ndarray]:
     if name is None:
         try:
-            name = feature_dict["domain_name"][0].decode()
+            name = feature_dict["domain_name"][0].decode().strip()
         except Exception as e:
             logger.debug(str(e))
             name = "protein"
