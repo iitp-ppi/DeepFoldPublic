@@ -863,8 +863,14 @@ def get_custom_template_features(
     chain_id: str,
     kalign_binary_path: str,
 ):
-    with open(mmcif_path, "r") as mmcif_path:
-        cif_string = mmcif_path.read()
+    _, ext = os.path.splitext(mmcif_path)
+
+    if ext == "cif":
+        with open(mmcif_path, "r") as mmcif_path:
+            cif_string = mmcif_path.read()
+    elif ext == "gz":
+        with gzip.open(mmcif_path, "rb") as f:
+            cif_string = f.read().decode()
 
     mmcif_parse_result = mmcif_parsing.parse(file_id=pdb_id, mmcif_string=cif_string)
     template_sequence = mmcif_parse_result.mmcif_object.chain_to_seqres[chain_id]
