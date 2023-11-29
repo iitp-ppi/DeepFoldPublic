@@ -2,13 +2,18 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-from typing import Any, Dict, MutableMapping, Optional, Sequence
+
+import os
+from multiprocessing import cpu_count
+from typing import Any, Optional, Sequence
 
 import numpy as np
-import torch
 
+from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.data import parsers
+from deepfold.data import mmcif_parsing, parsers
+from deepfold.data.templates import get_custom_template_features
+from deepfold.data.tools import hhblits, hhsearch, jackhmmer
 from deepfold.model.alphafold.data.types import FeatureDict
 
 
@@ -104,16 +109,77 @@ def make_sequence_features(sequence: str, description: str, num_res: int) -> Fea
     return features
 
 
-# TODO: make_mmcif_features
+def make_mmcif_features(mmcif_object: mmcif_parsing.MmcifObject, chain_id: str) -> FeatureDict:
+    input_sequence = mmcif_object.chain_to_seqres[chain_id]
+    description = "_".join([mmcif_object.file_id, chain_id])
+    num_res = len(input_sequence)
+
+    mmcif_feats = {}
+
+    mmcif_feats.update(
+        make_sequence_features(
+            sequence=input_sequence,
+            description=description,
+            num_res=num_res,
+        )
+    )
+
+    all_atom_positions, all_atom_mask = mmcif_parsing.get_atom_coords(mmcif_object=mmcif_object, chain_id=chain_id)
+    mmcif_feats["all_atom_positions"] = all_atom_positions
+    mmcif_feats["all_atom_mask"] = all_atom_mask
+    mmcif_feats["resolution"] = np.array([mmcif_object.header["resolution"]], dtype=np.float32)
+    mmcif_feats["release_date"] = np.array([mmcif_object.header["release_date"].encode("utf-8")], dtype=np.object_)
+    mmcif_feats["is_distillation"] = np.array(0.0, dtype=np.float32)
+
+    return mmcif_feats
 
 
 def _aatype_to_str_sequence(aatype):
     return "".join([rc.restypes_with_x[aatype[i]] for i in range(len(aatype))])
 
 
-# TODO: make_protein_featuers
+def make_protein_features(
+    protein_object: protein.Protein,
+    description: str,
+    _is_distillation: bool = False,
+) -> FeatureDict:
+    pdb_feats = {}
+    aatype = protein_object.aatype
+    sequence = _aatype_to_str_sequence(aatype)
+    pdb_feats.update(
+        make_sequence_features(
+            sequence=sequence,
+            description=description,
+            num_res=len(protein_object.aatype),
+        )
+    )
 
-# TODO: make_pdb_features
+    all_atom_positions = protein_object.atom_positions
+    all_atom_mask = protein_object.atom_mask
+
+    pdb_feats["all_atom_positions"] = all_atom_positions.astype(np.float32)
+    pdb_feats["all_atom_mask"] = all_atom_mask.astype(np.float32)
+
+    pdb_feats["resolution"] = np.array([0.0]).astype(np.float32)
+    pdb_feats["is_distillation"] = np.array(1.0 if _is_distillation else 0.0).astype(np.float32)
+
+    return pdb_feats
+
+
+def make_pdb_features(
+    protein_object: protein.Protein,
+    description: str,
+    is_distillation: bool = True,
+    confidence_threshold: float = 50.0,
+) -> FeatureDict:
+    pdb_feats = make_protein_features(protein_object, description, _is_distillation=True)
+
+    if is_distillation:
+        high_confidence = protein_object.b_factors > confidence_threshold
+        high_confidence = np.any(high_confidence, axis=-1)
+        pdb_feats["all_atom_mask"] *= high_confidence[..., None]
+
+    return pdb_feats
 
 
 def make_msa_features(
@@ -158,4 +224,206 @@ def make_dummy_msa_feats(input_sequence):
     return msa_features
 
 
-# TODO: make_sequence_features_with_custom_template
+def make_sequence_features_with_custom_template(
+    sequence: str, mmcif_path: str, pdb_id: str, chain_id: str, kalign_binary_path: str
+) -> FeatureDict:
+    """
+    process a single fasta file using features derived from a single template rather than an alignment
+    """
+    num_res = len(sequence)
+
+    sequence_features = make_sequence_features(
+        sequence=sequence,
+        description=pdb_id,
+        num_res=num_res,
+    )
+
+    msa_data = [[sequence]]
+    deletion_matrix = [[[0 for _ in sequence]]]
+
+    msa_features = make_msa_features(msa_data, deletion_matrix)
+    template_features = get_custom_template_features(
+        mmcif_path=mmcif_path,
+        query_sequence=sequence,
+        pdb_id=pdb_id,
+        chain_id=chain_id,
+        kalign_binary_path=kalign_binary_path,
+    )
+
+    return {**sequence_features, **msa_features, **template_features.features}
+
+
+class AlignmentRunner:
+    """Runs alignment tools and saves the results"""
+
+    def __init__(
+        self,
+        jackhmmer_binary_path: Optional[str] = None,
+        hhblits_binary_path: Optional[str] = None,
+        hhsearch_binary_path: Optional[str] = None,
+        uniref90_database_path: Optional[str] = None,
+        mgnify_database_path: Optional[str] = None,
+        bfd_database_path: Optional[str] = None,
+        uniclust30_database_path: Optional[str] = None,
+        pdb70_database_path: Optional[str] = None,
+        use_small_bfd: Optional[bool] = None,
+        no_cpus: Optional[int] = None,
+        uniref_max_hits: int = 10000,
+        mgnify_max_hits: int = 5000,
+    ):
+        """
+        Args:
+            jackhmmer_binary_path:
+                Path to jackhmmer binary
+            hhblits_binary_path:
+                Path to hhblits binary
+            hhsearch_binary_path:
+                Path to hhsearch binary
+            uniref90_database_path:
+                Path to uniref90 database. If provided, jackhmmer_binary_path
+                must also be provided
+            mgnify_database_path:
+                Path to mgnify database. If provided, jackhmmer_binary_path
+                must also be provided
+            bfd_database_path:
+                Path to BFD database. Depending on the value of use_small_bfd,
+                one of hhblits_binary_path or jackhmmer_binary_path must be
+                provided.
+            uniclust30_database_path:
+                Path to uniclust30. Searched alongside BFD if use_small_bfd is
+                false.
+            pdb70_database_path:
+                Path to pdb70 database.
+            use_small_bfd:
+                Whether to search the BFD database alone with jackhmmer or
+                in conjunction with uniclust30 with hhblits.
+            no_cpus:
+                The number of CPUs available for alignment. By default, all
+                CPUs are used.
+            uniref_max_hits:
+                Max number of uniref hits
+            mgnify_max_hits:
+                Max number of mgnify hits
+        """
+        db_map = {
+            "jackhmmer": {
+                "binary": jackhmmer_binary_path,
+                "dbs": [
+                    uniref90_database_path,
+                    mgnify_database_path,
+                    bfd_database_path if use_small_bfd else None,
+                ],
+            },
+            "hhblits": {
+                "binary": hhblits_binary_path,
+                "dbs": [
+                    bfd_database_path if not use_small_bfd else None,
+                ],
+            },
+            "hhsearch": {
+                "binary": hhsearch_binary_path,
+                "dbs": [
+                    pdb70_database_path,
+                ],
+            },
+        }
+
+        for name, dic in db_map.items():
+            binary, dbs = dic["binary"], dic["dbs"]
+            if binary is None and not all([x is None for x in dbs]):
+                raise ValueError(f"{name} DBs provided but {name} binary is None")
+
+        if not all([x is None for x in db_map["hhsearch"]["dbs"]]) and uniref90_database_path is None:
+            raise ValueError("uniref90_database_path must be specified in order to perform template search")
+
+        self.uniref_max_hits = uniref_max_hits
+        self.mgnify_max_hits = mgnify_max_hits
+        self.use_small_bfd = use_small_bfd
+
+        if no_cpus is None:
+            no_cpus = cpu_count()
+
+        self.jackhmmer_uniref90_runner = None
+        if jackhmmer_binary_path is not None and uniref90_database_path is not None:
+            self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
+                binary_path=jackhmmer_binary_path,
+                database_path=uniref90_database_path,
+                n_cpu=no_cpus,
+            )
+
+        self.jackhmmer_small_bfd_runner = None
+        self.hhblits_bfd_uniclust_runner = None
+        if bfd_database_path is not None:
+            if use_small_bfd:
+                self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
+                    binary_path=jackhmmer_binary_path,
+                    database_path=bfd_database_path,
+                    n_cpu=no_cpus,
+                )
+            else:
+                dbs = [bfd_database_path]
+                if uniclust30_database_path is not None:
+                    dbs.append(uniclust30_database_path)
+                self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
+                    binary_path=hhblits_binary_path,
+                    databases=dbs,
+                    n_cpu=no_cpus,
+                )
+
+        self.jackhmmer_mgnify_runner = None
+        if mgnify_database_path is not None:
+            self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
+                binary_path=jackhmmer_binary_path,
+                database_path=mgnify_database_path,
+                n_cpu=no_cpus,
+            )
+
+        self.hhsearch_pdb70_runner = None
+        if pdb70_database_path is not None:
+            self.hhsearch_pdb70_runner = hhsearch.HHSearch(
+                binary_path=hhsearch_binary_path,
+                databases=[pdb70_database_path],
+                n_cpu=no_cpus,
+            )
+
+    def run(
+        self,
+        fasta_path: str,
+        output_dir: str,
+    ):
+        """Runs alignment tools on a sequence"""
+        if self.jackhmmer_uniref90_runner is not None:
+            jackhmmer_uniref90_result = self.jackhmmer_uniref90_runner.query(fasta_path)[0]
+            uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(
+                jackhmmer_uniref90_result["sto"], max_sequences=self.uniref_max_hits
+            )
+            uniref90_out_path = os.path.join(output_dir, "uniref90_hits.a3m")
+            with open(uniref90_out_path, "w") as f:
+                f.write(uniref90_msa_as_a3m)
+
+            if self.hhsearch_pdb70_runner is not None:
+                hhsearch_result = self.hhsearch_pdb70_runner.query(uniref90_msa_as_a3m)
+                pdb70_out_path = os.path.join(output_dir, "pdb70_hits.hhr")
+                with open(pdb70_out_path, "w") as f:
+                    f.write(hhsearch_result)
+
+        if self.jackhmmer_mgnify_runner is not None:
+            jackhmmer_mgnify_result = self.jackhmmer_mgnify_runner.query(fasta_path)[0]
+            mgnify_msa_as_a3m = parsers.convert_stockholm_to_a3m(
+                jackhmmer_mgnify_result["sto"], max_sequences=self.mgnify_max_hits
+            )
+            mgnify_out_path = os.path.join(output_dir, "mgnify_hits.a3m")
+            with open(mgnify_out_path, "w") as f:
+                f.write(mgnify_msa_as_a3m)
+
+        if self.use_small_bfd and self.jackhmmer_small_bfd_runner is not None:
+            jackhmmer_small_bfd_result = self.jackhmmer_small_bfd_runner.query(fasta_path)[0]
+            bfd_out_path = os.path.join(output_dir, "small_bfd_hits.sto")
+            with open(bfd_out_path, "w") as f:
+                f.write(jackhmmer_small_bfd_result["sto"])
+        elif self.hhblits_bfd_uniclust_runner is not None:
+            hhblits_bfd_uniclust_result = self.hhblits_bfd_uniclust_runner.query(fasta_path)
+            if output_dir is not None:
+                bfd_out_path = os.path.join(output_dir, "bfd_uniclust_hits.a3m")
+                with open(bfd_out_path, "w") as f:
+                    f.write(hhblits_bfd_uniclust_result["a3m"])
