@@ -313,41 +313,6 @@ class DataPipeline:
 
         return {**pdb_feats, **template_features, **msa_features, **sequence_embedding_features}
 
-    def process_core(
-        self,
-        core_path: str,
-        alignment_dir: str,
-        alignment_index: Optional[str] = None,
-        seqemb_mode: bool = False,
-    ) -> FeatureDict:
-        """
-        Assembles features for a protein in a ProteinNet .core file.
-        """
-        with open(core_path, "r") as f:
-            core_str = f.read()
-
-        protein_object = protein.from_proteinnet_string(core_str)
-        input_sequence = _aatype_to_str_sequence(protein_object.aatype)
-        description = os.path.splitext(os.path.basename(core_path))[0].upper()
-        core_feats = make_protein_features(protein_object, description)
-
-        hits = self._parse_template_hits(alignment_dir, alignment_index)
-        template_features = make_template_features(
-            input_sequence,
-            hits,
-            self.template_featurizer,
-        )
-
-        sequence_embedding_features = {}
-        # If in sequence embedding mode, generate dummy MSA features using just the input sequence
-        if seqemb_mode:
-            msa_features = make_dummy_msa_feats(input_sequence)
-            sequence_embedding_features = self._process_seqemb_features(alignment_dir)
-        else:
-            msa_features = self._process_msa_feats(alignment_dir, input_sequence)
-
-        return {**core_feats, **template_features, **msa_features, **sequence_embedding_features}
-
     def process_multiseq_fasta(
         self,
         fasta_path: str,
