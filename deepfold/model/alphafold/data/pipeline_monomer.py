@@ -486,7 +486,11 @@ class AlignmentRunner:
         fasta_path: str,
         output_dir: str,
     ):
-        """Runs alignment tools on a sequence"""
+        """Runs alignment tools on a sequence."""
+
+        # Make output directory
+        os.makedirs(output_dir, exist_ok=True)
+
         if self.jackhmmer_uniref90_runner is not None:
             jackhmmer_uniref90_result = self.jackhmmer_uniref90_runner.query(fasta_path)[0]
             uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(
