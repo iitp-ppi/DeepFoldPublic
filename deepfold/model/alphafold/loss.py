@@ -34,7 +34,7 @@ def sigmoid_cross_entory(logits: torch.Tensor, labels: torch.Tensor) -> torch.Te
     return loss
 
 
-def torsion_angle_loss(a: torch.Tensor, a_gt: torch.Tensor, a_alt_gt: torch.Tenosr) -> torch.Tensor:
+def torsion_angle_loss(a: torch.Tensor, a_gt: torch.Tensor, a_alt_gt: torch.Tensor) -> torch.Tensor:
     """
     Torsion angle loss.
 
