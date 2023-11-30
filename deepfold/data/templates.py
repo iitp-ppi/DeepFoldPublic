@@ -787,7 +787,7 @@ def _process_single_hit(
             cif_string = cif_file.read()
     except FileNotFoundError:
         logger.info(f"Cannot read PDB entry from {cif_path}")
-        cif_path = os.path.join(mmcif_dir, hit_pdb_code, ".cif.gz")
+        cif_path = os.path.join(mmcif_dir, hit_pdb_code, hit_pdb_code[1:3], ".cif.gz")
         logger.info(f"Reading PDB entry from {cif_path}")
         with gzip.open(cif_path, "rb") as f:
             cif_string = f.read().decode()
