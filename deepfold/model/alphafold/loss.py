@@ -2,10 +2,69 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-
+from functools import partial
 from typing import Dict, Optional, Tuple
 
+import numpy as np
 import torch
+import torch.nn as nn
+from torch.distributions.bernoulli import Bernoulli
+
+from deepfold.common import residue_constants as rc
+from deepfold.model.alphafold import feats
+from deepfold.utils.geometry import Rigid, Rotation
+from deepfold.utils.tensor_utils import batched_gather, masked_mean, permute_final_dims, tensor_tree_map, tree_map
+
+
+def softmax_cross_entropy(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    return -1 * torch.sum(labels * nn.functional.log_softmax(logits, dim=-1), dim=-1)
+
+
+def sigmoid_cross_entory(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    logits_dtype = logits.dtype
+    logits = logits.double()
+    labels = labels.double()
+
+    log_p = nn.functional.logsigmoid(logits)
+    log_np = nn.functional.logsigmoid(-1 * logits)
+
+    loss = (-1 * labels) * log_p - (1 - labels) * log_np
+    loss = loss.to(dtype=logits_dtype)
+
+    return loss
+
+
+def torsion_angle_loss(a: torch.Tensor, a_gt: torch.Tensor, a_alt_gt: torch.Tenosr) -> torch.Tensor:
+    """
+    Torsion angle loss.
+
+    Args:
+        a: torch.Tensor [*, N, 7, 2]
+            Cosine and sine value of angles
+        a_gt: torch.Tensor
+        a_alt_gt: torch.Tensor
+
+    Returns:
+        torch.Tensor
+    """
+    # [*, 7, 2]
+    norm = torch.norm(a, dim=-1)
+
+    # [*, N, 7, 2]
+    a = a / norm.unsqueeze(-1)
+
+    # [*, N, 7]
+    diff_norm_gt = torch.norm(a - a_gt, dim=-1)
+    diff_norm_alt_at = torch.norm(a - a_alt_gt, dim=-1)
+    min_diff = torch.minimum(diff_norm_gt**2, diff_norm_alt_at**2)
+
+    # [*]
+    loss_torsion = torch.mean(min_diff, dim=(-1, -2))
+    loss_angle_norm = torch.mean(torch.abs(norm - 1), dim=(-1, -2))
+
+    angle_weight = 0.02
+
+    return loss_torsion * angle_weight * loss_angle_norm
 
 
 def compute_plddt(logits: torch.Tensor) -> torch.Tensor:
