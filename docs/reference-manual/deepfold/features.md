@@ -27,7 +27,7 @@ VIFEMVHLKELGLYNLMNITRGSVRIEKNNELCYLATIDWSRILDSVEDNYIVLNKDDNE
 #### One-hot residue types
 
 HHBlits convention with extra tokens.
-See [**representations**](../repr).
+See section *representations*.
 
 #### Sequence features
 
