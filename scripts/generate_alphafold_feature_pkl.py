@@ -20,6 +20,12 @@ def main():
 
     parser.add_argument("-f", "--fasta_path", type=str, required=True)
     parser.add_argument("-o", "--output_dir", type=str, required=True)
+    parser.add_argument(
+        "--use_precomputed_alignments",
+        type=str,
+        default=None,
+        help="Path to alignment directory. If provided, alignment computation is skipped",
+    )
 
     parser.add_argument("--mmcif_dir", type=str, default=None)
     parser.add_argument("--uniref90_database_path", type=str, default=None)
@@ -37,24 +43,28 @@ def main():
 
     args = parser.parse_args()
 
-    logger.info(f"Run alignment with '{args.fasta_path}'")
+    if args.use_precomputed_alignments is None:
+        logger.info(f"Run alignment with '{args.fasta_path}'")
+    else:
+        logger.info(f"Use precomputed alignments in '{args.use_precomputed_alignments}'")
     logger.info(f"Output results are saved to '{args.output_dir}")
 
     omp_num_threads = os.environ.get("OMP_NUM_THREADS", None)
     no_cpus = int(omp_num_threads) if omp_num_threads is not None else None
 
-    alignment_runner = AlignmentRunner(
-        uniref90_database_path=args.uniref90_database_path,
-        mgnify_database_path=args.mgnify_database_path,
-        pdb70_database_path=args.pdb70_database_path,
-        uniclust30_database_path=args.uniclust30_database_path,
-        bfd_database_path=args.bfd_database_path,
-        jackhmmer_binary_path=args.jackhmmer_binary_path,
-        hhblits_binary_path=args.hhblits_binary_path,
-        hhsearch_binary_path=args.hhsearch_binary_path,
-        no_cpus=no_cpus,
-    )
-    alignment_runner.run(args.fasta_path, args.output_dir)
+    if args.use_precomputed_alignments is None:
+        alignment_runner = AlignmentRunner(
+            uniref90_database_path=args.uniref90_database_path,
+            mgnify_database_path=args.mgnify_database_path,
+            pdb70_database_path=args.pdb70_database_path,
+            uniclust30_database_path=args.uniclust30_database_path,
+            bfd_database_path=args.bfd_database_path,
+            jackhmmer_binary_path=args.jackhmmer_binary_path,
+            hhblits_binary_path=args.hhblits_binary_path,
+            hhsearch_binary_path=args.hhsearch_binary_path,
+            no_cpus=no_cpus,
+        )
+        alignment_runner.run(args.fasta_path, args.output_dir)
 
     if args.mmcif_dir is None:
         template_featurizer = None
