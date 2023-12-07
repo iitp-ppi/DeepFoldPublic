@@ -23,7 +23,7 @@ from deepfold.model.alphafold.data.make_feats import (
     make_template_features,
     unify_template_features,
 )
-from deepfold.model.alphafold.data.proc_feats import np_example_to_features
+from deepfold.model.alphafold.data.process_feats import np_example_to_features
 from deepfold.model.alphafold.data.types import FeatureDict, TensorDict
 
 logger = logging.getLogger(__name__)
