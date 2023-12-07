@@ -1,0 +1,383 @@
+info:
+  tags:
+    - AlphaFold
+    - protein
+    - multimer
+
+globals:
+  is_multimer: True
+  max_recycling_iters: 20 # do once more
+  use_template: False
+  use_template_torsion_angles: False
+  # num_ensemble: 1
+  # eval_dropout: False
+
+data:
+  feat:
+    features:
+      aatype: [NUM_RES]
+      all_atom_mask: [NUM_RES, null]
+      all_atom_positions: [NUM_RES, null, null]
+      # all_chains_entity_ids: []
+      # all_crops_all_chains_mask: []
+      # all_crops_all_chains_positions: []
+      # all_crops_all_chains_residue_ids: []
+      alt_chi_angles: [NUM_RES, null]
+      assembly_num_chains: []
+      asym_id: [NUM_RES]
+      atom14_alt_gt_exists: [NUM_RES, null]
+      atom14_alt_gt_positions: [NUM_RES, null, null]
+      atom14_atom_exists: [NUM_RES, null]
+      atom14_atom_is_ambiguous: [NUM_RES, null]
+      atom14_gt_exists: [NUM_RES, null]
+      atom14_gt_positions: [NUM_RES, null, null]
+      atom37_atom_exists: [NUM_RES, null]
+      backbone_rigid_mask: [NUM_RES]
+      backbone_rigid_tensor: [NUM_RES, null, null]
+      bert_mask: [NUM_MSA_SEQ, NUM_RES]
+      chi_angles_sin_cos: [NUM_RES, null, null]
+      chi_mask: [NUM_RES, null]
+      cluster_bias_mask: [NUM_MSA_SEQ]
+      cluster_profile: [NUM_MSA_SEQ, NUM_RES, None]
+      cluster_deletion_mean: [NUM_MSA_SEQ, NUM_RES]
+      deletion_matrix: [NUM_MSA_SEQ, NUM_RES]
+      deletion_mean: [NUM_RES]
+      entity_id: [NUM_RES]
+      entity_mask: [NUM_RES]
+      extra_deletion_matrix: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_deletion_value: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_has_deletion: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_mask: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_row_mask: [NUM_EXTRA_SEQ]
+      is_distillation: []
+      msa: [NUM_MSA_SEQ, NUM_RES]
+      msa_feat: [NUM_MSA_SEQ, NUM_RES, null]
+      msa_mask: [NUM_MSA_SEQ, NUM_RES]
+      msa_profile: [NUM_RES, null]
+      msa_row_mask: [NUM_MSA_SEQ]
+      num_alignments: []
+      num_recycling_iters: []
+      num_templates: []
+      pseudo_beta: [NUM_RES, null]
+      pseudo_beta_mask: [NUM_RES]
+      residue_index: [NUM_RES]
+      residx_atom14_to_atom37: [NUM_RES, null]
+      residx_atom37_to_atom14: [NUM_RES, null]
+      resolution: []
+      rigidgroups_alt_gt_frames: [NUM_RES, null, null, null]
+      rigidgroups_group_exists: [NUM_RES, null]
+      rigidgroups_group_is_ambiguous: [NUM_RES, null]
+      rigidgroups_gt_exists: [NUM_RES, null]
+      rigidgroups_gt_frames: [NUM_RES, null, null, null]
+      seq_length: []
+      seq_mask: [NUM_RES]
+      sym_id: [NUM_RES]
+      target_feat: [NUM_RES, null]
+      template_aatype: [NUM_TEMPLATES, NUM_RES]
+      template_all_atom_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_all_atom_positions: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_alt_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_backbone_rigid_mask: [NUM_TEMPLATES, NUM_RES]
+      template_backbone_rigid_tensor: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_mask: [NUM_TEMPLATES]
+      template_pseudo_beta: [NUM_TEMPLATES, NUM_RES, null]
+      template_pseudo_beta_mask: [NUM_TEMPLATES, NUM_RES]
+      template_sum_probs: [NUM_TEMPLATES, null]
+      template_torsion_angles_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      true_msa: [NUM_MSA_SEQ, NUM_RES]
+      use_clamped_fape: []
+
+    masked_msa: # Suppl. 1.2.7
+      uniform_prob: 0.1
+      profile_prob: 0.1
+      same_prob: 0.1
+      # 70% are masked_msa_token
+    max_recycling_iters: ${globals.max_recycling_iters}
+    msa_cluster_features: True
+    resample_msa_in_recycling: True
+    reduce_msa_clusters_by_max_templates: False
+    use_template: ${globals.use_template}
+    use_template_torsion_angles: ${globals.use_template_torsion_angles}
+    template_features:
+      [
+        template_all_atom_positions,
+        template_sum_probs,
+        template_aatype,
+        template_all_atom_mask,
+        template_domain_names,
+      ]
+    unsupervised_features: [
+        aatype,
+        residue_index,
+        sequence,
+        msa,
+        domain_name,
+        num_alignments,
+        seq_length,
+        between_segment_residues,
+        deletion_matrix,
+        num_recycling_iters,
+        msa_mask
+        seq_mask
+        asym_id
+        entity_id
+        sym_id,
+      ]
+    supervised_features:
+      [
+        all_atom_mask,
+        all_atom_positions,
+        resolution,
+        use_clamped_fape,
+        is_distillation,
+      ]
+  predict:
+    fixed_size: True # Pre-allocation
+    masked_msa_replace_fraction: 0.15 # Suppl. 1.2.7
+    max_msa_clusters: 508
+    max_extra_msa: 2048
+    subsample_templates: False # Top templates only
+    max_template_hits: 4
+    max_templates: 4
+    # uniform_recycling: False
+    crop_size: null
+    supervised: False
+    recycle_early_stop_tolerance: 0.5
+  eval:
+    fixed_size: True
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 508
+    max_extra_msa: 2048
+    subsample_templates: False
+    max_template_hits: 4
+    max_templates: 4
+    # uniform_recycling: False
+    supervised: True
+    recycle_early_stop_tolerance: 0.5 # ?
+  train:
+    fixed_size: True
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 508
+    max_extra_msa: 2048
+    subsample_templates: True
+    max_recycling_iters: 3 # For training
+    max_template_hits: 4
+    max_templates: 4
+    shuffle_top_k_prefiltered: 20
+    crop: True
+    crop_size: 640
+    supervised: True
+    clamp_prob: 1.
+    # uniform_recycling: False
+    distillation_prob: 0.75
+    spatial_crop_prob: 0.5
+    interface_threshold: 10.
+    recycle_early_stop_tolerance: null # Always run `num_recycle` times
+  loaders:
+    batch_size: 128
+    num_workers: 16
+    pin_mem: True
+
+model:
+  globals:
+    c_z: 128
+    c_m: 256
+    c_t: 64
+    c_e: 64
+    c_s: 384
+    chunk_size: 32
+    attention: torch # torch, memeff, flash
+
+  input_embedder:
+    tf_dim: 21
+    msa_dim: 49
+    c_z: ${model.globals.c_z}
+    c_m: ${model.globals.c_m}
+    relpos_k: 32
+    max_relative_chain: 2
+    max_relative_idx: 32
+    use_chain_relative: True
+  recycling_embedder:
+    c_z: ${model.globals.c_z}
+    c_m: ${model.globals.c_m}
+    min_bin: 3.25
+    max_bin: 20.75
+    num_bins: 15
+    inf: 1e8 # dgram_from_positions
+  template:
+    enabled: ${globals.use_template}
+    embed_angles: ${globals.use_template_torsion_angles}
+    c_t: ${model.globals.c_t}
+    c_z: ${model.globals.c_z}
+    use_unit_vector: True # Multiemr
+    inf: 1e9
+    eps: 1e-6
+    distogram:
+      min_bin: 3.25
+      max_bin: 50.75
+      num_bins: 39
+    template_single_embedder:
+      c_in: 34
+      c_out: ${model.globals.c_m}
+    template_pair_embedder:
+      c_in: ${model.globals.c_z}
+      c_out: ${model.globals.c_t}
+      c_dgram: 39
+      c_aatype: 22
+    template_pair_stack:
+      c_t: ${model.globals.c_t}
+      c_hidden_tri_attn: 16
+      c_hidden_tri_mul: 64
+      num_blocks: 2
+      num_heads: 4
+      pair_transition_n: 2
+      dropout_rate: 0.25
+      inf: 1e9
+      chunk_size: 128 # ${model.globals.chunk_size}
+      tri_mul_first: True
+      fuse_projection_weights: True # v3
+    # template_pointwise_attention: Not used in multimer
+  extra_msa:
+    enabled: True
+    extra_msa_embedder:
+      c_in: 25
+      c_out: ${model.globals.c_e}
+    extra_msa_stack:
+      c_e: ${model.globals.c_e}
+      c_z: ${model.globals.c_z}
+      c_hidden_msa_attn: 8
+      c_hidden_opm: 32
+      c_hidden_mul: 128
+      c_hidden_pair_attn: 32
+      num_heads_msa: 8
+      num_heads_pair: 4
+      num_blocks: 4
+      transition_n: 4
+      msa_dropout: 0.15
+      pair_dropout: 0.25
+      inf: 1e9
+      eps: 1e-10
+      chunk_size: ${model.globals.chunk_size}
+      clear_cache_between_blocks: False
+      opm_first: True # Multimer
+      fuse_projection_weights: True # v3
+  evoformer_stack:
+    c_m: ${model.globals.c_m}
+    c_z: ${model.globals.c_z}
+    c_s: ${model.globals.c_s}
+    c_hidden_msa_attn: 32
+    c_hidden_opm: 32
+    c_hidden_mul: 128
+    c_hidden_pair_attn: 32
+    num_heads_msa: 8
+    num_heads_pair: 4
+    num_blocks: 48
+    transition_n: 4
+    msa_dropout: 0.15
+    pair_dropout: 0.25
+    inf: 1e9
+    eps: 1e-10
+    chunk_size: ${model.globals.chunk_size}
+    clear_cache_between_blocks: False
+    opm_first: True # Multimer
+    fuse_projection_weights: True # v3
+  structure_module:
+    c_s: ${model.globals.c_s}
+    c_z: ${model.globals.c_z}
+    num_blocks: 8
+    c_resnet: 128
+    c_ipa: 16
+    num_heads_ipa: 12
+    num_qk_points: 4
+    num_v_points: 8
+    dropout_rate: 0.1
+    num_transition_layers: 1
+    num_resnet_blocks: 2
+    num_angles: 7
+    position_scale: 20.0 # Multimer
+    eps: 1e-12
+    inf: 1e5
+
+  heads:
+    lddt:
+      num_bins: 50
+      c_in: ${model.globals.c_s}
+      c_hidden: 128
+    distogram:
+      c_z: ${model.globals.c_z}
+      num_bins: 64
+    tm:
+      c_z: ${model.globals.c_z}
+      num_bins: 64
+      ptm_weight: 0.2
+      iptm_weight: 0.8
+    masked_msa:
+      c_m: ${model.globals.c_m}
+      c_out: 22 # Multimer
+    experimentally_resolved:
+      c_s: ${model.globals.c_s}
+      c_out: 37
+
+  loss:
+    distogram:
+      min_bin: 2.3125
+      max_bin: 21.6875
+      num_bins: 64
+      eps: 1e-6
+      weight: 0.3
+    experimentally_resolved:
+      eps: 1e-8
+      min_resolution: 0.1
+      max_resolution: 3.0
+      weight: 0.0
+    fape:
+      # backbone: Not used in multimer
+      intra_chain_backbone:
+        clamp_distance: 10.0
+        loss_unit_distance: 10.0
+        weight: 0.5
+      interface_backbone:
+        clamp_distance: 30.0
+        loss_unit_distance: 20.0
+        weight: 0.5
+      sidechain:
+        clamp_distance: 10.0
+        length_scale: 10.0
+        weight: 0.5
+      eps: 1e-4
+    plddt_loss:
+      min_resolution: 0.1
+      max_resolution: 3.0
+      cutoff: 15.0
+      num_bins: 50
+      eps: 1e-10
+      weight: 0.01
+    masked_msa:
+      eps: 1e-8
+      weight: 2.0
+      num_classes: 22
+    supervised_chi:
+      chi_weight: 0.5
+      angle_norm_weight: 0.01
+      eps: 1e-6
+      weight: 1.0
+    violation:
+      violation_tolerance_factor: 12.0
+      clash_overlap_tolerance: 1.5
+      eps: 1e-6
+      average_clashes: True
+      weight: 0.03 # Not finetuning
+    tm:
+      max_bin: 31
+      num_bins: 64
+      min_resolution: 0.1
+      max_resolution: 3.0
+      eps: 1e-8
+      weight: 0.1
+    chain_center_of_mass:
+      weight: 0.05
+      enabled: True
+  ema:
+    decay: 0.999
