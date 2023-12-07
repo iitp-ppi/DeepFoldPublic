@@ -1,16 +1,17 @@
 info:
   tags:
-    - AlphaFold2
+    - AlphaFold
     - protein
     - monomer
 
 globals:
+  is_multimer: False
   max_recycling_iters: 3 # do once more
   use_template: False
   use_template_torsion_angles: False
-  num_ensemble: 1
+  # num_ensemble: 1
   tm_enabled: False
-  eval_dropout: False
+  # eval_dropout: False
 
 data:
   feat:
@@ -40,7 +41,7 @@ data:
       msa_feat: [NUM_MSA_SEQ, NUM_RES, null]
       msa_mask: [NUM_MSA_SEQ, NUM_RES]
       msa_row_mask: [NUM_MSA_SEQ]
-      no_recycling_iters: []
+      num_recycling_iters: []
       pseudo_beta: [NUM_RES, null]
       pseudo_beta_mask: [NUM_RES]
       residue_index: [NUM_RES]
@@ -100,6 +101,7 @@ data:
         seq_length,
         between_segment_residues,
         deletion_matrix,
+        num_recycling_iters,
       ]
     supervised_features:
       [
@@ -117,7 +119,7 @@ data:
     subsample_templates: False # Top templates only
     max_template_hits: 4
     max_templates: 4
-    uniform_recycling: False
+    # uniform_recycling: False
     crop_size: null
     supervised: False
   eval:
@@ -128,7 +130,7 @@ data:
     subsample_templates: False
     max_template_hits: 4
     max_templates: 4
-    uniform_recycling: False
+    # uniform_recycling: False
     supervised: True
   train:
     fixed_size: True
@@ -143,7 +145,7 @@ data:
     crop_size: 256
     supervised: True
     clamp_prob: 0.9 # Suppl. 1.11.5
-    uniform_recycling: False
+    # uniform_recycling: False
     distillation_prob: 0.75
   loaders:
     batch_size: 128
@@ -177,7 +179,6 @@ model:
     enabled: ${globals.use_template}
     embed_angles: ${globals.use_template_torsion_angles}
     use_unit_vector: False
-    average_templates: False
     inf: 1e9
     eps: 1e-6
     distogram:
@@ -199,7 +200,7 @@ model:
       pair_transition_n: 2
       dropout_rate: 0.25
       inf: 1e9
-      chunk_size: 256 # ${model.globals.chunk_size}
+      chunk_size: 128 # ${model.globals.chunk_size}
     template_pointwise_attention:
       c_t: ${model.globals.c_t}
       c_z: ${model.globals.c_z}
