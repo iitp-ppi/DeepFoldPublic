@@ -8,7 +8,6 @@ import os
 from multiprocessing import cpu_count
 from typing import Any, Mapping, Optional
 
-import torch
 from omegaconf import DictConfig
 
 from deepfold.common import protein
@@ -370,7 +369,7 @@ class AlignmentRunner:
         uniclust30_database_path: Optional[str] = None,
         pdb70_database_path: Optional[str] = None,
         use_small_bfd: Optional[bool] = None,
-        no_cpus: Optional[int] = None,
+        num_cpus: Optional[int] = None,
         uniref_max_hits: int = 10000,
         mgnify_max_hits: int = 5000,
     ):
@@ -400,7 +399,7 @@ class AlignmentRunner:
             use_small_bfd:
                 Whether to search the BFD database alone with jackhmmer or
                 in conjunction with uniclust30 with hhblits.
-            no_cpus:
+            num_cpus:
                 The number of CPUs available for alignment. By default, all
                 CPUs are used.
             uniref_max_hits:
@@ -443,15 +442,15 @@ class AlignmentRunner:
         self.mgnify_max_hits = mgnify_max_hits
         self.use_small_bfd = use_small_bfd
 
-        if no_cpus is None:
-            no_cpus = cpu_count()
+        if num_cpus is None:
+            num_cpus = cpu_count()
 
         self.jackhmmer_uniref90_runner = None
         if jackhmmer_binary_path is not None and uniref90_database_path is not None:
             self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=uniref90_database_path,
-                n_cpu=no_cpus,
+                n_cpu=num_cpus,
             )
 
         self.jackhmmer_small_bfd_runner = None
@@ -461,7 +460,7 @@ class AlignmentRunner:
                 self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
                     binary_path=jackhmmer_binary_path,
                     database_path=bfd_database_path,
-                    n_cpu=no_cpus,
+                    n_cpu=num_cpus,
                 )
             else:
                 dbs = [bfd_database_path]
@@ -470,7 +469,7 @@ class AlignmentRunner:
                 self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
                     binary_path=hhblits_binary_path,
                     databases=dbs,
-                    n_cpu=no_cpus,
+                    n_cpu=num_cpus,
                 )
 
         self.jackhmmer_mgnify_runner = None
@@ -478,7 +477,7 @@ class AlignmentRunner:
             self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=mgnify_database_path,
-                n_cpu=no_cpus,
+                n_cpu=num_cpus,
             )
 
         self.hhsearch_pdb70_runner = None
@@ -486,7 +485,7 @@ class AlignmentRunner:
             self.hhsearch_pdb70_runner = hhsearch.HHSearch(
                 binary_path=hhsearch_binary_path,
                 databases=[pdb70_database_path],
-                n_cpu=no_cpus,
+                n_cpu=num_cpus,
             )
 
     def run(

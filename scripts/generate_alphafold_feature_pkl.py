@@ -50,7 +50,7 @@ def main():
     logger.info(f"Output results are saved to '{args.output_dir}")
 
     omp_num_threads = os.environ.get("OMP_NUM_THREADS", None)
-    no_cpus = int(omp_num_threads) if omp_num_threads is not None else None
+    num_cpus = int(omp_num_threads) if omp_num_threads is not None else None
 
     if args.use_precomputed_alignments is None:
         alignment_runner = AlignmentRunner(
@@ -62,7 +62,7 @@ def main():
             jackhmmer_binary_path=args.jackhmmer_binary_path,
             hhblits_binary_path=args.hhblits_binary_path,
             hhsearch_binary_path=args.hhsearch_binary_path,
-            no_cpus=no_cpus,
+            num_cpus=num_cpus,
         )
         alignment_runner.run(args.fasta_path, args.output_dir)
 
