@@ -19,7 +19,7 @@ import logging
 import os
 import subprocess
 import tempfile
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
