@@ -16,7 +16,6 @@
 
 import dataclasses
 import io
-import re
 import string
 from typing import Any, Mapping, Optional, Sequence
 
