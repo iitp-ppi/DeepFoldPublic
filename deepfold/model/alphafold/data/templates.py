@@ -1,3 +1,4 @@
+# Copyright 2023 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
@@ -20,6 +21,7 @@ from deepfold.common import residue_constants as rc
 from deepfold.data import mmcif_parsing, parsers
 from deepfold.data.errors import Error
 from deepfold.data.tools import kalign
+from deepfold.model.alphafold.data.types import FeatureDict
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,17 @@ TEMPLATE_FEATURES = {
     "template_sequence": np.object_,
     "template_sum_probs": np.float32,
 }
+
+
+def empty_template_feats(n_res: int) -> FeatureDict:
+    return {
+        "template_aatype": np.zeros((0, n_res)).astype(np.int64),
+        "template_all_atom_positions": np.zeros((0, n_res, 37, 3)).astype(np.float32),
+        "template_all_atom_mask": np.zeros((0, n_res, 37)).astype(np.float32),
+        "template_domain_names": np.array(["".encode()], dtype=np.object_),
+        "template_sequence": np.array(["".encode()], dtype=np.object_),
+        "template_sum_probs": np.zeros((0, 1)).astype(np.float32),
+    }
 
 
 def to_date(s: str):

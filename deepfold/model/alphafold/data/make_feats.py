@@ -10,17 +10,8 @@ import numpy as np
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
 from deepfold.data import mmcif_parsing, parsers
-from deepfold.data.templates import get_custom_template_features
+from deepfold.model.alphafold.data.templates import empty_template_feats, get_custom_template_features
 from deepfold.model.alphafold.data.types import FeatureDict
-
-
-def empty_template_feats(n_res: int) -> FeatureDict:
-    return {
-        "template_aatype": np.zeros((0, n_res)).astype(np.int64),
-        "template_all_atom_positions": np.zeros((0, n_res, 37, 3)).astype(np.float32),
-        "template_sum_probs": np.zeros((0, 1)).astype(np.float32),
-        "template_all_atom_mask": np.zeros((0, n_res, 37)).astype(np.float32),
-    }
 
 
 def make_template_features(
