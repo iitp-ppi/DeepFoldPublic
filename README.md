@@ -2,17 +2,8 @@
 
 ## Features
 
-- Acceptable(?) replica of AlphaFold2 (monomer) model.
+- Acceptable(?) replica of AlphaFold model.
 - Distributed inference (over multiple GPUS).
-
-## TODO
-
-- Visualization codes
-- Enhanced multi-head-attention suppro
-- More scripts for convenience
-- Monomer training
-- Multimer inference
-- Multimer training
 
 ## Setup
 
