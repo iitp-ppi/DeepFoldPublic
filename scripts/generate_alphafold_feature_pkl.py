@@ -69,7 +69,7 @@ def main():
     if args.mmcif_dir is None:
         template_featurizer = None
     else:
-        template_featurizer = templates.TemplateHitFeaturizer(
+        template_featurizer = templates.HhsearchHitFeaturizer(
             mmcif_dir=args.mmcif_dir,
             max_template_date=args.max_template_date,
             max_hits=20,

@@ -6,6 +6,7 @@
 """Functions for getting templates and calculating template features."""
 
 
+import abc
 import dataclasses
 import datetime
 import gzip
@@ -20,6 +21,7 @@ import numpy as np
 from deepfold.common import residue_constants as rc
 from deepfold.data import mmcif_parsing, parsers
 from deepfold.data.errors import Error
+from deepfold.data.parsers import TemplateHit
 from deepfold.data.tools import kalign
 from deepfold.model.alphafold.data.types import FeatureDict
 
@@ -191,14 +193,6 @@ def generate_release_dates_cache(mmcif_dir: str, out_path: str):
 
     with open(out_path, "r") as fp:
         fp.write(json.dumps(dates))
-
-
-def _parse_release_dates(path: str) -> Mapping[str, datetime.datetime]:
-    """Parses release dates file, returns a mapping from PDBs to release dates."""
-    with open(path, "r") as fp:
-        data = json.load(fp)
-
-    return {pdb.upper(): to_date(v) for pdb, d in data.items() for k, v in d.items() if k == "release_date"}
 
 
 def _assess_hhsearch_hit(
@@ -727,7 +721,7 @@ def _prefilter_hit(
     release_dates: Mapping[str, datetime.datetime],
     obsolete_pdbs: Mapping[str, str],
     strict_error_check: bool = False,
-):
+) -> PrefilterResult:
     # Fail hard if we can't get the PDB ID and chain name from the hit.
     hit_pdb_code, hit_chain_id = _get_pdb_id_and_chain(hit)
 
@@ -796,7 +790,7 @@ def _process_single_hit(
     # Fail if we can't find the mmCIF file.
     try:
         with open(cif_path, "r") as cif_file:
-            cif_string = cif_file.read()
+            cif_string = cif_file.read()  # TODO: LRU cache
     except FileNotFoundError:
         logger.info(f"Cannot read PDB entry from {cif_path}")
         cif_path = os.path.join(mmcif_dir, hit_pdb_code, hit_pdb_code[1:3], ".cif.gz")
@@ -922,8 +916,10 @@ class TemplateSearchResult:
     warnings: Sequence[str]
 
 
-class TemplateHitFeaturizer:
-    """A class for turning hhr hits to template features."""
+class TemplateHitFeaturizer(abc.ABC):
+    """
+    An abstract base class for template hit featurizer.
+    """
 
     def __init__(
         self,
@@ -931,56 +927,46 @@ class TemplateHitFeaturizer:
         max_template_date: str,
         max_hits: int,
         kalign_binary_path: str,
-        release_dates_path: Optional[str] = None,
         obsolete_pdbs_path: Optional[str] = None,
         strict_error_check: bool = False,
         _shuffle_top_k_prefiltered: Optional[int] = None,
         _zero_center_positions: bool = True,
     ):
-        """Initializes the Template Search.
-
+        """
         Args:
-            mmcif_dir: Path to a directory with mmCIF structures. Once a template ID
-                is found by HHSearch, this directory is used to retrieve the template
-                data.
-            max_template_date: The maximum date permitted for template structures. No
-                template with date higher than this date will be returned. In ISO8601
-                date format, YYYY-MM-DD.
-            max_hits: The maximum number of templates that will be returned.
-            kalign_binary_path: The path to a kalign executable used for template
-                realignment.
-            release_dates_path: An optional path to a file with a mapping from PDB IDs
-                to their release dates. Thanks to this we don't have to redundantly
-                parse mmCIF files to get that information.
-            obsolete_pdbs_path: An optional path to a file containing a mapping from
-                obsolete PDB IDs to the PDB IDs of their replacements.
-            strict_error_check: If True, then the following will be treated as errors:
-                * If any template date is after the max_template_date.
-                * If any template has identical PDB ID to the query.
-                * If any template is a duplicate of the query.
-                * Any feature computation errors.
+            mmcif_dir: str
+                Path to a directory with mmCIF structures.
+                It can contains CIF files or compressed CIF files.
+            max_template_date: str
+                The maximum date permitted for template structures.
+                Template with date higher than this date will not be returned.
+                In ISO8601 date format, YYYY-MM-DD.
+            max_hits: int
+                The maximum number of templates that will be returned.
+            kalign_binary_path: str
+                The path to a kalign executable used for template realignment.
+            obsolete_pdbs_path: str, Optional
+                The path to a file containing a mapping from obsolete PDB IDs to the their replacements.
+            strict_error_check: bool
+                Raise error:
+                - If any template date is after the `max_template_date`.
+                - If any template has identical PDB ID to the query.
+                - If any template is a duplicate of the query.
+                - Any feature computation errors.
         """
         self._mmcif_dir = mmcif_dir
-        # if not glob.glob(os.path.join(self._mmcif_dir, "*.cif")):
-        #     logger.error("Could not find CIFs in %s", self._mmcif_dir)
-        #     raise ValueError(f"Could not find CIFs in {self._mmcif_dir}")
 
         try:
-            self._max_template_date = datetime.datetime.strptime(max_template_date, "%Y-%m-%d")
+            self._max_template_date = datetime.datetime.strptime(max_template_date, r"%Y-%m-%d")
         except ValueError:
-            raise ValueError("max_template_date must be set and have format YYYY-MM-DD.")
-        self.max_hits = max_hits
+            raise ValueError("`max_template_date` must be set and have format YYYY-MM-DD")
+
+        self._max_hits = max_hits
         self._kalign_binary_path = kalign_binary_path
         self._strict_error_check = strict_error_check
 
-        if release_dates_path:
-            logger.info("Using precomputed release dates %s.", release_dates_path)
-            self._release_dates = _parse_release_dates(release_dates_path)
-        else:
-            self._release_dates = {}
-
         if obsolete_pdbs_path:
-            logger.info("Using precomputed obsolete pdbs %s.", obsolete_pdbs_path)
+            logger.info(f"Using precomputed obsolete pdbs {obsolete_pdbs_path}")
             self._obsolete_pdbs = _parse_obsolete(obsolete_pdbs_path)
         else:
             self._obsolete_pdbs = {}
@@ -988,31 +974,30 @@ class TemplateHitFeaturizer:
         self._shuffle_top_k_prefiltered = _shuffle_top_k_prefiltered
         self._zero_center_positions = _zero_center_positions
 
+    @abc.abstractmethod
     def get_templates(
         self,
         query_sequence: str,
-        query_pdb_code: Optional[str],
-        query_release_date: Optional[datetime.datetime],
         hits: Sequence[parsers.TemplateHit],
     ) -> TemplateSearchResult:
-        """Computes the templates for given query sequence (more details above)."""
-        logger.info("Searching for template for: %s", query_pdb_code)
+        """Computes the templates fora a given sequence."""
+        pass
+
+
+class HhsearchHitFeaturizer(TemplateHitFeaturizer):
+    def get_templates(
+        self,
+        query_sequence: str,
+        hits: Sequence[TemplateHit],
+    ) -> TemplateSearchResult:
+        """Computes the templates with HHsearch (for monomer mode)."""
+        logger.info(f"Searching templates for '{query_sequence}'")
 
         template_features = {}
         for template_feature_name in TEMPLATE_FEATURES:
             template_features[template_feature_name] = []
 
-        # Always use a max_template_date. Set to query_release_date minus 60 days
-        # if that's earlier.
-        template_cutoff_date = self._max_template_date
-        if query_release_date:
-            delta = datetime.timedelta(days=60)
-            if query_release_date - delta < template_cutoff_date:
-                template_cutoff_date = query_release_date - delta
-            assert template_cutoff_date < query_release_date
-        assert template_cutoff_date <= self._max_template_date
-
-        num_hits = 0
+        already_seen = set()
         errors = []
         warnings = []
 
@@ -1020,9 +1005,8 @@ class TemplateHitFeaturizer:
         for hit in hits:
             prefilter_result = _prefilter_hit(
                 query_sequence=query_sequence,
-                query_pdb_code=query_pdb_code,
                 hit=hit,
-                max_template_date=template_cutoff_date,
+                max_template_date=self._max_template_date,
                 release_dates=self._release_dates,
                 obsolete_pdbs=self._obsolete_pdbs,
                 strict_error_check=self._strict_error_check,
@@ -1037,7 +1021,7 @@ class TemplateHitFeaturizer:
             if prefilter_result.valid:
                 filtered.append(hit)
 
-        filtered = list(sorted(filtered, key=lambda x: x.sum_probs, reverse=True))
+        filtered.sort(key=lambda x: x.sum_probs, reverse=True)
 
         idx = list(range(len(filtered)))
         if self._shuffle_top_k_prefiltered:
@@ -1045,18 +1029,16 @@ class TemplateHitFeaturizer:
             idx[:stk] = np.random.permutation(idx[:stk])
 
         for i in idx:
-            # We got all the templates we wanted, stop processing hits.
-            if num_hits >= self.max_hits:
+            if len(already_seen) >= self._max_hits:
                 break
 
             hit = filtered[i]
 
             result = _process_single_hit(
                 query_sequence=query_sequence,
-                query_pdb_code=query_pdb_code,
                 hit=hit,
                 mmcif_dir=self._mmcif_dir,
-                max_template_date=template_cutoff_date,
+                max_template_date=self._max_template_date,
                 release_dates=self._release_dates,
                 obsolete_pdbs=self._obsolete_pdbs,
                 strict_error_check=self._strict_error_check,
@@ -1067,29 +1049,116 @@ class TemplateHitFeaturizer:
             if result.error:
                 errors.append(result.error)
 
-            # There could be an error even if there are some results, e.g. thrown by
-            # other unparsable chains in the same mmCIF file.
+            # Unparsable chains etc
             if result.warning:
                 warnings.append(result.warning)
 
             if result.features is None:
-                logger.info(
-                    "Skipped invalid hit %s, error: %s, warning: %s",
-                    hit.name,
-                    result.error,
-                    result.warning,
-                )
+                logger.info(f"Skip invalid hit  {hit.name}, error: {result.error}, warning: {result.warning}")
             else:
-                # Increment the hit counter, since we got features out of this hit.
-                num_hits += 1
+                already_seen_key = result.features["template_sequence"]
+                if already_seen_key in already_seen:
+                    continue
+                already_seen.add(already_seen_key)
                 for k in template_features:
                     template_features[k].append(result.features[k])
 
-        for name in template_features:
-            if num_hits > 0:
+        if already_seen:
+            for name in template_features:
                 template_features[name] = np.stack(template_features[name], axis=0).astype(TEMPLATE_FEATURES[name])
+        else:
+            num_res = len(query_sequence)
+            # Construct an empty template
+            template_features = empty_template_feats(num_res)
+
+        return TemplateSearchResult(features=template_features, errors=errors, warnings=warnings)
+
+
+class HmmsearchHitFeaturizer(TemplateHitFeaturizer):
+    def get_templates(
+        self,
+        query_sequence: str,
+        hits: Sequence[TemplateHit],
+    ) -> TemplateSearchResult:
+        """Computes the templates with HHMsearch (for multimer mode)."""
+        logger.info(f"Searching templates for '{query_sequence}'")
+
+        template_features = {}
+        for template_feature_name in TEMPLATE_FEATURES:
+            template_features[template_feature_name] = []
+
+        already_seen = set()
+        errors = []
+        warnings = []
+
+        filtered = []
+        for hit in hits:
+            prefilter_result = _prefilter_hit(
+                query_sequence=query_sequence,
+                hit=hit,
+                max_template_date=self._max_template_date,
+                release_dates=self._release_dates,
+                obsolete_pdbs=self._obsolete_pdbs,
+                strict_error_check=self._strict_error_check,
+            )
+
+            if prefilter_result.error:
+                errors.append(prefilter_result.error)
+
+            if prefilter_result.warning:
+                warnings.append(prefilter_result.warning)
+
+            if prefilter_result.valid:
+                filtered.append(hit)
+
+        filtered.sort(key=lambda x: x.sum_probs if x.sum_probs else 0.0, reverse=True)
+
+        idx = list(range(len(filtered)))
+        if self._shuffle_top_k_prefiltered:
+            stk = self._shuffle_top_k_prefiltered
+            idx[:stk] = np.random.permutation(idx[:stk])
+
+        for i in idx:
+            if len(already_seen) >= self._max_hits:
+                break
+
+            hit = filtered[i]
+
+            result = _process_single_hit(
+                query_sequence=query_sequence,
+                hit=hit,
+                mmcif_dir=self._mmcif_dir,
+                max_template_date=self._max_template_date,
+                release_dates=self._release_dates,
+                obsolete_pdbs=self._obsolete_pdbs,
+                strict_error_check=self._strict_error_check,
+                kalign_binary_path=self._kalign_binary_path,
+                _zero_center_positions=self._zero_center_positions,
+            )
+
+            if result.error:
+                errors.append(result.error)
+
+            # Unparsable chains etc
+            if result.warning:
+                warnings.append(result.warning)
+
+            if result.features is None:
+                logger.info(f"Skip invalid hit  {hit.name}, error: {result.error}, warning: {result.warning}")
             else:
-                # Make sure the feature has correct dtype even if empty.
-                template_features[name] = np.array([], dtype=TEMPLATE_FEATURES[name])
+                already_seen_key = result.features["template_sequence"]
+                if already_seen_key in already_seen:
+                    continue
+                already_seen.add(already_seen_key)
+                for k in template_features:
+                    template_features[k].append(result.features[k])
+
+        if already_seen:
+            for name in template_features:
+                template_features[name] = np.stack(template_features[name], axis=0).astype(TEMPLATE_FEATURES[name])
+        else:
+            num_res = len(query_sequence)
+            # Construct an empty template
+            template_features = empty_template_feats(num_res)
 
         return TemplateSearchResult(features=template_features, errors=errors, warnings=warnings)
