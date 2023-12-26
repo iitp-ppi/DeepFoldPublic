@@ -6,7 +6,7 @@
 import itertools
 from functools import reduce, wraps
 from operator import add
-from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Protocol, Sequence, Tuple, Union
 
 import numpy as np
 import torch
