@@ -7,4 +7,4 @@ include = '\.pyi?$'
 profile = "black"
 line_length = 120
 py_version = 39
-skip_glob = ["_data/*"]
+skip_glob = ["_runs/*"]
