@@ -2,7 +2,11 @@ import argparse
 import os
 import pickle
 
-from deepfold.model.alphafold.data.make_feats import empty_template_feats, make_dummy_msa_feats, make_sequence_features
+from deepfold.model.alphafold.data.pipeline_monomer import (
+    empty_template_feats,
+    make_dummy_msa_feats,
+    make_sequence_features,
+)
 from deepfold.model.alphafold.data.types import FeatureDict
 
 
