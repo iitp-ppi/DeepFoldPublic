@@ -378,7 +378,10 @@ class DataPipeline:
         return msas, deletion_matrices
 
     def _process_msa_feats(
-        self, alignment_dir: str, input_sequence: Optional[str] = None, alignment_index: Optional[str] = None
+        self,
+        alignment_dir: str,
+        input_sequence: Optional[str] = None,
+        alignment_index: Optional[str] = None,
     ) -> Mapping[str, Any]:
         msas, deletion_matrices = self._get_msas(alignment_dir, input_sequence, alignment_index)
         msa_features = make_msa_features(
