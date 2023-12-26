@@ -13,6 +13,7 @@ from omegaconf import DictConfig
 from deepfold.common import protein
 from deepfold.data import mmcif_parsing, parsers
 from deepfold.data.tools import hhblits, hhsearch, jackhmmer
+from deepfold.model.alphafold.data import templates
 from deepfold.model.alphafold.data.make_feats import (
     _aatype_to_str_sequence,
     make_mmcif_features,
@@ -23,7 +24,6 @@ from deepfold.model.alphafold.data.make_feats import (
     unify_template_features,
 )
 from deepfold.model.alphafold.data.process_feats import np_example_to_features
-from deepfold.model.alphafold.data import templates
 from deepfold.model.alphafold.data.types import FeatureDict, TensorDict
 
 logger = logging.getLogger(__name__)
