@@ -210,7 +210,7 @@ def make_msa_features(
 
 
 # Generate 1-sequence MSA features having only the input sequence
-def make_dummy_msa_feats(input_sequence):
+def make_dummy_msa_feats(input_sequence: str) -> FeatureDict:
     msas = [[input_sequence]]
     deletion_matrices = [[[0 for _ in input_sequence]]]
     msa_features = make_msa_features(
