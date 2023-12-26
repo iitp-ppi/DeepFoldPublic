@@ -17,7 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 import deepfold.distributed.legacy as dist
 from deepfold.apps.config_utils import load as load_config
 from deepfold.common import protein
-from deepfold.model.alphafold.data.pipeline_monomer import FeaturePipeline
+from deepfold.model.alphafold.data.pipeline import FeaturePipeline
 from deepfold.model.alphafold.data.types import FeatureDict
 from deepfold.model.alphafold.utils.script_utils import load_alphafold, prep_output
 from deepfold.utils.tensor_utils import tensor_tree_map
