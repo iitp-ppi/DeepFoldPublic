@@ -75,7 +75,6 @@ def main():
             max_hits=20,
             kalign_binary_path=args.kalign_binary_path,
             obsolete_pdbs_path=args.obsolete_pdbs_path,
-            release_dates_path=None,
         )
 
     data_processor = DataPipeline(template_featurizer)
