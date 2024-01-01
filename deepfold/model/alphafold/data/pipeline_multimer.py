@@ -16,13 +16,14 @@ from typing import Any, Mapping, MutableMapping, Optional, Sequence
 
 import numpy as np
 
+import deepfold.model.alphafold.data.pipeline as pipeline_monomer
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
 from deepfold.data import parsers
-from deepfold.data.tools import hhblits, jackhmmer, hmmsearch
+from deepfold.data.tools import hhblits, hmmsearch, jackhmmer
 from deepfold.model.alphafold.data import pipeline
 from deepfold.model.alphafold.data.templates import HmmsearchHitFeaturizer
-import deepfold.model.alphafold.data.pipeline as pipeline_monomer
+from deepfold.model.alphafold.data.types import FeatureDict
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def temp_fasta_file(fasta_str: str):
         yield fasta_file.name
 
 
-def convert_monomeer_features(
+def convert_monomer_features(
     monomer_features: pipeline.FeatureDict,
     chain_id: str,
 ) -> pipeline.FeatureDict:
@@ -182,7 +183,7 @@ def run_msa_tool(
     return result
 
 
-class AlignmentRunner:
+class AlignmentRunnerMultimer:
     """Runs alignment tools and saves the results."""
 
     def __init__(
@@ -195,7 +196,6 @@ class AlignmentRunner:
         uniref30_database_path: Optional[str] = None,
         uniprot_database_path: Optional[str] = None,
         template_searcher: Optional[hmmsearch.Hmmsearch] = None,
-        template_featurizer: Optional[HmmsearchHitFeaturizer] = None,
         use_small_bfd: Optional[bool] = None,
         num_cpus: Optional[int] = None,
         mgnify_max_hits: int = 5000,
@@ -311,7 +311,6 @@ class AlignmentRunner:
             raise ValueError("Uniref90 runner must be specified to run template search")
 
         self.template_searcher = template_searcher
-        self.template_featurizer = template_featurizer
 
     def run(
         self,
@@ -322,12 +321,9 @@ class AlignmentRunner:
 
         with open(fasta_path, "r") as fp:
             fasta_str = fp.read()
-        input_seqs, input_desc = parsers.parse_fasta(fasta_str)
+        input_seqs, _ = parsers.parse_fasta(fasta_str)
         if len(input_seqs) != 1:
             raise ValueError(f"More than one input sequence found in '{fasta_path}'")
-        input_sequence = input_seqs[0]
-        input_description = input_desc[0]
-        num_res = len(input_sequence)
 
         uniref90_out_path = os.path.join(output_dir, "uniref90_hits.sto")
         jackhmmer_uniref90_result = run_msa_tool(
@@ -339,7 +335,7 @@ class AlignmentRunner:
         )
 
         mgnify_out_path = os.path.join(output_dir, "mgnify_hits.sto")
-        jackhmmer_mgnify_result = run_msa_tool(
+        _ = run_msa_tool(
             self.jackhmmer_mgnify_runner,
             fasta_path,
             mgnify_out_path,
@@ -347,78 +343,46 @@ class AlignmentRunner:
             self.mgnify_max_hits,
         )
 
-        msa_for_templates = jackhmmer_uniref90_result["sto"]
-        msa_for_templates = parsers.truncate_stockholm_msa(msa_for_templates, max_sequences=self.uniref_max_hits)
-        msa_for_templates = parsers.deduplicate_stockholm_msa(msa_for_templates)
-        msa_for_templates = parsers.remove_empty_columns_from_stockholm_msa(msa_for_templates)
+        if self.template_searcher is not None:
+            msa_for_templates = jackhmmer_uniref90_result["sto"]
+            msa_for_templates = parsers.truncate_stockholm_msa(msa_for_templates, max_sequences=self.uniref_max_hits)
+            msa_for_templates = parsers.deduplicate_stockholm_msa(msa_for_templates)
+            msa_for_templates = parsers.remove_empty_columns_from_stockholm_msa(msa_for_templates)
 
-        if self.template_searcher.input_format == "sto":
-            pdb_templates_result = self.template_searcher.query(msa_for_templates)
-        elif self.template_searcher.input_format == "a3m":
-            uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(msa_for_templates)
-            pdb_templates_result = self.template_searcher.query(uniref90_msa_as_a3m)
-        else:
-            raise ValueError(f"Unrecognized template input format: {self.template_searcher.input_format}")
+            if self.template_searcher.input_format == "sto":
+                pdb_templates_result = self.template_searcher.query(msa_for_templates)
+            elif self.template_searcher.input_format == "a3m":
+                uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(msa_for_templates)
+                pdb_templates_result = self.template_searcher.query(uniref90_msa_as_a3m)
+            else:
+                raise ValueError(f"Unrecognized template input format: {self.template_searcher.input_format}")
 
-        pdb_hits_out_path = os.path.join(output_dir, f"pdb_hits.{self.template_searcher.output_format}")
-        with open(pdb_hits_out_path, "w") as fp:
-            fp.write(pdb_templates_result)
-
-        uniref90_msa = parsers.parse_stockholm(jackhmmer_uniref90_result["sto"])
-        uniref90_msa = uniref90_msa.truncate(max_seqs=self.uniref_max_hits)
-        mgnify_msa = parsers.parse_stockholm(jackhmmer_mgnify_result["sto"])
-        mgnify_msa = mgnify_msa.truncate(max_seqs=self.mgnify_max_hits)
-
-        pdb_template_hits = self.template_searcher.get_template_hits(
-            output_string=pdb_templates_result,
-            input_sequence=input_sequence,
-        )
+            pdb_hits_out_path = os.path.join(output_dir, f"pdb_hits.{self.template_searcher.output_format}")
+            with open(pdb_hits_out_path, "w") as fp:
+                fp.write(pdb_templates_result)
 
         if self.use_small_bfd:
             bfd_out_path = os.path.join(output_dir, "small_bfd_hits.sto")
-            jackhmmer_small_bfd_result = run_msa_tool(
+            _ = run_msa_tool(
                 self.jackhmmer_small_bfd_runner,
                 fasta_path,
                 bfd_out_path,
                 "sto",
             )
-            bfd_msa = parsers.parse_stockholm(jackhmmer_small_bfd_result["sto"])
         else:
             bfd_out_path = os.path.join(output_dir, "bfd_u")
-            hhblits_bfd_uniclust_result = run_msa_tool(
+            _ = run_msa_tool(
                 self.hhblits_bfd_uniclust_runner,
                 fasta_path,
                 bfd_out_path,
                 "a3m",
             )
-            bfd_msa = parsers.parse_a3m(hhblits_bfd_uniclust_result["a3m"])
 
         uniprot_path = os.path.join(output_dir, "uniprot_hits.sto")
-        uniprot_result = run_msa_tool(
+        _ = run_msa_tool(
             self.jackhmmer_uniprot_runner,
             fasta_path,
             uniprot_path,
             "sto",
             self.uniprot_max_hits,
         )
-        uniprot_msa = parsers.parse_stockholm(uniprot_result["sto"])
-        uniprot_msa = uniprot_msa.truncate(max_seqs=self.uniprot_max_hits)
-
-        templates_result = self.template_featurizer.get_templates(query_sequence=input_sequence, hits=pdb_template_hits)
-
-        sequence_features = pipeline_monomer.make_sequence_features(
-            sequence=input_sequence,
-            description=input_description,
-            num_res=num_res,
-        )
-
-        msa_features = pipeline_monomer.make_msa_features((uniref90_msa, bfd_msa, mgnify_msa, uniprot_msa))
-
-        logger.info(f"UniRef90 MSA size: {len(uniref90_msa)} sequences")
-        logger.info(f"BFD MSA size: {len(bfd_msa)} sequences")
-        logger.info(f"MGnify MSA size: {len(mgnify_msa)} sequences")
-        logger.info(f"UniProt MSA size: {len(uniprot_msa)} sequences")
-        logger.info(f"Final (deduplicated) MSA size: {msa_features['num_alignments'][0]} sequences")
-        logger.info(f"Total number of templates: {templates_result.features['template_domain_names'].shape[0]}")
-
-        return {**sequence_features, **msa_features, **templates_result.features}
