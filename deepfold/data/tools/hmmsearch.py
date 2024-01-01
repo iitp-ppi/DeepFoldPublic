@@ -123,7 +123,8 @@ class Hmmsearch(object):
 
         return out_msa
 
-    def get_template_hits(self, output_string: str, input_sequence: str) -> Sequence[parsers.TemplateHit]:
+    @staticmethod
+    def get_template_hits(output_string: str, input_sequence: str) -> Sequence[parsers.TemplateHit]:
         """Gets parsed template hits from the raw string output by the tool."""
         a3m_string = parsers.convert_stockholm_to_a3m(output_string, remove_first_row_gaps=False)
         template_hits = parsers.parse_hmmsearch_a3m(
