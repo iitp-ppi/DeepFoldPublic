@@ -299,7 +299,7 @@ model:
       backbone:
         clamp_distance: 10.0
         loss_unit_distance: 10.0
-        weights: 0.5
+        weight: 0.5
       sidechain:
         clamp_distance: 10.0
         length_scale: 10.0
