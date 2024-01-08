@@ -333,5 +333,3 @@ loss:
     max_resolution: 3.0
     eps: 1e-8
     weight: 0.0
-ema:
-  decay: 0.999
