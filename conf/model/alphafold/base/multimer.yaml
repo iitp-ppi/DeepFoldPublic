@@ -3,12 +3,10 @@ info:
     - AlphaFold
     - protein
     - multimer
-
 globals:
   is_multimer: True
   use_templates: True
   max_recycling_iters: 3
-
 data:
   common:
     features:
@@ -155,7 +153,6 @@ data:
         use_clamped_fape,
         is_distillation,
       ]
-
   predict:
     fixed_size: True
     subsample_templates: False
@@ -168,7 +165,6 @@ data:
     crop: False
     crop_size: null
     supervised: False
-
   eval:
     fixed_size: True
     subsample_templates: False
@@ -183,7 +179,6 @@ data:
     spatial_crop_prob: 0.5
     ca_ca_threshold: 10.0
     supervised: True
-
   train:
     fixed_size: True
     subsample_templates: True
