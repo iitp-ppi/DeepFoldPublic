@@ -19,10 +19,10 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 import numpy as np
 
 from deepfold.common import residue_constants as rc
-from deepfold.data import mmcif_parsing, parsers
-from deepfold.data.errors import Error
-from deepfold.data.parsers import TemplateHit
-from deepfold.data.tools import kalign
+from deepfold.search import mmcif_parsing, parsers
+from deepfold.search.errors import Error
+from deepfold.search.parsers import TemplateHit
+from deepfold.search.tools import kalign
 from deepfold.model.alphafold.data.types import FeatureDict
 
 logger = logging.getLogger(__name__)

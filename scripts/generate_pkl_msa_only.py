@@ -3,7 +3,7 @@ import os
 import pickle
 from typing import Mapping, Optional, Sequence, Tuple
 
-from deepfold.data import parsers
+from deepfold.search import parsers
 from deepfold.model.alphafold.data.pipeline import empty_template_feats, make_msa_features, make_sequence_features
 from deepfold.model.alphafold.data.types import FeatureDict
 

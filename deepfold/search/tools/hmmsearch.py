@@ -23,8 +23,8 @@ from typing import Optional, Sequence
 logger = logging.getLogger(__name__)
 
 
-from deepfold.data import parsers
-from deepfold.data.tools import hmmbuild
+from deepfold.search import parsers
+from deepfold.search.tools import hmmbuild
 
 # Internal import (7716).
 

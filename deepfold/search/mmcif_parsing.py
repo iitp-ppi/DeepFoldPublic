@@ -15,7 +15,7 @@ from Bio import PDB
 from Bio.Data import PDBData
 
 import deepfold.common.residue_constants as residue_constants
-from deepfold.data.errors import MultipleChainsError
+from deepfold.search.errors import MultipleChainsError
 
 # Type aliases:
 ChainId = str

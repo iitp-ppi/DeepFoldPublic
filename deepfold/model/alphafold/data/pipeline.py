@@ -13,8 +13,8 @@ from omegaconf import DictConfig
 
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.data import mmcif_parsing, parsers
-from deepfold.data.tools import hhblits, hhsearch, jackhmmer
+from deepfold.search import mmcif_parsing, parsers
+from deepfold.search.tools import hhblits, hhsearch, jackhmmer
 from deepfold.model.alphafold.data import templates
 from deepfold.model.alphafold.data.process_feats import np_example_to_features
 from deepfold.model.alphafold.data.templates import empty_template_feats, get_custom_template_features

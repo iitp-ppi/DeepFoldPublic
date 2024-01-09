@@ -26,7 +26,7 @@ from urllib import request
 logger = logging.getLogger(__name__)
 
 
-from deepfold.data import parsers
+from deepfold.search import parsers
 
 
 class Jackhmmer:

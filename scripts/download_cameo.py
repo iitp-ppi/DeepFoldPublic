@@ -8,7 +8,7 @@ import re
 
 import requests
 
-from deepfold.data import mmcif_parsing
+from deepfold.search import mmcif_parsing
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
