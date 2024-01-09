@@ -1,0 +1,203 @@
+info:
+  tags:
+    - AlphaFold
+    - protein
+    - multimer
+
+globals:
+  is_multimer: True
+  use_templates: True
+  max_recycling_iters: 3
+
+data:
+  common:
+    features:
+      aatype: [NUM_RES]
+      all_atom_mask: [NUM_RES, null]
+      all_atom_positions: [NUM_RES, null, null]
+      alt_chi_angles: [NUM_RES, null]
+      atom14_alt_gt_exists: [NUM_RES, null]
+      atom14_alt_gt_positions: [NUM_RES, null, null]
+      atom14_atom_exists: [NUM_RES, null]
+      atom14_atom_is_ambiguous: [NUM_RES, null]
+      atom14_gt_exists: [NUM_RES, null]
+      atom14_gt_positions: [NUM_RES, null, null]
+      atom37_atom_exists: [NUM_RES, null]
+      backbone_affine_mask: [NUM_RES]
+      backbone_affine_tensor: [NUM_RES, null]
+      bert_mask: [NUM_MSA_SEQ, NUM_RES]
+      chi_angles_sin_cos: [NUM_RES, null, null]
+      chi_mask: [NUM_RES, null]
+      extra_msa_deletion_value: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_has_deletion: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_mask: [NUM_EXTRA_SEQ, NUM_RES]
+      extra_msa_row_mask: [NUM_EXTRA_SEQ]
+      is_distillation: []
+      msa_feat: [NUM_MSA_SEQ, NUM_RES, null]
+      msa_mask: [NUM_MSA_SEQ, NUM_RES]
+      msa_row_mask: [NUM_MSA_SEQ]
+      pseudo_beta: [NUM_RES, null]
+      pseudo_beta_mask: [NUM_RES]
+      random_crop_to_size_seed: [null]
+      residue_index: [NUM_RES]
+      residx_atom14_to_atom37: [NUM_RES, null]
+      residx_atom37_to_atom14: [NUM_RES, null]
+      resolution: []
+      rigidgroups_alt_gt_frames: [NUM_RES, null, null]
+      rigidgroups_group_exists: [NUM_RES, null]
+      rigidgroups_group_is_ambiguous: [NUM_RES, null]
+      rigidgroups_gt_exists: [NUM_RES, null]
+      rigidgroups_gt_frames: [NUM_RES, null, null]
+      seq_length: []
+      seq_mask: [NUM_RES]
+      target_feat: [NUM_RES, null]
+      template_aatype: [NUM_TEMPLATES, NUM_RES]
+      template_all_atom_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_all_atom_positions: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_backbone_affine_mask: [NUM_TEMPLATES, NUM_RES]
+      template_backbone_affine_tensor: [NUM_TEMPLATES, NUM_RES, null]
+      template_mask: [NUM_TEMPLATES]
+      template_pseudo_beta: [NUM_TEMPLATES, NUM_RES, null]
+      template_pseudo_beta_mask: [NUM_TEMPLATES, NUM_RES]
+      template_alt_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_torsion_angles_mask: [NUM_TEMPLATES, NUM_RES, null]
+      template_torsion_angles_sin_cos: [NUM_TEMPLATES, NUM_RES, null, null]
+      template_sum_probs: [NUM_TEMPLATES, null]
+      true_msa: [NUM_MSA_SEQ, NUM_RES]
+      use_clamped_fape: []
+      assembly_num_chains: []
+      asym_id: [NUM_RES]
+      asym_len: [null]
+      cluster_bias_mask: [NUM_MSA_SEQ]
+      cluster_profile: [NUM_MSA_SEQ, NUM_RES, null]
+      cluster_deletion_mean: [NUM_MSA_SEQ, NUM_RES]
+      deletion_matrix: [NUM_MSA_SEQ, NUM_RES]
+      deletion_mean: [NUM_RES]
+      entity_id: [NUM_RES]
+      entity_mask: [NUM_RES]
+      extra_deletion_matrix: [NUM_EXTRA_SEQ, NUM_RES]
+      msa: [NUM_MSA_SEQ, NUM_RES]
+      msa_profile: [NUM_RES, null]
+      num_alignments: []
+      num_sym: [NUM_RES]
+      num_templates: []
+      sym_id: [NUM_RES]
+    template_features:
+      [
+        template_all_atom_positions,
+        template_sum_probs,
+        template_aatype,
+        template_all_atom_masks,
+      ]
+    unsupervised_features:
+      [
+        aatyle,
+        residue_index,
+        msa,
+        msa_chains,
+        num_alignments,
+        seq_length,
+        between_segment_residues,
+        deletion_matrix,
+        num_recyling_iters,
+        crop_and_fix_size_seed,
+      ]
+    recycling_features:
+      [
+        msa_chains,
+        msa_mask,
+        msa_row_mask,
+        bert_mask,
+        true_msa,
+        msa_feat,
+        extra_msa_deletion_value,
+        extra_msa_has_deletion,
+        extra_msa,
+        extra_msa_mask,
+        extra_msa_row_mask,
+        is_distillation,
+      ]
+    multimer_features:
+      [
+        assembly_num_chains,
+        asym_id,
+        asym_len,
+        cluster_bias_mask,
+        entity_id,
+        sym_id,
+      ]
+    masked_msa:
+      uniform_prob: 0.1
+      profile_prob: 0.1
+      same_prob: 0.1
+    block_delete_msa:
+      msa_fraction_per_block: 0.3
+      num_blocks: 5
+      randomize_num_blocks: False
+      min_num_msa: 16
+    max_msa_entry: 33554432 # 1 << 25
+    gumbel_sample: False
+    max_cluster_features: True
+    reduce_msa_clusters_by_max_templates: True
+    resample_msa_in_recycling: True
+    is_multimer: ${globals.is_multimer}
+    use_templates: ${globals.use_templates}
+    use_template_torsion_angles: ${globals.use_templates}
+    max_recycling_iter: ${globals.max_recycling_iters}
+  supervised:
+    clamp_prob: 0.9
+    supervised_features:
+      [
+        all_atom_mask,
+        all_atom_positions,
+        resolution,
+        use_clamped_fape,
+        is_distillation,
+      ]
+
+  predict:
+    fixed_size: True
+    subsample_templates: False
+    block_delete_msa: False
+    random_delete_msa: False
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 128
+    max_templates: 4
+    num_ensembles: 1
+    crop: False
+    crop_size: null
+    supervised: False
+
+  eval:
+    fixed_size: True
+    subsample_templates: False
+    block_delete_msa: False
+    random_delete_msa: False
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 128
+    max_templates: 4
+    num_ensembles: 1
+    crop: False
+    crop_size: null
+    spatial_crop_prob: 0.5
+    ca_ca_threshold: 10.0
+    supervised: True
+
+  train:
+    fixed_size: True
+    subsample_templates: True
+    block_delete_msa: True
+    random_delete_msa: False
+    masked_msa_replace_fraction: 0.15
+    max_msa_clusters: 128
+    max_templates: 4
+    num_ensembles: 1
+    crop: True
+    crop_size: 256
+    spatial_crop_prob: 0.5
+    interface_threshold: 10.0
+    ca_ca_threshold: 10.0
+    supervised: True
+    clamp_prob: 1.0
+    max_distillation_msa_clusters: 1000
