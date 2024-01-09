@@ -15,9 +15,9 @@ from deepfold.common import protein
 from deepfold.common import residue_constants as rc
 from deepfold.search import mmcif_parsing, parsers
 from deepfold.search.tools import hhblits, hhsearch, jackhmmer
-from deepfold.model.alphafold.data import templates
+from deepfold.search import templates
 from deepfold.model.alphafold.data.process_feats import np_example_to_features
-from deepfold.model.alphafold.data.templates import empty_template_feats, get_custom_template_features
+from deepfold.search.templates import empty_template_feats, get_custom_template_features
 from deepfold.model.alphafold.data.types import FeatureDict, TensorDict
 
 logger = logging.getLogger(__name__)

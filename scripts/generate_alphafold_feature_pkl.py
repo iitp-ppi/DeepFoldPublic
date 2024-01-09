@@ -4,7 +4,7 @@ import os
 import pickle
 from datetime import date
 
-from deepfold.model.alphafold.data import templates
+from deepfold.search import templates
 from deepfold.model.alphafold.data.pipeline import AlignmentRunner, DataPipeline
 
 logger_cfg = {
