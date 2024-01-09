@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -23,7 +23,9 @@ from deepfold.search import mmcif_parsing, parsers
 from deepfold.search.errors import Error
 from deepfold.search.parsers import TemplateHit
 from deepfold.search.tools import kalign
-from deepfold.model.alphafold.data.types import FeatureDict
+
+FeatureDict = MutableMapping[str, np.ndarray]
+
 
 logger = logging.getLogger(__name__)
 

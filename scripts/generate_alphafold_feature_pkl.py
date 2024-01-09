@@ -4,8 +4,8 @@ import os
 import pickle
 from datetime import date
 
-from deepfold.search import templates
 from deepfold.model.alphafold.data.pipeline import AlignmentRunner, DataPipeline
+from deepfold.search import templates
 
 logger_cfg = {
     "format": r"%(asctime)s:%(name)s:%(levelname)s:%(message)s",
