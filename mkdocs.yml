@@ -45,7 +45,7 @@ markdown_extensions:
       baselevel: 1
       separator: "_"
 
-copyright: "Copyright &copy; 2023 DeepFold Team"
+copyright: "Copyright &copy; 2024 DeepFold Team"
 
 plugins:
   - search
