@@ -8,9 +8,11 @@
 * DeepFold
   * [Overview](deepfold/overview.md)
   * [Representations](deepfold/repr.md)
-  * [Manage Presets](deepfold/config.md)
   * [Features](deepfold/features.md)
+  * [Configuration](deepfold/config.md)
   * [Distributed Computing](deepfold/dist.md)
+  * [Inference Procedure](deepfold/predict.md)
+  * [Training Procedure](deepfold/train.md)
   * Network
     * [Primitive Layers](deepfold/primitives.md)
     * [Chunk](deepfold/chunk.md)
@@ -18,11 +20,8 @@
     * [Evoformer](deepfold/evoformer.md)
     * [Structure Module](deepfold/sm.md)
     * [Heads](deepfold/heads.md)
-  * [Inference Procedure](deepfold/predict.md)
-  * [Training Procedure](deepfold/train.md)
 * AlphaFold
   * [Overview](alphafold/overview.md)
   * [Data Pipeline](alphafold/features.md)
   * [Inference](alphafold/inference.md)
   * [Training](alphafold/train.md)
-  * [Multimer](alphafold/multimer.md)

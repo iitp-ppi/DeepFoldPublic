@@ -22,14 +22,16 @@ VIFEMVHLKELGLYNLMNITRGSVRIEKNNELCYLATIDWSRILDSVEDNYIVLNKDDNE
 
 (...)
 
-### Summary: `features.pkl`
+## Processing features
 
-#### One-hot residue types
+## Summary: `features.pkl`
+
+### One-hot residue types
 
 HHBlits convention with extra tokens.
 See section *representations*.
 
-#### Sequence features
+### Sequence features
 
 - `aatype: int32[N, 21]` Target sequence in integer representation.
 - `between_segment_residues: int32[N]` Currently, zero.
@@ -38,7 +40,7 @@ See section *representations*.
 - `seq_length: int32[N]` Currently `[num_res] * num_res`.
 - `sequence: str[1]` One-symbol sequence of the target.
 
-#### MSA features
+### MSA features
 
 - `deletion_matrix_int: int32[S, N]` Deletion counters for each residues.
 - `msa: int32[S, N]` MSA without deletions.
@@ -46,7 +48,7 @@ See section *representations*.
 - `msa_species_identifiers: str[S]` Species identifiers
 - `msa_uniprot_accession_identifiers: str[S]` Uniprot accession identifiers (not in AF).
 
-#### Template features
+### Template features
 
 - `template_aatype: float32[N_t, N, 22]` One-hot encoded residue types.
 - `template_all_atom_masks: float32[N_t, N, 37]` Atom masks for templates.
@@ -54,7 +56,3 @@ See section *representations*.
 - `template_domain_names: str[N_t]` Domain names.
 - `template_sequence: str[N_t]` One-symbol sequences.
 - `template_sum_probs: float32[N_t, 1]` Output from the template aligner. Higher templates are selected.
-
-## Processing features
-
-See `deepfold.model.alphafold.data`.
