@@ -184,7 +184,7 @@ The maximum number of templates.
 
 #### `num_ensemble`
 
-(Deprecated) The number of ensembles to be averaged.
+(*Deprecated*) The number of ensembles to be averaged.
 
 #### `crop`
 
@@ -212,6 +212,8 @@ Proceess the supervised features:
 - `chi_angles_sin_cos` and `chi_mask`
 
 #### `clamp_prob`
+
+The value is considered almost sure for the multimer models. (`clamp_prob := 1.0`)
 
 See AF2 supplementary 1.11.5 Loss clamping details.
 

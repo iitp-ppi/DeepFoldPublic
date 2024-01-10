@@ -191,7 +191,6 @@ data:
     crop: True
     crop_size: 256
     spatial_crop_prob: 0.5
-    interface_threshold: 10.0
     ca_ca_threshold: 10.0
     supervised: True
     clamp_prob: 1.0
