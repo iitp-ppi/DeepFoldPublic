@@ -788,15 +788,17 @@ def _process_single_hit(
     template_sequence = hit.hit_sequence.replace("-", "")
 
     cif_path = os.path.join(mmcif_dir, hit_pdb_code + ".cif")
-    logger.info(f"Reading PDB entry from {cif_path}. Query: {query_sequence}, template: {template_sequence}")
+    logger.info(f"Reading PDB entry from '{cif_path}'. Query: {query_sequence}, template: {template_sequence}")
     # Fail if we can't find the mmCIF file.
     try:
         with open(cif_path, "r") as cif_file:
             cif_string = cif_file.read()  # TODO: LRU cache
     except FileNotFoundError:
-        logger.info(f"Cannot read PDB entry from {cif_path}")
+        logger.info(f"Cannot read PDB entry from '{cif_path}'")
         cif_path = os.path.join(mmcif_dir, hit_pdb_code, hit_pdb_code[1:3], ".cif.gz")
-        logger.info(f"Reading PDB entry from {cif_path}")
+        if not os.path.exists(cif_path):
+            cif_path = os.path.join(mmcif_dir, hit_pdb_code, ".cif.gz")
+        logger.info(f"Reading PDB entry from '{cif_path}'")
         with gzip.open(cif_path, "rb") as f:
             cif_string = f.read().decode()
 
@@ -873,10 +875,10 @@ def get_custom_template_features(
 ):
     _, ext = os.path.splitext(mmcif_path)
 
-    if ext == "cif":
+    if ext == ".cif":
         with open(mmcif_path, "r") as mmcif_path:
             cif_string = mmcif_path.read()
-    elif ext == "gz":
+    elif ext == ".gz":
         with gzip.open(mmcif_path, "rb") as f:
             cif_string = f.read().decode()
 
