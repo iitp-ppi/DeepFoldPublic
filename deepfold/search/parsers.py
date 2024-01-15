@@ -645,3 +645,14 @@ def parse_hmmsearch_a3m(query_sequence: str, a3m_string: str, skip_first: bool =
         hits.append(hit)
 
     return hits
+
+
+def parse_hmmsearch_sto(output_string: str, input_sequence: str) -> Sequence[TemplateHit]:
+    """
+    Gets parsed template hits from the raw string output by the tool.
+    """
+
+    a3m_string = convert_stockholm_to_a3m(output_string, remove_first_row_gaps=False)
+    template_hits = parse_hmmsearch_a3m(query_sequence=input_sequence, a3m_string=a3m_string, skip_first=False)
+
+    return template_hits
