@@ -115,10 +115,16 @@ Followings are additional features for multimer models.
 
 Randomly delete MSA sequences to reduce the cost of MSA features.
 
+#### `v2_feature`
+
+Use data operations introduced with AlphaFold-Multimer model.
+
 #### `gumbel_sample`
 
 Sample MSA with Gumbel sampling otherwise sample MSA uniformly.
 It is the default for multimer models.
+
+The first row is always skipped. It's center must be the target sequences.
 
 #### `max_cluster_features`
 
@@ -220,6 +226,10 @@ See AF2 supplementary 1.11.5 Loss clamping details.
 #### `max_distillation_msa_clusters`
 
 See the last line of AF2 supplementary 1.3 Self-distillation dataset.
+
+#### `share_mask`
+
+Entity-sharing MSA mask.
 
 ## `model`
 

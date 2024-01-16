@@ -8,7 +8,8 @@
 * DeepFold
   * [Overview](deepfold/overview.md)
   * [Representations](deepfold/repr.md)
-  * [Features](deepfold/features.md)
+  * [Genetic Search](deepfold/search.md)
+  * [Input Features](deepfold/features.md)
   * [Configuration](deepfold/config.md)
   * [Distributed Computing](deepfold/dist.md)
   * [Inference Procedure](deepfold/predict.md)
