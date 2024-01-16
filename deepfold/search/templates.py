@@ -137,7 +137,7 @@ def _is_after_cutoff(
     else:
         # Since this is just a quick prefilter to reduce the number of mmCIF files
         # we need to parse, we don't have to worry about returning True here.
-        logger.info("Template structure not in release dates dict: %s", pdb_id)
+        # logger.info("Template structure not in release dates dict: %s", pdb_id)
         return False
 
 
@@ -201,7 +201,6 @@ def _assess_hhsearch_hit(
     hit: parsers.TemplateHit,
     hit_pdb_code: str,
     query_sequence: str,
-    query_pdb_code: Optional[str],
     release_dates: Mapping[str, datetime.datetime],
     release_date_cutoff: datetime.datetime,
     max_subsequence_ratio: float = 0.95,
@@ -215,7 +214,6 @@ def _assess_hhsearch_hit(
             different from the value in the actual hit since the original pdb might
             have become obsolete.
         query_sequence: Amino acid sequence of the query.
-        query_pdb_code: 4 letter pdb code of the query.
         release_dates: Dictionary mapping pdb codes to their structure release
             dates.
         release_date_cutoff: Max release date that is valid for this query.
@@ -227,7 +225,6 @@ def _assess_hhsearch_hit(
 
     Raises:
         DateError: If the hit date was after the max allowed date.
-        PdbIdError: If the hit PDB ID was identical to the query.
         AlignRatioError: If the hit align ratio to the query was too small.
         DuplicateError: If the hit was an exact subsequence of the query.
         LengthError: If the hit was too short.
@@ -238,24 +235,20 @@ def _assess_hhsearch_hit(
     template_sequence = hit.hit_sequence.replace("-", "")
     length_ratio = float(len(template_sequence)) / len(query_sequence)
 
-    # Check whether the template is a large subsequence or duplicate of original
-    # query. This can happen due to duplicate entries in the PDB database.
-    duplicate = template_sequence in query_sequence and length_ratio > max_subsequence_ratio
-
     if _is_after_cutoff(hit_pdb_code, release_dates, release_date_cutoff):
         date = release_dates[hit_pdb_code.upper()]
         raise DateError(f"Date ({date}) > max template date " f"({release_date_cutoff}).")
 
-    if query_pdb_code is not None:
-        if query_pdb_code.lower() == hit_pdb_code.lower():
-            raise PdbIdError("PDB code identical to Query PDB code.")
-
     if align_ratio <= min_align_ratio:
         raise AlignRatioError("Proportion of residues aligned to query too small. " f"Align ratio: {align_ratio}.")
 
+    # Check whether the template is a large subsequence or duplicate of original query.
+    # This can happen due to duplicate entries in the PDB database.
+    duplicate = template_sequence in query_sequence and length_ratio > max_subsequence_ratio
+
     if duplicate:
         raise DuplicateError(
-            "Template is an exact subsequence of query with large " f"coverage. Length ratio: {length_ratio}."
+            f"Template is an exact subsequence of query with large coverage. Length ratio: {length_ratio}."
         )
 
     if len(template_sequence) < 10:
@@ -400,9 +393,8 @@ def _realign_pdb_template_to_query(
             )
 
     try:
-        (old_aligned_template, new_aligned_template), _ = parsers.parse_a3m(
-            aligner.align([old_template_sequence, new_template_sequence])
-        )
+        parsed_a3m = parsers.parse_a3m(aligner.align([old_template_sequence, new_template_sequence]))
+        old_aligned_template, new_aligned_template = parsed_a3m.sequences
     except Exception as e:
         raise QueryToTemplateAlignError(
             "Could not align old template %s to template %s (%s_%s). Error: %s"
@@ -717,7 +709,6 @@ class SingleHitResult:
 
 def _prefilter_hit(
     query_sequence: str,
-    query_pdb_code: Optional[str],
     hit: parsers.TemplateHit,
     max_template_date: datetime.datetime,
     release_dates: Mapping[str, datetime.datetime],
@@ -738,15 +729,14 @@ def _prefilter_hit(
             hit=hit,
             hit_pdb_code=hit_pdb_code,
             query_sequence=query_sequence,
-            query_pdb_code=query_pdb_code,
             release_dates=release_dates,
             release_date_cutoff=max_template_date,
         )
     except PrefilterError as e:
         hit_name = f"{hit_pdb_code}_{hit_chain_id}"
         msg = f"hit {hit_name} did not pass prefilter: {str(e)}"
-        logger.info("%s: %s", query_pdb_code, msg)
-        if strict_error_check and isinstance(e, (DateError, PdbIdError, DuplicateError)):
+        logger.info(msg)
+        if strict_error_check and isinstance(e, (DateError, DuplicateError)):
             # In strict mode we treat some prefilter cases as errors.
             return PrefilterResult(valid=False, error=msg, warning=None)
 
@@ -757,7 +747,6 @@ def _prefilter_hit(
 
 def _process_single_hit(
     query_sequence: str,
-    query_pdb_code: Optional[str],
     hit: parsers.TemplateHit,
     mmcif_dir: str,
     max_template_date: datetime.datetime,
@@ -795,9 +784,9 @@ def _process_single_hit(
             cif_string = cif_file.read()  # TODO: LRU cache
     except FileNotFoundError:
         logger.info(f"Cannot read PDB entry from '{cif_path}'")
-        cif_path = os.path.join(mmcif_dir, hit_pdb_code, hit_pdb_code[1:3], ".cif.gz")
+        cif_path = os.path.join(mmcif_dir, hit_pdb_code[1:3], f"{hit_pdb_code}.cif.gz")
         if not os.path.exists(cif_path):
-            cif_path = os.path.join(mmcif_dir, hit_pdb_code, ".cif.gz")
+            cif_path = os.path.join(mmcif_dir, f"{hit_pdb_code}.cif.gz")
         logger.info(f"Reading PDB entry from '{cif_path}'")
         with gzip.open(cif_path, "rb") as f:
             cif_string = f.read().decode()
@@ -829,7 +818,10 @@ def _process_single_hit(
             kalign_binary_path=kalign_binary_path,
             _zero_center_positions=_zero_center_positions,
         )
-        features["template_sum_probs"] = [hit.sum_probs]
+        if hit.sum_probs is None:
+            features["template_sum_probs"] = [0.0]
+        else:
+            features["template_sum_probs"] = [hit.sum_probs]
 
         # It is possible there were some errors when parsing the other chains in the
         # mmCIF file, but the template features for the chain we want were still
@@ -845,7 +837,7 @@ def _process_single_hit(
         warning = "%s_%s (sum_probs: %.2f, rank: %d): feature extracting errors: " "%s, mmCIF parsing errors: %s" % (
             hit_pdb_code,
             hit_chain_id,
-            hit.sum_probs,
+            hit.sum_probs if hit.sum_probs else 0.0,
             hit.index,
             str(e),
             parsing_result.errors,
@@ -858,7 +850,7 @@ def _process_single_hit(
         error = "%s_%s (sum_probs: %.2f, rank: %d): feature extracting errors: " "%s, mmCIF parsing errors: %s" % (
             hit_pdb_code,
             hit_chain_id,
-            hit.sum_probs,
+            hit.sum_probs if hit.sum_probs else 0.0,
             hit.index,
             str(e),
             parsing_result.errors,
@@ -968,6 +960,7 @@ class TemplateHitFeaturizer(abc.ABC):
         self._max_hits = max_hits
         self._kalign_binary_path = kalign_binary_path
         self._strict_error_check = strict_error_check
+        self._release_dates = {}
 
         if obsolete_pdbs_path:
             logger.info(f"Using precomputed obsolete pdbs {obsolete_pdbs_path}")
