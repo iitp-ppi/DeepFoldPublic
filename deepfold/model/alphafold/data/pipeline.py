@@ -26,7 +26,6 @@ def make_template_features(
     input_sequence: str,
     hits: Sequence[Any],
     template_featurizer: Any,
-    query_pdb_code: Optional[str] = None,
     query_release_date: Optional[str] = None,
 ) -> FeatureDict:
     hits_cat = sum(hits.values(), [])
@@ -35,7 +34,6 @@ def make_template_features(
     else:
         templates_result = template_featurizer.get_templates(
             query_sequence=input_sequence,
-            query_pdb_code=query_pdb_code,
             query_release_date=query_release_date,
             hits=hits_cat,
         )
