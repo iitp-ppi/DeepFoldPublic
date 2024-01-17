@@ -87,10 +87,10 @@ def _gather(tensor: Tensor, dim: int = -1) -> Tensor:
     return out
 
 
-# Identity
+# Copy
 
 
-class Identity(torch.autograd.Function):
+class Copy(torch.autograd.Function):
     """
     Class for backward reduce operation.
     It does not communicate forwardly.
@@ -106,9 +106,9 @@ class Identity(torch.autograd.Function):
 
 
 # @dump_args
-def identity(input: Tensor) -> Tensor:
+def copy(input: Tensor) -> Tensor:
     if torch.is_grad_enabled() and input.requires_grad:
-        input = Identity.apply(input)
+        input = Copy.apply(input)
     return input
 
 
