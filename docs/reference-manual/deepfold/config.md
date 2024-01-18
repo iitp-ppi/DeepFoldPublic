@@ -110,6 +110,7 @@ Followings are additional features for multimer models.
 - `num_blocks := 5` How many deletion blocks will be sampled.
 - `randomize_num_blocks := False` If true, the number of blocks is randomly sampled between once and `num_blocks`.
 - `min_num_msa := 16` If the number of sequences are less than the value, it will not block deletion.
+- Multimer models don't use MSA block deletion.
 
 #### `max_msa_entry`
 

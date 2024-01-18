@@ -186,7 +186,7 @@ data:
   train:
     fixed_size: True
     subsample_templates: True
-    block_delete_msa: True
+    block_delete_msa: True # Multimer models don't use MSA block deletion
     random_delete_msa: False
     masked_msa_replace_fraction: 0.15
     max_msa_clusters: 128
