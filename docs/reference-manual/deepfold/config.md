@@ -74,8 +74,7 @@ Followings are additional features for multimer models.
 
 - `assembly_num_chains`
 - `asym_id`
-- `asym_len`
-- `cluster_bias_mask`
+- ~~`cluster_bias_mask`~~
 - `cluster_profile`
 - `cluster_deletion_mean`
 - `deletion_matrix`
@@ -86,9 +85,10 @@ Followings are additional features for multimer models.
 - `msa`
 - `msa_profile`
 - `num_alignments`
-- `num_sym`
 - `num_templates`
 - `sym_id`
+- `asym_len`
+- `num_sym`
 
 #### `masked_msa`
 

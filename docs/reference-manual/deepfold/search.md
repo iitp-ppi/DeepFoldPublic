@@ -26,7 +26,9 @@ VIFEMVHLKELGLYNLMNITRGSVRIEKNNELCYLATIDWSRILDSVEDNYIVLNKDDNE
 
 ## Implementation Notes
 
-- `DataPipeline` excludes `uniprot.sto` and `hmm_output.sto` when creates MSA features.
+- AlphaFold2 (monomer) pipeline only accept UniRef90, BFD and Mgnify query results.
+- AlphaFold-Multimer uses UniProt (which is concat of TrEMBL and Swiss-Prot) query results to pair MSAs.
+- Therefore, the `AlignmentRunner` has argument `alphafold_mode` to reproduce AlphaFold pipeline.
 
 ## Summary: `features.pkl`
 
