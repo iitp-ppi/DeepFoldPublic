@@ -2,8 +2,9 @@
 
 
 import contextlib
-import numpy as np
 from typing import Optional
+
+import numpy as np
 
 
 def str_hash(string: str):
