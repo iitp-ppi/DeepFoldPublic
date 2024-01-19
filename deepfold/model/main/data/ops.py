@@ -48,7 +48,7 @@ def curry1(f):
     return fc
 
 
-def cast_for_tensor(protein: TensorDict) -> TensorDict:
+def cast_features(protein: TensorDict) -> TensorDict:
     """Keeps all ints as int64 and masks as float32.
 
     Args:
@@ -233,11 +233,11 @@ def gumbel_max_sample(logits: torch.Tensor) -> torch.Tensor:
         Tensor: A one-hot encoded sample representing the chosen outcome based on the logits.
     """
 
-    # Generate Gumbel noise to introduce randomness into the sampling process.
+    # Generate Gumbel noise to introduce randomness into the sampling process
     z = gumbel_noise(logits.shape)
 
     # Add the generated noise to the logits and determine the index of the maximum value,
-    # which corresponds to the chosen outcome.
+    # which corresponds to the chosen outcome
     sample = torch.argmax(logits + z, dim=-1)
 
     return sample
@@ -712,7 +712,7 @@ def summarize_clusters(protein: TensorDict) -> TensorDict:
     mask = protein["extra_msa_mask"]
     mask_counts = 1e-6 + protein["msa_mask"] + csum(mask)  # Include center
 
-    # TODO: This line is very slow. Need optimization.
+    # TODO: This line is very slow. Need optimization
     msa_sum = csum(mask[:, :, None] * one_hot(protein["extra_msa"], 23))
     msa_sum += one_hot(protein["msa"], 23)  # Original sequence
     protein["cluster_profile"] = msa_sum / mask_counts[:, :, None]
@@ -776,7 +776,7 @@ def nearest_neighbor_clusters_v2(
 
     # Count the number of sequences in each cluster
     cluster_count = torch.sum(cluster_assignment, dim=-1)
-    cluster_count += 1.0  # We always include the sequence itself.
+    cluster_count += 1.0  # We always include the sequence itself
 
     # Compute the cluster profile
     msa_sum = torch.einsum("nm,mrc->nrc", cluster_assignment, extra_one_hot_masked)
@@ -787,7 +787,7 @@ def nearest_neighbor_clusters_v2(
     deletion_matrix = batch["deletion_matrix"]
     extra_deletion_matrix = batch["extra_deletion_matrix"]
     del_sum = torch.einsum("nm,mc->nc", cluster_assignment, extra_mask * extra_deletion_matrix)
-    del_sum += deletion_matrix  # Original sequence.
+    del_sum += deletion_matrix  # Original sequence
     cluster_deletion_mean = del_sum / cluster_count[:, None]
 
     # Update and return the batch
@@ -960,7 +960,7 @@ def make_hhblits_profile(protein: TensorDict) -> TensorDict:
     # Compute the mean of the one-hot encoding along the sequences (dim=0)
     protein["hhblits_profile"] = torch.mean(msa_one_hot, dim=0)
 
-    # Return the input dictionary with the added HHblits profile.
+    # Return the input dictionary with the added HHblits profile
     return protein
 
 
@@ -984,16 +984,16 @@ def make_msa_profile(
     with a small constant added for numerical stability.
     """
 
-    # One-hot encode the MSA sequences (22 classes).
+    # One-hot encode the MSA sequences (22 classes)
     oh = one_hot(batch["msa"], 22)
 
-    # Create a mask to select relevant residues.
+    # Create a mask to select relevant residues
     mask = batch["msa_mask"][:, :, None]
 
-    # Apply the mask to the one-hot encoded sequences.
+    # Apply the mask to the one-hot encoded sequences
     oh *= mask
 
-    # Calculate the profile by summing over residues and adding a small constant for stability.
+    # Calculate the profile by summing over residues and adding a small constant for stability
     return oh.sum(dim=0) / (mask.sum(dim=0) + eps)
 
 
@@ -1008,14 +1008,14 @@ def make_hhblits_profile_v2(protein: TensorDict) -> TensorDict:
         TensorDict: The input protein dictionary with the HHblits MSA profile added if it wasn't already present.
     """
 
-    # Check if the 'hhblits_profile' key is already in the protein dictionary.
+    # Check if the 'hhblits_profile' key is already in the protein dictionary
     if "hhblits_profile" in protein:
-        return protein  # If it's already present, return the unchanged protein dictionary.
+        return protein  # If it's already present, return the unchanged protein dictionary
 
-    # If 'hhblits_profile' is not present, compute it by calling the 'make_msa_profile' function.
+    # If 'hhblits_profile' is not present, compute it by calling the 'make_msa_profile' function
     protein["hhblits_profile"] = make_msa_profile(protein)
 
-    # Return the modified protein dictionary with the 'hhblits_profile' added.
+    # Return the modified protein dictionary with the 'hhblits_profile' added
     return protein
 
 
@@ -1045,7 +1045,7 @@ def share_mask_by_entity(
         Introduced in Uni-Fold Multimer.
     """
 
-    # Check if 'num_sym' is a key in the protein dictionary.
+    # Check if 'num_sym' is a key in the protein dictionary
     # If not, return the original mask_position
     if "num_sym" not in protein:
         return mask_position
@@ -1074,7 +1074,7 @@ def share_mask_by_entity(
             cur_sym_mask = first_sym_mask & cur_entity_mask
             cur_sym_bert_mask = mask_position[:, cur_sym_mask]
 
-            # Repeating the mask for the number of symmetries and updating mask_position.
+            # Repeating the mask for the number of symmetries and updating mask_position
             mask_position[:, cur_entity_mask] = cur_sym_bert_mask.repeat(1, cur_num_sym)
 
     return mask_position
@@ -1114,25 +1114,25 @@ def make_masked_msa(
     # Define a tensor representing a uniform distribution over amino acids
     random_aa = torch.tensor([0.05] * 20 + [0.0, 0.0], dtype=torch.float32)
 
-    # Calculate probabilities for each type of replacement in the MSA.
+    # Calculate probabilities for each type of replacement in the MSA
     categorical_probs = (
         config.uniform_prob * random_aa  # Uniform probability for random amino acids
         + config.profile_prob * protein["hhblits_profile"]  # Probability based on the protein's HHblits profile
         + config.same_prob * one_hot(protein["msa"], 22)  # Probability of keeping the same amino acid
     )
 
-    # Add padding for the [MASK] token, adjusting probabilities accordingly.
+    # Add padding for the [MASK] token, adjusting probabilities accordingly
     pad_shapes = list(reduce(add, [(0, 0) for _ in range(len(categorical_probs.shape))]))
-    pad_shapes[1] = 1  # Adding a new column for the [MASK] token.
+    pad_shapes[1] = 1  # Adding a new column for the [MASK] token
     mask_prob = 1.0 - config.profile_prob - config.same_prob - config.uniform_prob  # Probability for masking
-    assert mask_prob >= 0.0  # Ensure the mask probability is non-negative.
+    assert mask_prob >= 0.0  # Ensure the mask probability is non-negative
     categorical_probs = torch.nn.functional.pad(categorical_probs, pad_shapes, value=mask_prob)
 
     # Determine positions to mask based on the replace_fraction
     sh = protein["msa"].shape
     with numpy_seed(seed, "masked_msa"):
         mask_position = torch.from_numpy(np.random.rand(*sh) < replace_fraction)
-    mask_position &= protein["msa_mask"].bool()  # Apply existing mask.
+    mask_position &= protein["msa_mask"].bool()  # Apply existing mask
 
     # Apply additional masking if specified in the protein data
     if "bert_mask" in protein:
@@ -1369,18 +1369,18 @@ def make_msa_feat_v2(batch: TensorDict) -> TensorDict:
 
     """
 
-    # One-hot encode the MSA data.
+    # One-hot encode the MSA data
     msa_1hot = one_hot(batch["msa"], 23)
 
-    # Process the deletion matrix.
+    # Process the deletion matrix
     deletion_matrix = batch["deletion_matrix"]
     has_deletion = torch.clip(deletion_matrix, 0.0, 1.0)[..., None]
     deletion_value = (torch.atan(deletion_matrix / 3.0) * (2.0 / np.pi))[..., None]
 
-    # Calculate mean deletion value.
+    # Calculate mean deletion value
     deletion_mean_value = (torch.arctan(batch["cluster_deletion_mean"] / 3.0) * (2.0 / np.pi))[..., None]
 
-    # Concatenate all MSA features.
+    # Concatenate all MSA features
     msa_feat = [
         msa_1hot,
         has_deletion,
@@ -1389,7 +1389,7 @@ def make_msa_feat_v2(batch: TensorDict) -> TensorDict:
         deletion_mean_value,
     ]
 
-    # Add the concatenated features to the batch.
+    # Add the concatenated features to the batch
     batch["msa_feat"] = torch.concat(msa_feat, dim=-1)
 
     return batch
@@ -2057,13 +2057,13 @@ def crop_to_size_single(
 
     """
 
-    # Determine the number of residues based on the 'aatype' key if it exists, otherwise use 'msa_mask'.
+    # Determine the number of residues based on the 'aatype' key if it exists, otherwise use 'msa_mask'
     num_res = protein["aatype"].shape[0] if "aatype" in protein else protein["msa_mask"].shape[1]
 
-    # Get the cropping index based on the number of residues, crop size, and optional seed.
+    # Get the cropping index based on the number of residues, crop size, and optional seed
     crop_idx = get_single_crop_idx(num_res, crop_size, seed)
 
-    # Apply the crop index to the protein data structure.
+    # Apply the crop index to the protein data structure
     protein = apply_crop_idx(protein, shape_schema, crop_idx)
 
     return protein
