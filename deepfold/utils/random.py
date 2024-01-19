@@ -14,7 +14,7 @@ def str_hash(string: str):
 
 
 @contextlib.contextmanager
-def numpy_seed(seed: Optional[int] = None, key: str = ""):
+def numpy_seed(seed: Optional[int] = None, *additional_seeds, key: str = ""):
     """
     Context manager which seeds the Numpy PRNG with the seed and restores the state.
     """
@@ -22,6 +22,9 @@ def numpy_seed(seed: Optional[int] = None, key: str = ""):
     if seed is None:
         yield
         return
+
+    if len(additional_seeds) > 0:
+        seed = hash((seed, *additional_seeds)) % 1e8
 
     if key is not None:
         seed = hash((seed, str_hash(key))) % 1e8
