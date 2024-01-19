@@ -13,7 +13,8 @@ from omegaconf import DictConfig
 
 from deepfold.common import residue_constants as rc
 from deepfold.utils.geometry import Rigid, Rotation
-from deepfold.utils.tensor_utils import batched_gather, one_hot, tensor_tree_map, tree_map
+from deepfold.utils.random import numpy_seed
+from deepfold.utils.tensor_utils import batched_gather, one_hot
 
 FeatureDict = MutableMapping[str, np.ndarray]
 TensorDict = MutableMapping[str, torch.Tensor]
@@ -194,11 +195,7 @@ def randomly_replace_msa_with_unknown(
     return protein
 
 
-def gumbel_noise(
-    shape: Sequence[int],
-    device: torch.device,
-    generator: torch.Generator,
-) -> torch.Tensor:
+def gumbel_noise(shape: Sequence[int]) -> torch.Tensor:
     """Generate Gumbel Noise of given shape.
 
     This function generates samples from the Gumbel(0, 1) distribution.
@@ -213,7 +210,7 @@ def gumbel_noise(
     eps = 1e-6
 
     # Generate uniform noise
-    uniform_noise = torch.rand(shape, generator=generator, dtype=torch.float32, device=device)
+    uniform_noise = torch.from_numpy(np.random.uniform(0, 1, shape))
 
     # Apply the Gumbel transformation to the uniform noise
     gumbel = -torch.log(-torch.log(uniform_noise + eps) + eps)
@@ -221,10 +218,7 @@ def gumbel_noise(
     return gumbel
 
 
-def gumbel_max_sample(
-    logits: torch.Tensor,
-    generator: torch.Generator,
-) -> torch.Tensor:
+def gumbel_max_sample(logits: torch.Tensor) -> torch.Tensor:
     """
     Samples from a probability distribution given by 'logits' using the Gumbel-max trick.
 
@@ -240,7 +234,7 @@ def gumbel_max_sample(
     """
 
     # Generate Gumbel noise to introduce randomness into the sampling process.
-    z = gumbel_noise(logits.shape, logits.device, generator=generator)
+    z = gumbel_noise(logits.shape)
 
     # Add the generated noise to the logits and determine the index of the maximum value,
     # which corresponds to the chosen outcome.
@@ -249,10 +243,7 @@ def gumbel_max_sample(
     return sample
 
 
-def gumbel_argsort_sample_idx(
-    logits: torch.Tensor,
-    generator: torch.Generator,
-) -> torch.Tensor:
+def gumbel_argsort_sample_idx(logits: torch.Tensor) -> torch.Tensor:
     """
     Samples with replacement from a distribution given by 'logits'.
 
@@ -269,7 +260,7 @@ def gumbel_argsort_sample_idx(
     """
 
     # Generate Gumbel noise with the same shape as logits
-    z = gumbel_noise(logits.shape, logits.device, generator=generator)
+    z = gumbel_noise(logits.shape)
 
     # Add Gumbel noise to logits and perform argsort in descending order
     return torch.argsort(logits + z, dim=-1, descending=True)
@@ -302,7 +293,6 @@ def uniform_permutation(
 def gumbel_permutation(
     msa_mask: torch.Tensor,
     msa_chains: Optional[torch.Tensor] = None,
-    seed: Optional[int] = None,
 ) -> torch.Tensor:
     """
     Perform Gumbel-sorted permutation of input based on a mask and optional chain information.
@@ -378,14 +368,8 @@ def gumbel_permutation(
         # Apply the Gumbel-sorted permutation to logits
         logits = torch.log(logits + 1e-6)
 
-    # Setup a random number generator
-    rng = None
-    if seed is not None:
-        rng = torch.Generator(device=logits.device)
-        rng.manual_seed(seed)
-
     # Generate the permuted indices
-    shuffled = gumbel_argsort_sample_idx(logits, generator=rng) + 1
+    shuffled = gumbel_argsort_sample_idx(logits) + 1
 
     # Add 0 to the beginning of the permutation
     return torch.cat((torch.tensor([0]), shuffled), dim=0)
@@ -924,7 +908,7 @@ def make_pseudo_beta(
 
 def shaped_categorical(
     probs: torch.Tensor,
-    generator: torch.Generator,
+    seed: Optional[int] = None,
     eps: float = 1e-10,
 ) -> torch.Tensor:
     """
@@ -932,7 +916,7 @@ def shaped_categorical(
 
     Args:
         probs (torch.Tensor): A tensor representing the probabilities of each category.
-        generator (torch.Generator): A random number generator for reproducibility.
+        seed (Optional[int]): A random seed for reproducibility.
         eps (float, optional): A small value added to probabilities to prevent division by zero.
             Defaults to 1e-10.
 
@@ -941,10 +925,13 @@ def shaped_categorical(
         the same shape as the input `probs`, except for the last dimension.
     """
 
+    g = torch.Generator()
+    g.manual_seed(seed)
+
     ps = probs.shape
     num_classes = ps[-1]
     probs = torch.reshape(probs + eps, [-1, num_classes])
-    counts = torch.multinomial(probs, 1, generator=generator)
+    counts = torch.multinomial(probs, 1, generator=g)
     return torch.reshape(counts, ps[:-1])
 
 
@@ -1141,15 +1128,10 @@ def make_masked_msa(
     assert mask_prob >= 0.0  # Ensure the mask probability is non-negative.
     categorical_probs = torch.nn.functional.pad(categorical_probs, pad_shapes, value=mask_prob)
 
-    # Random number generator
-    rng = None
-    if seed is not None:
-        rng = torch.Generator(device=protein["msa"].device)
-        rng.manual_seed(seed)
-
     # Determine positions to mask based on the replace_fraction
     sh = protein["msa"].shape
-    mask_position = torch.rand(sh, generator=rng, device=protein["msa".device]) < replace_fraction
+    with numpy_seed(seed, "masked_msa"):
+        mask_position = torch.from_numpy(np.random.rand(*sh) < replace_fraction)
     mask_position &= protein["msa_mask"].bool()  # Apply existing mask.
 
     # Apply additional masking if specified in the protein data
@@ -1163,9 +1145,9 @@ def make_masked_msa(
     # Generate the masked MSA using either Gumbel sampling or categorical sampling
     if gumbel_sample:
         logits = torch.log(categorical_probs + 1e-6)
-        bert_msa = gumbel_max_sample(logits, rng)
+        bert_msa = gumbel_max_sample(logits)
     else:
-        bert_msa = shaped_categorical(categorical_probs, rng)
+        bert_msa = shaped_categorical(categorical_probs, seed=seed)
 
     # Apply the generated mask to the MSA
     bert_msa = torch.where(mask_position, bert_msa, protein["msa"])
@@ -2117,7 +2099,8 @@ def crop_to_size_multimer(
     Raises:
         ValueError: If an invalid cropping strategy is provided.
     """
-    with data_utils.numpy_seed(seed, key="multimer_crop"):
+
+    with numpy_seed(seed, key="multimer_crop"):
         use_spatial_crop = np.random.rand() < spatial_crop_prob
 
     is_distillation = "is_distillation" in protein and protein["is_distillation"] == 1
@@ -2129,3 +2112,349 @@ def crop_to_size_multimer(
         crop_idx = get_contiguous_crop_idx(protein, crop_size, seed)
 
     return apply_crop_idx(protein, shape_schema, crop_idx)
+
+
+def apply_crop_idx(
+    protein: TensorDict,
+    shape_schema: Dict[str, Sequence[Optional[int]]],
+    crop_idx: torch.Tensor,
+) -> TensorDict:
+    """
+    Apply cropping to a protein tensor dictionary based on given indices.
+
+    This function iterates through each key-value pair in the input protein tensor dictionary.
+    For each tensor, it checks if its key has a corresponding shape schema. If so, it applies
+    indexing on the dimensions where the number of residues (NUM_RES) matches the shape schema,
+    using the provided crop indices.
+
+    Args:
+        protein (TensorDict): A dictionary where keys are string identifiers for protein data
+                               (e.g., 'sequence', 'structure') and values are tensors representing
+                               the corresponding data.
+        shape_schema (Dict[str, Sequence[Optional[int]]]): A dictionary that defines the expected
+                                                           shape of each tensor in the protein dictionary.
+                                                           It maps string keys to sequences of integers
+                                                           or None, where each integer represents the
+                                                           size of a tensor dimension.
+        crop_idx (torch.Tensor): A 1D tensor of indices used for cropping the protein tensors.
+
+    Returns:
+        TensorDict: A dictionary with the same keys as the input protein dictionary, but with tensors
+                    cropped according to the provided indices.
+    """
+
+    cropped_protein = {}
+
+    # Iterate over all items in the protein dictionary
+    for k, v in protein.items():
+        # Skip items that do not have a corresponding shape schema
+        if k not in shape_schema:
+            continue
+
+        # Apply cropping to the tensor dimensions specified in the shape schema
+        for i, dim_size in enumerate(shape_schema[k]):
+            if dim_size == NUM_RES:
+                # Cropping is applied along the dimension that matches NUM_RES
+                v = torch.index_select(v, i, crop_idx)
+
+        # Update the cropped protein dictionary with the modified tensor
+        cropped_protein[k] = v
+
+    return cropped_protein
+
+
+def get_single_crop_idx(
+    num_res: int,
+    crop_size: int,
+    seed: Optional[int],
+) -> torch.Tensor:
+    """
+    Selects a continuous range of indices for cropping a tensor.
+
+    This function generates a range of indices that can be used to crop a tensor. If the number of residues
+    (`num_res`) is less than the specified `crop_size`, it returns all indices. Otherwise, it randomly selects a
+    starting point and returns a range of indices of length `crop_size` starting from this point.
+
+    Args:
+        num_res (int): The number of residues.
+        crop_size (int): The size of the crop, i.e., how many consecutive elements should be selected.
+        seed (Optional[int]): A random seed, ensuring reproducibility.
+
+    Returns:
+        torch.Tensor: A 1D tensor containing the selected range of indices for cropping.
+
+    Raises:
+        ValueError: If `num_res` or `crop_size` is negative.
+    """
+    # Check for valid input values
+    if num_res < 0 or crop_size < 0:
+        raise ValueError("num_res and crop_size must be non-negative")
+
+    # Return all indices if num_res is less than crop_size
+    if num_res < crop_size:
+        return torch.arange(num_res)
+
+    # Randomly select a start index for cropping
+    with numpy_seed(seed):
+        crop_start = crop_start = int(np.random.randint(0, num_res - crop_size + 1))
+
+    # Return the range of indices starting from crop_start
+    return torch.arange(crop_start, crop_start + crop_size)
+
+
+def get_crop_sizes_each_chain(
+    asym_len: torch.Tensor,
+    crop_size: int,
+    seed: Optional[int] = None,
+    use_multinomial: bool = False,
+) -> torch.Tensor:
+    """
+    Calculate the crop sizes for each chain in a contiguous crop setting.
+
+    This function computes the crop sizes for each entity (chain) based on their lengths and the total crop size.
+    It supports two modes: a default mode that shuffles and allocates crop sizes sequentially, and a multinomial
+    mode that allocates based on a probability distribution.
+
+    Args:
+        asym_len (torch.Tensor): A tensor containing the lengths of each entity (chain).
+        crop_size (int): The total crop size to be distributed among the entities.
+        seed (Optional[int], optional): A seed for random number generation to ensure reproducibility. Defaults to None.
+        use_multinomial (bool, optional): A flag to use multinomial distribution for crop size allocation. Defaults to False.
+
+    Returns:
+        torch.Tensor: A tensor containing the crop sizes allocated to each entity.
+    """
+    if not use_multinomial:
+        # Shuffle indices for random allocation, with optional seed
+        with numpy_seed(seed, key="multimer_contiguous_perm"):
+            shuffle_idx = np.random.permutation(len(asym_len))
+
+        num_left = asym_len.sum()  # Total remaining length
+        num_budget = torch.tensor(crop_size)  # Total crop size budget
+        crop_sizes = [0 for _ in asym_len]  # Initialize crop sizes
+
+        # Allocate crop sizes sequentially to each entity
+        for j, idx in enumerate(shuffle_idx):
+            this_len = asym_len[idx]
+            num_left -= this_len
+            max_size = min(num_budget, this_len)  # Maximum crop size for this entity
+            min_size = min(this_len, max(0, num_budget - num_left))  # Minimum crop size
+
+            # Randomly choose a crop size within the allowed range
+            with numpy_seed(seed, j, key="multimer_contiguous_crop_size"):
+                this_crop_size = int(np.random.randint(low=int(min_size), high=int(max_size) + 1))
+
+            num_budget -= this_crop_size
+            crop_sizes[idx] = this_crop_size
+
+        crop_sizes = torch.tensor(crop_sizes)
+    else:
+        # Use multinomial distribution for crop size allocation
+        entity_probs = asym_len / torch.sum(asym_len)  # Probability distribution based on entity lengths
+
+        with numpy_seed(seed=seed, key="multimer_contiguous_crop_size"):
+            crop_sizes = torch.from_numpy(np.random.multinomial(crop_size, pvals=entity_probs))
+
+        # Ensure crop sizes do not exceed the actual entity lengths
+        crop_sizes = torch.min(crop_sizes, asym_len)
+
+    return crop_sizes
+
+
+def get_contiguous_crop_idx(
+    protein: TensorDict,
+    crop_size: int,
+    seed: Optional[int] = None,
+    use_multinomial: bool = False,
+) -> torch.Tensor:
+    """
+    Calculate contiguous crop indices for a protein tensor.
+
+    This function determines crop indices for a given protein tensor, ensuring that the
+    crops are contiguous within the protein structure. It supports variable chain lengths
+    and can optionally use a multinomial distribution for crop size determination.
+
+    Args:
+        protein (TensorDict): A dictionary containing protein data with keys like 'aatype'
+                              and 'asym_len'. 'aatype' is a tensor indicating amino acid types,
+                              and 'asym_len' is a tensor indicating the lengths of asymmetric units.
+        crop_size (int): The size of the crop to be taken from the protein.
+        seed (Optional[int], optional): A seed for random number generation, ensuring reproducibility.
+                                        Defaults to None.
+        use_multinomial (bool, optional): Flag to use multinomial distribution for crop size
+                                          determination. Defaults to False.
+
+    Returns:
+        torch.Tensor: A tensor of indices indicating the start and end of the contiguous crop.
+
+    Raises:
+        AssertionError: If 'asym_len' key is not in the protein dictionary.
+    """
+
+    # Get the number of residues in the protein
+    num_res = protein["aatype"].shape[0]
+    # Return early if the protein is smaller or equal to the crop size
+    if num_res <= crop_size:
+        return torch.arange(num_res)
+
+    # Ensuring 'asym_len' key exists in the protein dictionary
+    assert "asym_len" in protein
+    asym_len = protein["asym_len"]
+
+    # Calculate the crop sizes for each chain
+    crop_sizes = get_crop_sizes_each_chain(asym_len, crop_size, seed, use_multinomial)
+    crop_idxs = []
+    asym_offset = torch.tensor(0, dtype=torch.int64)
+
+    # Generate crop start indices with an optional seed for reproducibility
+    with numpy_seed(seed, key="multimer_contiguous_crop_start_idx"):
+        for l, csz in zip(asym_len, crop_sizes):
+            # Randomly select a start index for the crop
+            this_start = np.random.randint(0, int(l - csz) + 1)
+            # Append the range of indices for this crop
+            crop_idxs.append(torch.arange(asym_offset + this_start, asym_offset + this_start + csz))
+            asym_offset += l
+
+    # Concatenate all crop index ranges into a single tensor
+    return torch.concat(crop_idxs)
+
+
+def get_spatial_crop_idx(
+    protein: TensorDict,
+    crop_size: int,
+    random_seed: int,
+    ca_ca_threshold: float,
+    inf: float = 3e4,
+) -> List[int]:
+    """
+    Computes indices for spatial cropping of a protein based on C-alpha atom positons.
+
+    This function identifies a subset of C-alpha atoms in a protein that are within a specified
+    threshold distance. If suitable interface candidates are found, it selects a random target
+    residue and finds the closest residues to this target, up to the specified crop size. If no
+    interface candidates are found, a contiguous crop index is returned.
+
+    Args:
+        protein (TensorDict): A dictionary containing protein data, including atom positions and masks.
+        crop_size (int): The number of residues to include in the crop.
+        random_seed (int): Seed for random number generator to ensure reproducibility.
+        ca_ca_threshold (float): The threshold distance for considering C-alpha atoms as interface candidates.
+        inf (float, optional): A large number used to represent infinity. Defaults to 3e4.
+
+    Returns:
+        List[int]: A list of indices representing the crop of the protein around a selected residue.
+
+    Raises:
+        ValueError: If `crop_size` is not positive.
+
+    Note:
+        This function assumes that the protein data includes 'all_atom_positions' and 'all_atom_mask' keys.
+    """
+
+    # Get the index of C-alpha atoms in the protein
+    ca_idx = rc.atom_order["CA"]
+
+    # Extract coordinates and mask of C-alpha atoms
+    ca_coords = protein["all_atom_positions"][..., ca_idx, :]
+    ca_mask = protein["all_atom_mask"][..., ca_idx].bool()
+
+    # Check if there are enough atoms to construct interface; if not, use contiguous crop
+    if (ca_mask.sum(dim=-1) <= 1).all():
+        return get_contiguous_crop_idx(protein, crop_size, random_seed)
+
+    # Calculate pairwise distance mask for C-alpha atoms
+    pair_mask = ca_mask[..., None] * ca_mask[..., None, :]
+    ca_distances = get_pairwise_distances(ca_coords)
+
+    # Identify interface candidates based on distance threshold
+    interface_candidates = get_interface_candidates(ca_distances, protein["asym_id"], pair_mask, ca_ca_threshold)
+
+    if torch.any(interface_candidates):
+        with numpy_seed(random_seed, key="multimer_spatial_crop"):
+            target_res = int(np.random.choice(interface_candidates))
+    else:
+        return get_contiguous_crop_idx(protein, crop_size, random_seed)
+
+    # Choose a target residue randomly from interface candidates if available
+    if torch.any(interface_candidates):
+        with numpy_seed(random_seed, key="multimer_spatial_crop"):
+            target_res = int(np.random.choice(interface_candidates))
+    else:
+        # If no interface candidates, revert to contiguous cropping
+        return get_contiguous_crop_idx(protein, crop_size, random_seed)
+
+    # Compute distances to the target residue and apply infinity to non-positioned residues
+    to_target_distances = ca_distances[target_res]
+    to_target_distances[~ca_mask] = inf
+
+    # Apply a small increment to break ties in distances
+    break_tie = torch.arange(0, to_target_distances.shape[-1], device=to_target_distances.device).float() * 1e-3
+    to_target_distances += break_tie
+
+    # Get the closest residues to the target, sort them, and return
+    ret = torch.argsort(to_target_distances)[:crop_size]
+    return ret.sort().values
+
+
+def get_pairwise_distances(coords: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate the pairwise Euclidean distances between a set of coordinates.
+
+    This function computes the Euclidean distance between each pair of points
+    represented in the 'coords' tensor. The input tensor is expected to be of shape
+    (N, D), where N is the number of points and D is the dimensionality of each point.
+
+    Args:
+        coords (torch.Tensor): A tensor of shape (N, D), where each row represents
+                               a point in D-dimensional space.
+
+    Returns:
+        torch.Tensor: A tensor of shape (N, N) containing the pairwise Euclidean
+                      distances between each pair of points in 'coords'.
+    """
+
+    # Calculate the difference between each pair of points
+    coord_diff = coords.unsqueeze(-2) - coords.unsqueeze(-3)
+
+    # Compute the Euclidean distance for each pair
+    return torch.sqrt(torch.sum(coord_diff**2, dim=-1))
+
+
+def get_interface_candidates(
+    ca_distances: torch.Tensor,
+    asym_id: torch.Tensor,
+    pair_mask: torch.Tensor,
+    ca_ca_threshold: float,
+) -> torch.Tensor:
+    """
+    Identify interface candidates based on CA-CA distances and asymmetry IDs.
+
+    This function calculates interface candidates in a molecular structure by
+    considering the distances between CA atoms and their asymmetry IDs. Distances
+    within the same entity (asymmetry ID) are set to zero. An interface candidate
+    is identified if the CA-CA distance is greater than zero and less than the
+    specified threshold.
+
+    Args:
+        ca_distances (torch.Tensor): A tensor of CA-CA distances.
+        asym_id (torch.Tensor): A tensor of asymmetry IDs for each CA atom.
+        pair_mask (torch.Tensor): A tensor mask to indicate valid pairs.
+        ca_ca_threshold (float): The threshold distance to define an interface.
+
+    Returns:
+        torch.Tensor: A tensor containing the indices of interface candidates.
+
+    """
+    # Compare asym IDs to determine if atoms are in the same entity
+    in_same_asym = asym_id[..., None] == asym_id[..., None, :]
+
+    # Adjust distances by setting those in the same entity to zero and applying the pair mask
+    ca_distances = ca_distances * (1.0 - in_same_asym.float()) * pair_mask
+
+    # Count the number of interfaces based on the distance criteria
+    cnt_interfaces = torch.sum((ca_distances > 0) & (ca_distances < ca_ca_threshold), dim=-1)
+
+    # Identify the indices of the interface candidates
+    interface_candidates = cnt_interfaces.nonzero(as_tuple=True)[0]
+
+    return interface_candidates
