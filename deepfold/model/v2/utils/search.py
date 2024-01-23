@@ -13,7 +13,7 @@ import shutil
 import time
 from pathlib import Path
 
-from deepfold.model.main.data import pipeline
+from deepfold.model.v2.data import pipeline
 from deepfold.search import templates
 from deepfold.search.tools import hmmsearch
 

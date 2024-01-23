@@ -13,8 +13,8 @@ from typing import Any, List, Mapping, Optional, Sequence, Union
 import numpy as np
 
 from deepfold.common import residue_constants as rc
-from deepfold.model.main.data import uniprot_identifiers
-from deepfold.model.main.data.ops import FeatureDict
+from deepfold.model.v2.data import uniprot_identifiers
+from deepfold.model.v2.data.ops import FeatureDict
 from deepfold.search import parsers
 from deepfold.search.templates import TemplateHit, TemplateHitFeaturizer, empty_template_feats
 from deepfold.search.tools import hhblits, hhsearch, hmmsearch, jackhmmer
