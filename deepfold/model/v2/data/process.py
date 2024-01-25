@@ -13,7 +13,7 @@ from omegaconf import DictConfig
 
 from deepfold.common import residue_constants as rc
 from deepfold.model.v2.data import ops
-from deepfold.model.v2.data.msa_paring import baseline as msa_paring
+from deepfold.model.v2.data.msa_paring import baseline as msa_pairing
 
 FeatureDict = MutableMapping[str, np.ndarray]
 TensorDict = MutableMapping[str, torch.Tensor]
@@ -751,7 +751,7 @@ def pad_msa(np_example: FeatureDict, min_num_seq: int) -> FeatureDict:
     if num_seq < min_num_seq:
         for feat in ("msa", "deletion_matrix", "bert_mask", "msa_mask", "msa_chains"):
             np_example[feat] = np.pad(np_example[feat], ((0, min_num_seq - num_seq), (0, 0)))
-        np_example["cluster_bias_mask"] = np.pad(np_example["cluster_bias_mask"], ((0, min_num_seq - num_seq),))
+        # np_example["cluster_bias_mask"] = np.pad(np_example["cluster_bias_mask"], ((0, min_num_seq - num_seq),))
     return np_example
 
 
