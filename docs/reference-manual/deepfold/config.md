@@ -57,7 +57,7 @@ List of feature entries.
 - `seq_mask`
 - `target_feat`
 - `template_aatype`
-- `template_all_atom_mask` (`template_all_atom_masks`)
+- `template_all_atom_mask` (FKA `template_all_atom_masks`)
 - `template_all_atom_positions`
 - `template_backbone_affine_mask`
 - `template_backbone_affine_tensor`
