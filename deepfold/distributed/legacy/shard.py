@@ -1,6 +1,5 @@
 # Copyright 2023 Deepfold Team
 
-from typing import List, Optional, Tuple
 
 import torch
 
