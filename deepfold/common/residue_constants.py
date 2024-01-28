@@ -17,13 +17,12 @@
 """Constants used in AlphaFold."""
 
 import collections
+import copy
 import functools
 from importlib import resources
 from typing import List, Mapping, Tuple
 
 import numpy as np
-
-from deepfold.utils.tensor_utils import tree_map
 
 # pylint: disable=invalid-name
 
@@ -382,10 +381,21 @@ van_der_waals_radius = {
 }
 
 Bond = collections.namedtuple("Bond", ["atom1_name", "atom2_name", "length", "stddev"])
-BondAngle = collections.namedtuple(
-    "BondAngle",
-    ["atom1_name", "atom2_name", "atom3name", "angle_rad", "stddev"],
-)
+BondAngle = collections.namedtuple("BondAngle", ["atom1_name", "atom2_name", "atom3name", "angle_rad", "stddev"])
+
+
+def map_structure_with_atom_order(in_list: list, first_call: bool = True) -> list:
+    # Maps strings in a nested list structure to their corresponding index in atom_order
+    if first_call:
+        in_list = copy.deepcopy(in_list)
+    for i in range(len(in_list)):
+        if isinstance(in_list[i], list):
+            in_list[i] = map_structure_with_atom_order(in_list[i], first_call=False)
+        elif isinstance(in_list[i], str):
+            in_list[i] = atom_order[in_list[i]]
+        else:
+            raise ValueError("Unexpected type when mapping nested lists!")
+    return in_list
 
 
 @functools.lru_cache(maxsize=None)
@@ -759,13 +769,12 @@ chi_atom_1_one_hot = chi_angle_atom(1)
 chi_atom_2_one_hot = chi_angle_atom(2)
 
 # An array like chi_angles_atoms but using indices rather than names.
-chi_angles_atom_indices = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
-# chi_angles_atom_indices = tree.map_structure(lambda atom_name: atom_order[atom_name], chi_angles_atom_indices)
-# chi_angles_atom_indices = [atom_order[atom_name] for atom_name in chi_angles_atom_indices]
-chi_angles_atom_indices = tree_map(lambda atom_name: atom_order[atom_name], chi_angles_atom_indices, leaf_type=str)
-chi_angles_atom_indices = np.array(
-    [chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices]
-)
+chi_angles_atom_indices_list: List[List[List[str]]] = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
+chi_angles_atom_indices_ours: list = map_structure_with_atom_order(chi_angles_atom_indices_list)
+chi_angles_atom_indices = [
+    chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices_list
+]
+chi_angles_atom_indices = np.array(chi_angles_atom_indices)
 
 # Mapping from (res_name, atom_name) pairs to the atom's chi group index
 # and atom index within that group.
