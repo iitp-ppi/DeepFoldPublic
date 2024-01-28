@@ -14,10 +14,11 @@ dependencies:
   - biopython==1.81
   - hydra-core
   - omegaconf==2.3.0
-  - pytorch=2.1.1
+  - pytorch=2.1.2
   - pytorch-cuda==12.1
   - torchaudio
   - torchvision
+  - tqdm
   - hmmer==3.3.2
   - hhsuite==3.3.0
   - kalign2==2.04
