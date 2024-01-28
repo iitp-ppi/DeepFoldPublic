@@ -1,12 +1,10 @@
 """Utilities related to tensor operations."""
 
-import logging
+
 from functools import partial
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Type, TypeVar, Union, overload
 
 import torch
-
-logger = logging.getLogger(__name__)
 
 
 def add(m1: torch.Tensor, m2: torch.Tensor, inplace: bool) -> torch.Tensor:
@@ -67,15 +65,41 @@ def batched_gather(data: torch.Tensor, inds: torch.Tensor, dim: int = 0, num_bat
     return data[ranges]
 
 
-def dict_map(fn: Callable, dic: Dict[Any, Any], leaf_type):
-    new_dict = {}
+T = TypeVar("T")
+
+
+# With tree_map, a poor man's JAX tree_map
+def dict_map(
+    fn: Callable[[T], Any], dic: Dict[Any, Union[dict, list, tuple, T]], leaf_type: Type[T]
+) -> Dict[Any, Union[dict, list, tuple, Any]]:
+    new_dict: Dict[Any, Union[dict, list, tuple, Any]] = {}
     for k, v in dic.items():
-        if type(v) is dict:
+        if isinstance(v, dict):
             new_dict[k] = dict_map(fn, v, leaf_type)
         else:
             new_dict[k] = tree_map(fn, v, leaf_type)
 
     return new_dict
+
+
+@overload
+def tree_map(fn: Callable[[T], Any], tree: T, leaf_type: Type[T]) -> Any:
+    ...
+
+
+@overload
+def tree_map(fn: Callable[[T], Any], tree: dict, leaf_type: Type[T]) -> dict:
+    ...
+
+
+@overload
+def tree_map(fn: Callable[[T], Any], tree: list, leaf_type: Type[T]) -> list:
+    ...
+
+
+@overload
+def tree_map(fn: Callable[[T], Any], tree: tuple, leaf_type: Type[T]) -> tuple:
+    ...
 
 
 def tree_map(fn, tree, leaf_type):
@@ -84,11 +108,12 @@ def tree_map(fn, tree, leaf_type):
     elif isinstance(tree, list):
         return [tree_map(fn, x, leaf_type) for x in tree]
     elif isinstance(tree, tuple):
-        return tuple([tree_map(fn, x, leaf_type) for x in tree])
+        return tuple(tree_map(fn, x, leaf_type) for x in tree)
     elif isinstance(tree, leaf_type):
         return fn(tree)
     else:
-        raise ValueError(f"Not supported type: {type(tree)}")
+        print(type(tree))
+        raise ValueError("Not supported")
 
 
 tensor_tree_map = partial(tree_map, leaf_type=torch.Tensor)
