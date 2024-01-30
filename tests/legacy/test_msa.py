@@ -4,14 +4,14 @@ import haiku as hk
 import jax
 import numpy as np
 import torch
+from config import consts
+from init import init_parallel
 
 from deepfold.model.alphafold.nn.msa import MSAColumnAttention, MSAColumnGlobalAttention, MSARowAttentionWithPairBias
 from deepfold.model.alphafold.utils import import_weights
 from deepfold.utils.tensor_utils import tree_map
 from tests import compare_utils
 from tests.alphafold_model import modules
-from config import consts
-from init import init_parallel
 
 
 class TestMSARowAttentionWithPairBias(unittest.TestCase):

@@ -10,6 +10,7 @@ from deepfold.model.alphafold.utils import import_weights
 from deepfold.utils.tensor_utils import tree_map
 from tests import compare_utils
 from tests.alphafold_model import modules
+
 from .config import consts
 from .init import init_parallel
 
