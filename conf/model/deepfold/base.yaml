@@ -4,7 +4,7 @@ info:
     - protein
     - multimer
 globals:
-  is_multimer: True
+  is_multimer: False
   use_templates: True
   max_recycling_iters: 3
 data:
