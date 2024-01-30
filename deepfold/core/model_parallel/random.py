@@ -7,7 +7,7 @@ from typing import Any, Dict, Union
 import torch
 from torch.utils.checkpoint import detach_variable
 
-from deepfold.core.model_parallel.utils import split_tensor_into_1d_equal_chunks, gather_split_1d_tensor
+from deepfold.core.model_parallel.utils import gather_split_1d_tensor, split_tensor_into_1d_equal_chunks
 from deepfold.core.parallel_state import (
     get_data_parallel_rank,
     get_model_parallel_group,
