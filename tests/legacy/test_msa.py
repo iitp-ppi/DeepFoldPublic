@@ -10,8 +10,8 @@ from deepfold.model.alphafold.utils import import_weights
 from deepfold.utils.tensor_utils import tree_map
 from tests import compare_utils
 from tests.alphafold_model import modules
-from tests.config import consts
-from tests.init import init_parallel
+from config import consts
+from init import init_parallel
 
 
 class TestMSARowAttentionWithPairBias(unittest.TestCase):

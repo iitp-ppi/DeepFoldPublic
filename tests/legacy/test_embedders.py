@@ -5,7 +5,7 @@ import torch
 from deepfold.model.alphafold.nn.embedders import ParallelInputEmbedder as InputEmbedder
 from deepfold.model.alphafold.nn.embedders import ParallelRecyclingEmbedder as RecyclingEmbedder
 from deepfold.model.alphafold.nn.embedders import TemplateAngleEmbedder, TemplatePairEmbedder
-from tests.init import init_parallel
+from .init import init_parallel
 
 
 class TestInputEmbedder(unittest.TestCase):
