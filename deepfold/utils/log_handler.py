@@ -1,0 +1,21 @@
+# Copyright 2024 DeepFold Team
+
+
+import sys
+from logging import LogRecord, StreamHandler
+
+BLACKLISTED_MODULES = ["torch.distributed"]
+
+
+class CustomHandler(StreamHandler):
+    """Custom handler to filter out logging and dupt to stdout."""
+
+    def __init__(self):
+        super().__init__(stream=sys.stdout)
+
+    def filter(self, record: LogRecord) -> bool:
+        for blacklisted_module in BLACKLISTED_MODULES:
+            if record.name.startswith(blacklisted_module):
+                return False
+
+        return True
