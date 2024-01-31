@@ -39,12 +39,13 @@ def _gather(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
     dim = dim + ndim if dim < 0 else dim
     if dim < 0 or dim >= ndim:
         raise ValueError(f"Dim {dim} is out of bound")
-    rank = get_model_parallel_rank()
 
     tensor_list = [torch.empty_like(tensor) for _ in range(world_size)]
-    tensor_list[rank] = input
-    torch.distributed.all_gather(tensor_list, tensor, group=get_model_parallel_group())
 
+    # All-gather
+    torch.distributed.all_gather(tensor_list, tensor.contiguous(), group=get_model_parallel_group())
+
+    # Concatenate
     output = torch.cat(tensor_list, dim=dim).contiguous()
 
     return output
@@ -130,7 +131,7 @@ class _ScatterToModelParallelRegion(torch.autograd.Function):
 
     def backward(ctx, grad_output):
         dim = ctx._dim
-        return _gather(grad_output, dim=dim)
+        return _gather(grad_output, dim=dim), None
 
 
 class _GatherFromModelParallelRegion(torch.autograd.Function):
@@ -144,7 +145,7 @@ class _GatherFromModelParallelRegion(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         dim = ctx._dim
-        return _split(grad_output, dim=dim)
+        return _split(grad_output, dim=dim), None
 
 
 class _TransposeToModelParallelRegion(torch.autograd.Function):
@@ -163,7 +164,7 @@ class _TransposeToModelParallelRegion(torch.autograd.Function):
     @staticmethod
     def backward(ctx: Any, grad_output):
         dim0, dim1 = ctx._dim0, ctx._dim1
-        return _all_to_all(grad_output, dim0, dim1)
+        return _all_to_all(grad_output, dim0, dim1), None, None
 
 
 #
