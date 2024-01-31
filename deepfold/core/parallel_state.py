@@ -4,7 +4,7 @@
 """Model and data parallel groups."""
 
 
-from typing import List
+from typing import List, Optional
 
 import torch
 import torch.distributed
@@ -50,7 +50,10 @@ def get_nccl_options(pg_name, nccl_comm_cfgs):
         return None
 
 
-def initialize_model_parallel(model_parallel_size: int = 1) -> None:
+def initialize_model_parallel(
+    model_parallel_size: int = 1,
+    rank: Optional[int] = None,
+) -> None:
     """
     Initialize model-data parallel groups.
 
@@ -66,11 +69,9 @@ def initialize_model_parallel(model_parallel_size: int = 1) -> None:
     if world_size % model_parallel_size != 0:
         raise RuntimeError(f"World size ({world_size}) is not divisible by model parallel size ({model_parallel_size})")
 
-    data_parallel_size: int = world_size // model_parallel_size
-
-    num_model_parallel_groups: int = world_size // data_parallel_size
-
-    rank = torch.distributed.get_rank()
+    # data_parallel_size: int = world_size // model_parallel_size
+    num_model_parallel_groups: int = world_size // model_parallel_size
+    rank = rank if rank is not None else torch.distributed.get_rank()
 
     # Build the model-parallel groups
     global _MODEL_PARALLEL_GROUP
@@ -88,7 +89,7 @@ def initialize_model_parallel(model_parallel_size: int = 1) -> None:
     global _DATA_PARALLEL_GLOBAL_RANKS
     assert _DATA_PARALLEL_GROUP is None, "Data parallel group is already initialized"
     for i in range(model_parallel_size):
-        ranks = range(i, world_size, num_model_parallel_groups)
+        ranks = range(i, world_size, model_parallel_size)
         group = torch.distributed.new_group(ranks)
         if rank in ranks:
             _DATA_PARALLEL_GROUP = group
