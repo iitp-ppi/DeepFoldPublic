@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 import torch
 import torch.distributed as dist
@@ -10,24 +11,20 @@ logger = logging.getLogger(__name__)
 
 
 class Distributed:
-    world_size: int = torch.cuda.device_count()
-    rank: int = int(os.environ["LOCAL_RANK"])
-
     @staticmethod
-    def initialize_distributed():
+    def initialize_distributed(world_size: int, rank: int, ngpus: int):
         if not dist.is_initialized():
-            logger.debug(
-                f"Initializing torch.distributed with rank: {Distributed.rank}, world_size: {Distributed.world_size}"
-            )
-            torch.cuda.set_device(Distributed.rank % torch.cuda.device_count())
+            logger.debug(f"Initializing torch.distributed with rank: {rank}, world_size: {world_size}")
+            torch.cuda.set_device(rank % ngpus)
             init_method = "tcp://"
             master_ip = os.getenv("MASTER_ADDR", "localhost")
             master_port = os.getenv("MASTER_PORT", "6000")
             init_method += f"{master_ip}:{master_port}"
+
             dist.init_process_group(
                 backend="nccl",
-                world_size=Distributed.world_size,
-                rank=Distributed.rank,
+                world_size=world_size,
+                rank=rank,
                 init_method=init_method,
             )
 
@@ -37,7 +34,7 @@ class Distributed:
         dist.barrier()
 
     @staticmethod
-    def initialize_distributed(model_parallel_size: int = 1):
+    def initialize_model_parallel(model_parallel_size: int, rank: int, ngpus: int):
         ps.destroy_model_parallel()
-        Distributed.initialize_distributed()
-        ps.initialize_model_parallel(model_parallel_size)
+        Distributed.initialize_distributed(model_parallel_size, rank, ngpus)
+        ps.initialize_model_parallel(model_parallel_size, rank)
