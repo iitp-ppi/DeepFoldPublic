@@ -81,13 +81,12 @@ def _all_to_all(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
     if world_size == 1:
         return tensor
 
-    send_buffer = tensor.contiguous()
-    recv_buffer = torch.empty_like(send_buffer)
+    recv_buffer = torch.empty_like(tensor)
 
-    intput_tensors = send_buffer.chunk(world_size, dim=dim1)
-    output_tensors = recv_buffer.chunk(world_size, dim=dim1)
+    input_tensors = [x.contiguous() for x in tensor.chunk(world_size, dim=dim1)]
+    output_tensors = [x.contiguous() for x in recv_buffer.chunk(world_size, dim=dim1)]
 
-    torch.distributed.all_to_all(output_tensors, intput_tensors, group=get_model_parallel_group())
+    torch.distributed.all_to_all(output_tensors, input_tensors, group=get_model_parallel_group())
 
     return torch.cat(output_tensors, dim=dim0)
 
@@ -148,7 +147,7 @@ class _GatherFromModelParallelRegion(torch.autograd.Function):
         return _split(grad_output, dim=dim), None
 
 
-class _TransposeToModelParallelRegion(torch.autograd.Function):
+class _TransposeOnModelParallelRegion(torch.autograd.Function):
     """
     Transpose the input with the given dimensions.
 
@@ -164,7 +163,7 @@ class _TransposeToModelParallelRegion(torch.autograd.Function):
     @staticmethod
     def backward(ctx: Any, grad_output):
         dim0, dim1 = ctx._dim0, ctx._dim1
-        return _all_to_all(grad_output, dim0, dim1), None, None
+        return _all_to_all(grad_output, dim1, dim0), None, None
 
 
 #
@@ -188,5 +187,5 @@ def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int = -1) -> to
     return _GatherFromModelParallelRegion.apply(tensor, dim)
 
 
-def transpose_to_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
-    return _TransposeToModelParallelRegion(tensor, dim0, dim1)
+def transpose_on_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
+    return _TransposeOnModelParallelRegion.apply(tensor, dim0, dim1)
