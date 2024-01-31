@@ -14,7 +14,7 @@ dependencies:
   - biopython==1.81
   - hydra-core
   - omegaconf==2.3.0
-  - pytorch=2.1.2
+  - pytorch=2.2.0
   - pytorch-cuda==12.1
   - torchaudio
   - torchvision
