@@ -47,7 +47,7 @@ def main():
         logger.info(f"Run alignment with '{args.fasta_path}'")
     else:
         logger.info(f"Use precomputed alignments in '{args.use_precomputed_alignments}'")
-    logger.info(f"Output results are saved to '{args.output_dir}")
+    logger.info(f"Output results are saved to '{args.output_dir}'")
 
     omp_num_threads = os.environ.get("OMP_NUM_THREADS", None)
     num_cpus = int(omp_num_threads) if omp_num_threads is not None else None
