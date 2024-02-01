@@ -3,7 +3,7 @@
 
 from torch.distributed import barrier, is_initialized, is_nccl_available
 
-from deepfold.distributed.legacy.comm import broadcast, col_to_row, gather, identity, reduce, row_to_col, scatter
+from deepfold.distributed.legacy.comm import broadcast, col_to_row, copy, gather, reduce, row_to_col, scatter
 from deepfold.distributed.legacy.core import (
     DATA_PARALLEL_GROUP,
     TENSOR_MODEL_PARALLEL_GROUP,
@@ -25,7 +25,7 @@ __all__ = [
     "broadcast",
     "col_to_row",
     "gather",
-    "identity",
+    "copy",
     "reduce",
     "row_to_col",
     "scatter",
