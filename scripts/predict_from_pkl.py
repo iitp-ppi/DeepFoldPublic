@@ -99,6 +99,7 @@ def predict_structure(
     output_dir_base: Path,
     params_dir: Path,
     world_size: int,
+    deterministic: bool,
     name: Optional[str] = None,
     random_seed: int = 0,
 ) -> Dict[str, np.ndarray]:
@@ -124,7 +125,6 @@ def predict_structure(
     np.random.seed(random_seed)
     torch.manual_seed(random_seed)
 
-    deterministic = True
     if deterministic:
         logger.info("Deterministic mode enabled")
         torch.use_deterministic_algorithms(True)
@@ -247,7 +247,7 @@ def main():
     )
     parser.add_argument(
         "--deterministic",
-        action="store_false",
+        action="store_true",
         help="Turn on deterministic mode",
     )
     parser.add_argument(
@@ -307,6 +307,7 @@ def main():
         params_dir=jax_params_dir,
         random_seed=random_seed,
         world_size=args.nprocs,
+        deterministic=args.deterministic,
     )
 
 
