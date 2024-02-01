@@ -34,7 +34,6 @@ def make_template_features(
     else:
         templates_result = template_featurizer.get_templates(
             query_sequence=input_sequence,
-            query_release_date=query_release_date,
             hits=hits_cat,
         )
         template_features = templates_result.features
