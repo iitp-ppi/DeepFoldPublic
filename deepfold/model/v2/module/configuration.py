@@ -25,6 +25,7 @@ class DeepFoldConfig(ConfigBase):
     This is the configuration class to store the configuration of a DeepFold model. It is used to instantiate a
     DeepFold model according to the specified arguments, defining model architecture.
     """
+
     fp16: bool = False
     bf16: bool = False
 

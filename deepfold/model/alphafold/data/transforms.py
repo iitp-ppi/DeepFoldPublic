@@ -19,8 +19,7 @@ from deepfold.utils.tensor_utils import batched_gather
 
 
 class TransformFn(Protocol):
-    def __call__(self, p: TensorDict, **kwargs: Any) -> TensorDict:
-        ...
+    def __call__(self, p: TensorDict, **kwargs: Any) -> TensorDict: ...
 
 
 MSA_FEATURE_NAMES = [
