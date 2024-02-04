@@ -1,13 +1,13 @@
 # Coypright 2023 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 
-import math
+
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from deepfold.utils.tensor_utils import tensor_tree_map, tree_map
+from deepfold.utils.tensor_utils import tensor_tree_map
 
 
 def _fetch_dims(tree: Any) -> List[int]:
