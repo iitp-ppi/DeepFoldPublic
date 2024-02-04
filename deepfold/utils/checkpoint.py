@@ -1,4 +1,3 @@
-import torch
 from torch.utils.checkpoint import checkpoint as torch_checkpoint
 
 from deepfold.core import parallel_state as ps
