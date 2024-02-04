@@ -91,6 +91,20 @@ def _all_to_all(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
     return torch.cat(output_tensors, dim=dim0)
 
 
+def _broadcast(tensor: torch.Tensor, src_rank: int) -> torch.Tensor:
+    """
+    Broadcast a tensor to whole group ranks.
+    """
+
+    world_size = get_model_parallel_world_size()
+    if world_size == 1:
+        return tensor
+
+    torch.distributed.broadcast(tensor, src_rank, group=get_model_parallel_group())
+
+    return tensor
+
+
 #
 # Functions
 #
@@ -166,6 +180,19 @@ class _TransposeOnModelParallelRegion(torch.autograd.Function):
         return _all_to_all(grad_output, dim1, dim0), None, None
 
 
+class _BroadcastOnModelParallelRegion(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, tensor: torch.Tensor, src_rank: int):
+        ctx._src_rank = src_rank
+        return _broadcast(tensor, src_rank)
+
+    def backward(ctx, grad_output):
+        grad_reduced = _reduce(grad_output)  # TODO: Isn't it 'mean'?
+        if get_model_parallel_rank() != ctx._src_rank:
+            grad_reduced *= 0.0
+        return grad_reduced, None
+
+
 #
 # Helpers
 #
@@ -189,3 +216,7 @@ def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int = -1) -> to
 
 def transpose_on_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
     return _TransposeOnModelParallelRegion.apply(tensor, dim0, dim1)
+
+
+def broadcast_on_model_parallel_region(tensor: torch.Tensor, src_rank: int) -> torch.Tensor:
+    return _BroadcastOnModelParallelRegion.apply(tensor, src_rank)
