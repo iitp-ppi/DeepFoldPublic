@@ -1,10 +1,15 @@
+# [build-system]
+# requires = ["setuptools", "wheel"]
+# build-backend = "setuptools.build_meta"
+
 [tool.black]
 line-length = 120
 target-version = ['py310']
 include = '\.pyi?$'
+exclude = "csrc/*"
 
 [tool.isort]
 profile = "black"
 line_length = 120
 py_version = 39
-skip_glob = ["_runs/*"]
+skip_glob = ["_runs/*", "csrc/*"]
