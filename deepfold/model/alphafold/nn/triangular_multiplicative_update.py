@@ -142,7 +142,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
                 x = chunk_layer(
                     partial(self._chunk_outgoing, chunk_size=chunk_size),
                     {"z": z, "mask": mask},
-                    chunk_size=1,
+                    chunk_size=chunk_size,
                     num_batch_dims=len(z.shape[:-3]),
                 )
             else:
@@ -150,7 +150,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
                 x = chunk_layer(
                     partial(self._chunk_incoming, chunk_size=chunk_size),
                     {"z": z, "mask": mask},
-                    chunk_size=1,
+                    chunk_size=chunk_size,
                     num_batch_dims=len(z.shape[:-3]),
                 )
 
