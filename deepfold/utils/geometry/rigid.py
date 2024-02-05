@@ -148,9 +148,7 @@ def quat_to_rot(quat: torch.Tensor) -> torch.Tensor:
     return torch.sum(quat, dim=(-3, -4))
 
 
-def rot_to_quat(
-    rot: torch.Tensor,
-):
+def rot_to_quat(rot: torch.Tensor):
     if rot.shape[-2:] != (3, 3):
         raise ValueError("Input rotation is incorrectly shaped")
 
@@ -158,30 +156,10 @@ def rot_to_quat(
     [[xx, xy, xz], [yx, yy, yz], [zx, zy, zz]] = rot
 
     k = [
-        [
-            xx + yy + zz,
-            zy - yz,
-            xz - zx,
-            yx - xy,
-        ],
-        [
-            zy - yz,
-            xx - yy - zz,
-            xy + yx,
-            xz + zx,
-        ],
-        [
-            xz - zx,
-            xy + yx,
-            yy - xx - zz,
-            yz + zy,
-        ],
-        [
-            yx - xy,
-            xz + zx,
-            yz + zy,
-            zz - xx - yy,
-        ],
+        [xx + yy + zz, zy - yz, xz - zx, yx - xy],
+        [zy - yz, xx - yy - zz, xy + yx, xz + zx],
+        [xz - zx, xy + yx, yy - xx - zz, yz + zy],
+        [yx - xy, xz + zx, yz + zy, zz - xx - yy],
     ]
 
     k = (1.0 / 3.0) * torch.stack([torch.stack(t, dim=-1) for t in k], dim=-2)
@@ -191,13 +169,33 @@ def rot_to_quat(
 
 
 _QUAT_MULTIPLY = np.zeros((4, 4, 4))
-_QUAT_MULTIPLY[:, :, 0] = [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]]
+_QUAT_MULTIPLY[:, :, 0] = [
+    [1, 0, 0, 0],
+    [0, -1, 0, 0],
+    [0, 0, -1, 0],
+    [0, 0, 0, -1],
+]
 
-_QUAT_MULTIPLY[:, :, 1] = [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]]
+_QUAT_MULTIPLY[:, :, 1] = [
+    [0, 1, 0, 0],
+    [1, 0, 0, 0],
+    [0, 0, 0, 1],
+    [0, 0, -1, 0],
+]
 
-_QUAT_MULTIPLY[:, :, 2] = [[0, 0, 1, 0], [0, 0, 0, -1], [1, 0, 0, 0], [0, 1, 0, 0]]
+_QUAT_MULTIPLY[:, :, 2] = [
+    [0, 0, 1, 0],
+    [0, 0, 0, -1],
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+]
 
-_QUAT_MULTIPLY[:, :, 3] = [[0, 0, 0, 1], [0, 0, 1, 0], [0, -1, 0, 0], [1, 0, 0, 0]]
+_QUAT_MULTIPLY[:, :, 3] = [
+    [0, 0, 0, 1],
+    [0, 0, 1, 0],
+    [0, -1, 0, 0],
+    [1, 0, 0, 0],
+]
 
 _QUAT_MULTIPLY_BY_VEC = _QUAT_MULTIPLY[:, 1:, :]
 
