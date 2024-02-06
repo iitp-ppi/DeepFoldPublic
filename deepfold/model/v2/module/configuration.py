@@ -101,7 +101,7 @@ class RecyclingEmbedderConfig(_ConfigBase):
 
 @dataclass(kw_only=True)
 class TemplateAngleEmbedderConfig(_ConfigBase):
-    template_angle_feature_dim: int = 57
+    template_angle_feature_dim: int = 57  # 34
     msa_representation_dim: int = MSA_REPRESENTATION_DIM
 
 
