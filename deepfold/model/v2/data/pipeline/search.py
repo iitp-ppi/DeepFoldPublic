@@ -8,7 +8,6 @@ import numpy as np
 from deepfold.search import parsers
 from deepfold.search.tools import hhblits, hhsearch, hmmsearch, jackhmmer
 
-FeatureDict = Dict[str, np.ndarray]
 TemplateSearcher = Union[hhsearch.HHSearch, hmmsearch.Hmmsearch]
 
 
@@ -118,7 +117,7 @@ class AlignmentRunner:
         self,
         fasta_path: str,
         output_dir: str,
-    ) -> Dict[str, FeatureDict]:
+    ):
         """Runs alignment tools on a sequence"""
 
         if self.jackhmmer_uniref90_runner is not None:
