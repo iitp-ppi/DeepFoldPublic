@@ -1,6 +1,9 @@
 # Copyright 2024 DeepFold Team
 
 
+"""Embed input features."""
+
+
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
@@ -92,7 +95,20 @@ def atom14_to_atom37(atom14: torch.Tensor, batch: Dict[str, Any]) -> torch.Tenso
     return atom37_data
 
 
-def build_template_angle_feat(template_feats: TensorDict) -> TensorDict:
+def build_template_angle_feat(template_feats: TensorDict) -> Union[torch.Tensor, torch.Tensor]:
+    r"""
+    Build template angle features for AlphaFold2.
+
+    Requires:
+        - template_aatype [N_templ, N_res, 22]
+        - template_torsion_angles_sin_cos [N_templ, N_res, 7, 2]
+        - template_alt_torsion_angles_sin_cos [N_templ, N_res, 7, 2]
+        - template_torsion_angles_mask [N_templ, N_res, 7]
+
+    Returns:
+        - template_angle_feat [N_templ, N_res, 57]
+        - template_angle_mask [N_templ, N_res, 7]
+    """
 
     template_aatype = template_feats["template_aatype"]
     torsion_angles_sin_cos = template_feats["template_torsion_angles_sin_cos"]
@@ -113,7 +129,19 @@ def build_template_angle_feat(template_feats: TensorDict) -> TensorDict:
     return template_angle_feat, template_angle_mask
 
 
-def build_template_angle_feat_v2(template_feats: TensorDict) -> TensorDict:
+def build_template_angle_feat_v2(template_feats: TensorDict) -> Union[torch.Tensor, torch.Tensor]:
+    r"""
+    Build template angle features for AlphaFold-Multimer.
+
+    Requires
+        - template_aatype [N_templ, N_res, 22]
+        - template_torsion_angles_sin_cos [N_templ, N_res, 7, 2]
+        - template_torsion_angles_mask [N_templ, N_res, 7]
+
+    Returns:
+        - template_angle_feat [N_templ, N_res, 34]
+        - template_angle_mask [N_templ, N_res, 7]
+    """
 
     template_aatype = template_feats["template_aatype"]
     torsion_angles_sin_cos = template_feats["template_torsion_angles_sin_cos"]
@@ -143,6 +171,17 @@ def build_template_pair_feat(
     num_bins: int,
     inf: float = 1e8,
 ) -> torch.Tensor:
+    r"""
+    Build template pair features for AlphaFold2.
+
+    Requires:
+        - template_aatype
+        - template_pseudo_beta
+        - template_pseudo_beta_mask
+
+    Returns:
+        - template_pair_feat [N_templ, N_res, N_res, 88]s
+    """
 
     template_mask = batch["template_pseudo_beta_mask"]
     template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
@@ -182,6 +221,19 @@ def build_template_pair_feat_v2(
     eps: float = 1e-20,
     inf: float = 1e8,
 ) -> torch.Tensor:
+    r"""
+    Build template pair features for AlphaFold-Multimer.
+
+    Requires:
+        - template_aatype
+        - template_pseudo_beta
+        - template_pseudo_beta_mask
+        - template_all_atom_positions
+        - template_all_atom_mask
+
+    Returns:
+        - template_pair_feat [N_templ, N_res, N_res, 88]
+    """
 
     template_mask = batch["template_pseudo_beta_mask"]
     template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
@@ -232,6 +284,17 @@ def build_template_pair_feat_v2(
 
 
 def build_extra_msa_feat(batch: TensorDict) -> torch.Tensor:
+    r"""
+    Build extra MSA features.
+
+    Requires:
+        - extra_msa [N_extra, N_res, 23]
+        - extra_msa_has_deletion [N_extra, N_res]
+        - extra_msa_deletion_value [N_extra, N_res]
+
+    Returns:
+        - extra_msa_feat [N_extra, N_res, 25]
+    """
 
     msa_1hot = one_hot(batch["extra_msa"], 23)
     msa_feat = [
