@@ -180,7 +180,17 @@ def build_template_pair_feat(
         - template_pseudo_beta_mask
 
     Returns:
-        - template_pair_feat [N_templ, N_res, N_res, 88]s
+        template_pair_feat [N_templ, N_res, N_res, 88]
+        - distogram [N_templ, N_res, N_res, 39]
+        - template_pseudo_beta_mask [N_templ, N_res, N_res, 1]
+        - aatype_one_hot_row [N_templ, N_res, N_res, 22]
+        - aatype_one_hot_col [N_templ, N_res, N_res, 22]
+        - unit_vector [N_templ, N_res, N_res, 3]
+        - backbone_frame_mask [N_templ, N_res, N_res, 1]
+
+    Notes:
+        - unit_vector is zero tensor.
+        - backbone_frame_mask equals to template_pseudo_beta_mask
     """
 
     template_mask = batch["template_pseudo_beta_mask"]
@@ -220,7 +230,7 @@ def build_template_pair_feat_v2(
     multichain_mask_2d: Optional[torch.Tensor] = None,
     eps: float = 1e-20,
     inf: float = 1e8,
-) -> torch.Tensor:
+) -> List[torch.Tensor]:
     r"""
     Build template pair features for AlphaFold-Multimer.
 
@@ -232,16 +242,22 @@ def build_template_pair_feat_v2(
         - template_all_atom_mask
 
     Returns:
-        - template_pair_feat [N_templ, N_res, N_res, 88]
+        template_pair_feat: List[torch.Tensor]
+        - distogram [N_templ, N_res, N_res, 39]
+        - template_pseudo_beta_mask [N_templ, N_res, N_res, 1]
+        - aatype_one_hot_row [N_templ, N_res, N_res, 22]
+        - aatype_one_hot_col [N_templ, N_res, N_res, 22]
+        - unit_vector [N_templ, N_res, N_res, 3]
+        - backbone_frame_mask [N_templ, N_res, N_res, 1]
     """
 
     template_mask = batch["template_pseudo_beta_mask"]
-    template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
+    template_mask_2d = template_mask[..., :, None] * template_mask[..., None, :]
     if multichain_mask_2d is not None:
         template_mask_2d *= multichain_mask_2d
 
     tpb = batch["template_pseudo_beta"]
-    dgram = torch.sum((tpb[..., None, :] - tpb[..., None, :, :]) ** 2, dim=-1, keepdim=True)
+    dgram = torch.sum((tpb[..., :, None, :] - tpb[..., None, :, :]) ** 2, dim=-1, keepdim=True)
     lower = torch.linspace(min_bin, max_bin, num_bins, device=tpb.device) ** 2
     upper = torch.cat([lower[1:], lower.new_tensor([inf])], dim=-1)
     dgram = ((dgram > lower) * (dgram < upper)).type(dgram.dtype)
@@ -255,7 +271,7 @@ def build_template_pair_feat_v2(
 
     n_res = batch["template_aatype"].shape[-1]
     to_concat.append(aatype_one_hot[..., None, :, :].expand(*aatype_one_hot.shape[:-2], n_res, -1, -1))
-    to_concat.append(aatype_one_hot[..., None, :].expand(*aatype_one_hot.shape[:-2], -1, n_res, -1))
+    to_concat.append(aatype_one_hot[..., :, None, :].expand(*aatype_one_hot.shape[:-2], -1, n_res, -1))
 
     n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
     rigids = Rigid.make_transform_from_reference(
