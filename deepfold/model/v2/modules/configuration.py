@@ -107,8 +107,10 @@ class TemplateAngleEmbedderConfig(_ConfigBase):
 
 @dataclass(kw_only=True)
 class TemplatePairEmbedderConfig(_ConfigBase):
-    template_pair_feature_dim: int = 88
+    template_pair_feature_dim: int = PAIR_REPRESENTATION_DIM
+    template_feature_dims: list[int] = [88]  # [39, 1, 22, 22, 1, 1, 1, 1]
     template_representation_dim: int = TEMPLATE_REPRESENTATION_DIM
+    v2_feature: bool = False
 
 
 @dataclass(kw_only=True)
@@ -124,10 +126,13 @@ class TemplatePairStackConfig(_ConfigBase):
 
 
 @dataclass(kw_only=True)
-class TemplatePointwiseAttentionConfig(_ConfigBase):
+class TemplateProjectorConfig(_ConfigBase):
+    """Configuration for template projectors."""
+
     average_template: bool = False
     template_representation_dim: int = TEMPLATE_REPRESENTATION_DIM
     pair_representation_dim: int = PAIR_REPRESENTATION_DIM
+
     hidden_dim: int = 16
     num_heads: int = 4
     inf: float = 1e5
