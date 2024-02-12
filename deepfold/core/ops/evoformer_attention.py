@@ -2,6 +2,7 @@ from math import prod
 from typing import List, Optional, Tuple
 
 import torch
+
 from deepfold_kernel import evoformer_attention_bwd, evoformer_attention_fwd
 
 
