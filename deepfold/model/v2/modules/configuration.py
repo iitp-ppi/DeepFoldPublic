@@ -53,7 +53,7 @@ class DeepFoldConfig(_ConfigBase):
 
     embedder: "EmbedderConfig" = None
     encoder: "EvoformerStackConfig" = None
-    decoder: "DecoderConfig" = None
+    decoder: "HeadsConfig" = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -71,7 +71,7 @@ class EmbedderConfig(_ConfigBase):
     template_angle_embedder: "TemplateAngleEmbedderConfig" = None
     template_pair_embedder: "TemplatePairEmbedderConfig" = None
     template_pair_stack: "TemplatePairStackConfig" = None
-    template_pointwise_attention: "TemplatePointwiseAttentionConfig" = None
+    template_pointwise_attention: "TemplateProjectorConfig" = None
     # Extra MSA embedders
     extra_msa_embedder: "ExtraMsaEmbedderConfig" = None
     extra_msa_stack: "ExtraMsaStackConfig" = None
@@ -107,7 +107,7 @@ class TemplateAngleEmbedderConfig(_ConfigBase):
 
 @dataclass(kw_only=True)
 class TemplatePairEmbedderConfig(_ConfigBase):
-    template_pair_feature_dim: int = PAIR_REPRESENTATION_DIM
+    pair_representation_dim: int = PAIR_REPRESENTATION_DIM
     template_feature_dims: list[int] = [88]  # [39, 1, 22, 22, 1, 1, 1, 1]
     template_representation_dim: int = TEMPLATE_REPRESENTATION_DIM
     v2_feature: bool = False
@@ -127,12 +127,10 @@ class TemplatePairStackConfig(_ConfigBase):
 
 @dataclass(kw_only=True)
 class TemplateProjectorConfig(_ConfigBase):
-    """Configuration for template projectors."""
-
-    average_template: bool = False
     template_representation_dim: int = TEMPLATE_REPRESENTATION_DIM
     pair_representation_dim: int = PAIR_REPRESENTATION_DIM
 
+    enable_template_pointwise_attention: bool = True
     hidden_dim: int = 16
     num_heads: int = 4
     inf: float = 1e5

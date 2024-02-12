@@ -78,7 +78,6 @@ class InputEmbedder(nn.Module):
         asym_id: Optional[torch.Tensor] = None,
         entity_id: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-
         dtype = self.linear_relpos.weight.dtype
         if not self.use_chain_relative:
             rp = self._relpos_indices(res_id=res_id)
@@ -97,7 +96,6 @@ class InputEmbedder(nn.Module):
         tf: torch.Tensor,
         msa: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-
         # [*, N_res, d_pair]
         if self.tf_dim == 21:
             # multimer use 21 target dim
@@ -200,10 +198,38 @@ class TemplateAngleEmbedder(nn.Module):
 
 class TemplatePairEmbedder(nn.Module):
     def __init__(self, config: TemplatePairEmbedderConfig) -> None:
-        self.d_out = config.template_pair_feature_dim
-        self.d_in = config.template_representation_dim
+        self.d_out = config.template_representation_dim
+        self.d_in = config.template_feature_dims
         self.v2_feature = config.v2_feature
+        self.d_pair = config.pair_representation_dim
 
         if self.v2_feature:
             self.z_layer_norm = LayerNorm(self.d_out)
-            self.z_linear = Linear(d_pair, self.d_out, init="relu")
+            self.z_linear = Linear(self.d_pair, self.d_out, init="relu")
+        self.linear = nn.ModuleList()
+        for d_in in self.d_in:
+            self.linear.append(Linear(d_in, self.d_out, init="relu"))
+
+    def forward(self, x: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+        if not self.v2_feature:  # AF2
+            t = self.linear(x.type(self.linear[0].weight.dtype))
+        else:  # AFM
+            dtype = self.z_linear.weight.dtype
+            t = self.linear[0](x[0].type(dtype))
+            for i, s in enumerate(x[1:], start=1):
+                t = residual(t, self.linear[i](s.type(dtype)), self.training)
+            t = residual(t, self.z_linear(self.z_layer_norm(z)), self.training)
+
+        return t
+
+
+class ExtraMsaEmbedder(nn.Module):
+    def __init__(self, config: ExtraMsaEmbedderConfig) -> None:
+        super().__init__()
+
+        self.d_in = config.extra_msa_feature_dim
+        self.d_out = config.extra_msa_representation_dim
+        self.linear = Linear(self.d_in, self.d_out)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear(x.type(self.linear.weight.dtype))
