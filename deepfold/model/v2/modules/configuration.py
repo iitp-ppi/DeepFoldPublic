@@ -185,7 +185,7 @@ class EvoformerStackConfig(_ConfigBase):
 
 
 @dataclass(kw_only=True)
-class DecoderConfig(_ConfigBase):
+class HeadsConfig(_ConfigBase):
     distogram: "DistogramHeadConfig" = None
     experimentally_resolved: "ExperimentallyResolvedHeadConfig" = None
     masked_msa: "MaskedMsaHeadConfig" = None
