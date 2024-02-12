@@ -17,7 +17,14 @@ __all__ = [
 
 
 class Linear(nn.Linear):
-    def __init__(self, d_in: int, d_out: int, bias: bool = True, init: str = "default") -> None:
+    def __init__(
+        self,
+        d_in: int,
+        d_out: int,
+        bias: bool = True,
+        init: str = "default",
+        prec: Optional[torch.dtype] = None,
+    ) -> None:
         super().__init__(d_in, d_out, bias=bias)
 
         self.use_bias = bias
@@ -39,7 +46,23 @@ class Linear(nn.Linear):
         elif init == "final":
             self._zero_init(False)
         else:
-            raise ValueError("Invalid init method.")
+            raise ValueError(f"Invalid init method: '{init}'")
+
+        self.prec = prec
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        in_dtype = input.dtype
+
+        if self.prec is not None:
+            with torch.cuda.amp.autocast(enabled=False):
+                bias = self.bias.to(dtype=self.prec) if self.bias is not None else None
+                return nn.functional.linear(
+                    input.to(dtype=self.prec),
+                    self.weight.to(dtype=self.prec),
+                    bias,
+                ).to(dtype=in_dtype)
+
+        return nn.functional.linear(input, self.weight, self.bias)
 
     def _trunc_normal_init(self, scale=1.0):
         # Constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0.0, scale=1.0)
