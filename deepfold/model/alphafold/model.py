@@ -98,9 +98,6 @@ class AlphaFold(nn.Module):
         pair_mask: torch.Tensor,
         templ_dim: int,
     ) -> TensorDict:
-        if self.template_cfg.average_templates:
-            raise NotImplementedError("Average templates are not implemented yet")
-
         pair_embeds = []
         n_templ = batch["template_aatype"].shape[templ_dim]
 
