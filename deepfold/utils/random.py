@@ -2,7 +2,7 @@
 
 
 import contextlib
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -25,6 +25,7 @@ def numpy_seed(seed: Optional[int] = None, *additional_seeds, key: str = ""):
         return
 
     if len(additional_seeds) > 0:
+        additional_seeds = [int(i) for i in additional_seeds]
         seed = hash((seed, *additional_seeds)) % 1e8
 
     if key is not None:
