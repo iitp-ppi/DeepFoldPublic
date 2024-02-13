@@ -9,6 +9,7 @@ import pickle
 
 from deepfold.model.v2.data.pipeline import DataPipeline
 from deepfold.model.v2.data.search import AlignmentRunner
+from deepfold.model.v2.search.utils import SchemeRegularizer
 from deepfold.search.templates import HhsearchHitFeaturizer
 from deepfold.search.tools import hhsearch
 
@@ -87,8 +88,19 @@ def main():
         )
 
     data_processor = DataPipeline(template_featurizer)
-
-    feature_dict = data_processor.process_fasta(args.fasta_path, args.output_dir)
+    alignment_scheme = {
+        "template": ["template_hits.hhr"],
+        "msa": ["*.sto", "*.a3m"],
+    }
+    alignment_scheme = SchemeRegularizer(
+        ["template", "msa"],
+        base_dir=args.output_dir,
+    ).process(alignment_scheme)
+    feature_dict = data_processor.process_fasta(
+        args.fasta_path,
+        args.output_dir,
+        alignment_scheme=alignment_scheme,
+    )
 
     output_path = os.path.join(args.output_dir, "features.pkl")
     if args.compress:

@@ -12,6 +12,26 @@ TemplateSearcher = Union[hhsearch.HHSearch, hmmsearch.Hmmsearch]
 logger = logging.getLogger(__name__)
 
 
+def run_msa_tool(
+    msa_runner,
+    fasta_path: str,
+    msa_out_path: str,
+    msa_format: str,
+    max_sto_sequences: Optional[int] = None,
+) -> Dict[str, parsers.MSA]:
+    """Runs an MSA tool, checking if output already exists first."""
+    if msa_format == "sto" and max_sto_sequences is not None:
+        result = msa_runner.query(fasta_path, max_sto_sequences)[0]
+    else:
+        result = msa_runner.query(fasta_path)[0]
+
+    assert msa_out_path.split(".")[-1] == msa_format
+    with open(msa_out_path, "w") as f:
+        f.write(result[msa_format])
+
+    return result
+
+
 class AlignmentRunner:
     """Runs alignment tools and saves the results"""
 
@@ -135,13 +155,15 @@ class AlignmentRunner:
 
             if self.template_searcher is not None:
                 if self.template_searcher.input_format == "sto":
-                    _ = self.template_searcher.query(template_msa, output_dir=output_dir)
+                    pdb_templates_result = self.template_searcher.query(template_msa)
                 elif self.template_searcher.input_format == "a3m":
                     uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(template_msa)
-                    _ = self.template_searcher.query(uniref90_msa_as_a3m, output_dir=output_dir)
+                    pdb_templates_result = self.template_searcher.query(uniref90_msa_as_a3m)
                 else:
                     fmt = self.template_searcher.input_format
                     raise ValueError(f"Unrecognized template input format: {fmt}")
+                with open(os.path.join(output_dir, f"template_hits.{self.template_searcher.output_format}"), "w") as fp:
+                    fp.write(pdb_templates_result)
 
         if self.jackhmmer_mgnify_runner is not None:
             mgnify_out_path = os.path.join(output_dir, "mgnify_hits.sto")
@@ -186,23 +208,3 @@ class AlignmentRunner:
                 msa_format="sto",
                 max_sto_sequences=self.uniprot_max_hits,
             )
-
-
-def run_msa_tool(
-    msa_runner,
-    fasta_path: str,
-    msa_out_path: str,
-    msa_format: str,
-    max_sto_sequences: Optional[int] = None,
-) -> Dict[str, parsers.MSA]:
-    """Runs an MSA tool, checking if output already exists first."""
-    if msa_format == "sto" and max_sto_sequences is not None:
-        result = msa_runner.query(fasta_path, max_sto_sequences)[0]
-    else:
-        result = msa_runner.query(fasta_path)[0]
-
-    assert msa_out_path.split(".")[-1] == msa_format
-    with open(msa_out_path, "w") as f:
-        f.write(result[msa_format])
-
-    return result
