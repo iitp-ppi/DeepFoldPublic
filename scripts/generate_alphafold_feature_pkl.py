@@ -39,7 +39,6 @@ def main():
     parser.add_argument("--kalign_binary_path", type=str, default="kalign")
     parser.add_argument("--max_template_date", type=str, default=date.today().strftime("%Y-%m-%d"))
     parser.add_argument("--obsolete_pdbs_path", type=str, default=None)
-    parser.add_argument("--release_dates_path", type=str, default=None)
 
     args = parser.parse_args()
 
