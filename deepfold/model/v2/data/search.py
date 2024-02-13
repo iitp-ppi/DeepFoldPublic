@@ -3,8 +3,6 @@ import os
 from multiprocessing import cpu_count
 from typing import Dict, Optional, Union
 
-import numpy as np
-
 from deepfold.search import parsers
 from deepfold.search.tools import hhblits, hhsearch, hmmsearch, jackhmmer
 
