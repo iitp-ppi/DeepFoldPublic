@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, Mapping, Sequence
+from typing import Dict, Iterable, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -80,6 +80,7 @@ def create_paired_features(chains: Iterable[FeatureDict]) -> List[FeatureDict]:
             new_chain[feature_name] = feats_padded[paired_rows[:, chain_num]]
         new_chain["num_alignments_all_seq"] = np.asarray(len(paired_rows[:, chain_num]))
         updated_chains.append(new_chain)
+
     return updated_chains
 
 
@@ -91,8 +92,10 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
     alignment - for the chain that doesn't have paired alignment.
 
     Args:
-      feature: The feature to be padded.
-      feature_name: The name of the feature to be padded.
+        feature:
+            The feature to be padded.
+        feature_name:
+            The name of the feature to be padded.
 
     Returns:
       The feature with an additional padding row.
@@ -107,10 +110,11 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
     else:
         return feature
     feats_padded = np.concatenate([feature, padding], axis=0)
+
     return feats_padded
 
 
-def _make_msa_df(chain_features: Mapping[str, np.ndarray]) -> pd.DataFrame:
+def make_msa_df(chain_features: FeatureDict) -> pd.DataFrame:
     """Makes dataframe with msa features needed for msa pairing."""
 
     chain_msa = chain_features["msa_all_seq"]
@@ -125,18 +129,21 @@ def _make_msa_df(chain_features: Mapping[str, np.ndarray]) -> pd.DataFrame:
             "gap": per_seq_gap,
         }
     )
+
     return msa_df
 
 
-def _create_species_dict(msa_df: pd.DataFrame) -> Dict[bytes, pd.DataFrame]:
+def create_species_dict(msa_df: pd.DataFrame) -> Dict[bytes, pd.DataFrame]:
     """Creates mapping from species to msa dataframe of that species."""
+
     species_lookup = {}
     for species, species_df in msa_df.groupby("msa_species_identifiers"):
         species_lookup[species] = species_df
+
     return species_lookup
 
 
-def _match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame]) -> List[List[int]]:
+def match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame]) -> List[List[int]]:
     """
     Finds MSA sequence pairings across chains based on sequence similarity.
 
@@ -145,12 +152,12 @@ def _match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame])
     from the sequences most similar to their target sequence.
 
     Args:
-      this_species_msa_dfs: a list of dataframes containing MSA features for
-        sequences for a specific species.
+        this_species_msa_dfs:
+            a list of dataframes containing MSA features for sequences for a specific species.
 
     Returns:
-     A list of lists, each containing M indices corresponding to paired MSA rows,
-     where M is the number of chains.
+        A list of lists, each containing M indices corresponding to paired MSA rows,
+        where M is the number of chains.
     """
 
     all_paired_msa_rows = []
@@ -165,14 +172,15 @@ def _match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame])
             species_df_sorted = sort_by_similarity(species_df)
             msa_rows = species_df_sorted.msa_row.iloc[:take_num_seqs].values
         else:
-            msa_rows = [-1] * take_num_seqs  # take the last 'padding' row
+            msa_rows = [-1] * take_num_seqs  # Take the last 'padding' row.
         all_paired_msa_rows.append(msa_rows)
     all_paired_msa_rows = list(np.array(all_paired_msa_rows).transpose())
+
     return all_paired_msa_rows
 
 
 def pair_sequences(
-    examples: List[Mapping[str, np.ndarray]],
+    examples: List[FeatureDict],
 ) -> Dict[int, np.ndarray]:
     """Returns indices for paired MSA sequences across chains."""
 
@@ -181,8 +189,8 @@ def pair_sequences(
     all_chain_species_dict = []
     common_species = set()
     for chain_features in examples:
-        msa_df = _make_msa_df(chain_features)
-        species_dict = _create_species_dict(msa_df)
+        msa_df = make_msa_df(chain_features)
+        species_dict = create_species_dict(msa_df)
         all_chain_species_dict.append(species_dict)
         common_species.update(set(species_dict))
 
@@ -215,12 +223,13 @@ def pair_sequences(
         ):
             continue
 
-        paired_msa_rows = _match_rows_by_sequence_similarity(this_species_msa_dfs)
+        paired_msa_rows = match_rows_by_sequence_similarity(this_species_msa_dfs)
         all_paired_msa_rows.extend(paired_msa_rows)
         all_paired_msa_rows_dict[species_dfs_present].extend(paired_msa_rows)
     all_paired_msa_rows_dict = {
         num_examples: np.array(paired_msa_rows) for num_examples, paired_msa_rows in all_paired_msa_rows_dict.items()
     }
+
     return all_paired_msa_rows_dict
 
 
@@ -229,16 +238,16 @@ def reorder_paired_rows(all_paired_msa_rows_dict: Dict[int, np.ndarray]) -> np.n
     Creates a list of indices of paired MSA rows across chains.
 
     Args:
-      all_paired_msa_rows_dict: a mapping from the number of paired chains to the
-        paired indices.
+        all_paired_msa_rows_dict:
+            a mapping from the number of paired chains to the paired indices.
 
     Returns:
-      a list of lists, each containing indices of paired MSA rows across chains.
-      The paired-index lists are ordered by:
-        1) the number of chains in the paired alignment, i.e, all-chain pairings
-           will come first.
-        2) e-values
+        a list of lists, each containing indices of paired MSA rows across chains.
+        The paired-index lists are ordered by:
+        1) the number of chains in the paired alignment, i.e, all-chain pairings will come first.
+        2) e-values (?)
     """
+
     all_paired_msa_rows = []
 
     for num_pairings in sorted(all_paired_msa_rows_dict, reverse=True):
@@ -252,26 +261,27 @@ def reorder_paired_rows(all_paired_msa_rows_dict: Dict[int, np.ndarray]) -> np.n
 
 def block_diag(*arrs: np.ndarray, pad_value: float = 0.0) -> np.ndarray:
     """Like scipy.linalg.block_diag but with an optional padding value."""
+
     ones_arrs = [np.ones_like(x) for x in arrs]
     off_diag_mask = 1.0 - linalg.block_diag(*ones_arrs)
     diag = linalg.block_diag(*arrs)
     diag += (off_diag_mask * pad_value).astype(diag.dtype)
+
     return diag
 
 
-def _correct_post_merged_feats(
-    np_example: Mapping[str, np.ndarray], np_chains_list: Sequence[Mapping[str, np.ndarray]], pair_msa_sequences: bool
-) -> Mapping[str, np.ndarray]:
+def correct_post_merged_feats(
+    np_example: FeatureDict, np_chains_list: Sequence[FeatureDict], pair_msa_sequences: bool
+) -> FeatureDict:
     """Adds features that need to be computed/recomputed post merging."""
 
     np_example["seq_length"] = np.asarray(np_example["aatype"].shape[0], dtype=np.int32)
     np_example["num_alignments"] = np.asarray(np_example["msa"].shape[0], dtype=np.int32)
 
     if not pair_msa_sequences:
-        # Generate a bias that is 1 for the first row of every block in the
-        # block diagonal MSA - i.e. make sure the cluster stack always includes
-        # the query sequences for each chain (since the first row is the query
-        # sequence).
+        # Generate a bias that is 1 for the first row of every block in the block diagonal MSA.
+        # I.e., make sure the cluster stack always includes the query sequences
+        # for each chain (since the first row is the query sequence).
         cluster_bias_masks = []
         for chain in np_chains_list:
             mask = np.zeros(chain["msa"].shape[0])
@@ -299,19 +309,16 @@ def _correct_post_merged_feats(
     return np_example
 
 
-def _pad_templates(
-    chains: Sequence[Mapping[str, np.ndarray]], max_templates: int
-) -> Sequence[Mapping[str, np.ndarray]]:
+def pad_templates(chains: Sequence[FeatureDict], max_templates: int) -> Sequence[FeatureDict]:
     """
     For each chain pad the number of templates to a fixed size.
 
     Args:
-      chains: A list of protein chains.
-      max_templates: Each chain will be padded to have this many templates.
+        chains: A list of protein chains.
+        max_templates: Each chain will be padded to have this many templates.
 
     Returns:
-      The list of chains, updated to have template features padded to
-      max_templates.
+        The list of chains, updated to have template features padded to max_templates.
     """
     for chain in chains:
         for k, v in chain.items():
@@ -320,22 +327,23 @@ def _pad_templates(
                 padding[0] = max_templates - v.shape[0]
                 padding = [(0, p) for p in padding]
                 chain[k] = np.pad(v, padding, mode="constant")
+
     return chains
 
 
-def _merge_features_from_multiple_chains(
-    chains: Sequence[Mapping[str, np.ndarray]], pair_msa_sequences: bool
-) -> Mapping[str, np.ndarray]:
+def merge_features_from_multiple_chains(chains: Sequence[FeatureDict], pair_msa_sequences: bool) -> FeatureDict:
     """
     Merge features from multiple chains.
 
     Args:
-      chains: A list of feature dictionaries that we want to merge.
-      pair_msa_sequences: Whether to concatenate MSA features along the
-        num_res dimension (if True), or to block diagonalize them (if False).
+        chains:
+            A list of feature dictionaries that we want to merge.
+        pair_msa_sequences:
+            Whether to concatenate MSA features along the num_res dimension (if True),
+            or to block diagonalize them (if False).
 
     Returns:
-      A feature dictionary for the merged example.
+        A feature dictionary for the merged example.
     """
     merged_example = {}
     for feature_name in chains[0]:
@@ -354,20 +362,23 @@ def _merge_features_from_multiple_chains(
             merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
         else:
             merged_example[feature_name] = feats[0]
+
     return merged_example
 
 
-def _merge_homomers_dense_msa(chains: Iterable[Mapping[str, np.ndarray]]) -> Sequence[Mapping[str, np.ndarray]]:
+def merge_homomers_dense_msa(chains: Iterable[FeatureDict]) -> Sequence[FeatureDict]:
     """
     Merge all identical chains, making the resulting MSA dense.
 
     Args:
-      chains: An iterable of features for each chain.
+        chains: An iterable of features for each chain.
 
     Returns:
-      A list of feature dictionaries.  All features with the same entity_id
-      will be merged - MSA features will be concatenated along the num_res
-      dimension - making them dense.
+        A list of feature dicts.
+
+    Notes:
+        All features with the same entity_id will be merged.
+        MSA features will be concatenated along the num_res dimension - making them dense.
     """
 
     entity_chains = defaultdict(list)
@@ -379,11 +390,12 @@ def _merge_homomers_dense_msa(chains: Iterable[Mapping[str, np.ndarray]]) -> Seq
     for entity_id in sorted(entity_chains):
         chains = entity_chains[entity_id]
         grouped_chains.append(chains)
-    chains = [_merge_features_from_multiple_chains(chains, pair_msa_sequences=True) for chains in grouped_chains]
+    chains = [merge_features_from_multiple_chains(chains, pair_msa_sequences=True) for chains in grouped_chains]
+
     return chains
 
 
-def _concatenate_paired_and_unpaired_features(example: Mapping[str, np.ndarray]) -> Mapping[str, np.ndarray]:
+def concatenate_paired_and_unpaired_features(example: FeatureDict) -> FeatureDict:
     """Merges paired and block-diagonalised features."""
 
     features = MSA_FEATURES
@@ -394,39 +406,40 @@ def _concatenate_paired_and_unpaired_features(example: Mapping[str, np.ndarray])
             merged_feat = np.concatenate([feat_all_seq, feat], axis=0)
             example[feature_name] = merged_feat
     example["num_alignments"] = np.array(example["msa"].shape[0], dtype=np.int32)
+
     return example
 
 
 def merge_chain_features(
-    np_chains_list: List[Mapping[str, np.ndarray]], pair_msa_sequences: bool, max_templates: int
-) -> Mapping[str, np.ndarray]:
+    np_chains_list: List[FeatureDict], pair_msa_sequences: bool, max_templates: int
+) -> FeatureDict:
     """
     Merges features for multiple chains to single FeatureDict.
 
     Args:
-      np_chains_list: List of FeatureDicts for each chain.
-      pair_msa_sequences: Whether to merge paired MSAs.
-      max_templates: The maximum number of templates to include.
+        np_chains_list: List of FeatureDicts for each chain.
+        pair_msa_sequences: Whether to merge paired MSAs.
+        max_templates: The maximum number of templates to include.
 
     Returns:
-      Single FeatureDict for entire complex.
+        Single FeatureDict for entire complex.
     """
 
-    np_chains_list = _pad_templates(np_chains_list, max_templates=max_templates)
-    np_chains_list = _merge_homomers_dense_msa(np_chains_list)
-    # Unpaired MSA features will be always block-diagonalised; paired MSA
-    # features will be concatenated.
-    np_example = _merge_features_from_multiple_chains(np_chains_list, pair_msa_sequences=False)
+    np_chains_list = pad_templates(np_chains_list, max_templates=max_templates)
+    np_chains_list = merge_homomers_dense_msa(np_chains_list)
+    # Unpaired MSA features will be always block-diagonalised;
+    # paired MSA features will be concatenated.
+    np_example = merge_features_from_multiple_chains(np_chains_list, pair_msa_sequences=False)
     if pair_msa_sequences:
-        np_example = _concatenate_paired_and_unpaired_features(np_example)
-    np_example = _correct_post_merged_feats(
+        np_example = concatenate_paired_and_unpaired_features(np_example)
+    np_example = correct_post_merged_feats(
         np_example=np_example, np_chains_list=np_chains_list, pair_msa_sequences=pair_msa_sequences
     )
 
     return np_example
 
 
-def deduplicate_unpaired_sequences(np_chains: List[Mapping[str, np.ndarray]]) -> List[Mapping[str, np.ndarray]]:
+def deduplicate_unpaired_sequences(np_chains: List[FeatureDict]) -> List[FeatureDict]:
     """Removes unpaired sequences which duplicate a paired sequence."""
 
     feature_names = np_chains[0].keys()
@@ -445,4 +458,5 @@ def deduplicate_unpaired_sequences(np_chains: List[Mapping[str, np.ndarray]]) ->
             if feature_name in msa_features:
                 chain[feature_name] = chain[feature_name][keep_rows]
         chain["num_alignments"] = np.array(chain["msa"].shape[0], dtype=np.int32)
+
     return np_chains
