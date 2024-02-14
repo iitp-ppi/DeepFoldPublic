@@ -1,3 +1,4 @@
+import copy
 import os
 from typing import Dict, List, Optional, Sequence, Union
 
@@ -6,6 +7,10 @@ import numpy as np
 import deepfold.model.v2.data.pairing.uniprot_identifiers as msa_identifiers
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
+from deepfold.model.v2.data.merge import pair_and_merge
+from deepfold.model.v2.data.pairing import baseline as msa_pairing
+from deepfold.model.v2.data.utils import add_assembly_features, convert_monomer_features, pad_msa, temp_fasta_file
+from deepfold.model.v2.search.utils import SchemeRegularizer
 from deepfold.search import mmcif_parsing, parsers, templates
 from deepfold.search.templates import empty_template_feats
 from deepfold.search.tools import hhsearch, hmmsearch
@@ -195,7 +200,7 @@ class DataPipeline:
     ) -> None:
         self.template_featurizer = template_featurizer
 
-    def _parse_template_hit_files(
+    def parse_template_hit_files(
         self,
         alignment_dir: str,
         input_sequence: str,
@@ -224,7 +229,7 @@ class DataPipeline:
 
         return all_hits
 
-    def _parse_msa_data(
+    def parse_msa_data(
         self,
         alignment_dir: str,
         alignment_scheme: Dict[str, List[str]],
@@ -248,13 +253,13 @@ class DataPipeline:
 
         return msa_data
 
-    def _process_msa_feats(
+    def process_msa_feats(
         self,
         alignment_dir: str,
         input_sequence: str,
         alignment_scheme: Dict[str, List[str]],
     ) -> FeatureDict:
-        msa_data = self._parse_msa_data(alignment_dir, alignment_scheme)
+        msa_data = self.parse_msa_data(alignment_dir, alignment_scheme)
         if len(msa_data) == 0:
             msa_data["dummy"] = make_dummy_msa_object(input_sequence)
         msas = list(msa_data.values())
@@ -281,10 +286,10 @@ class DataPipeline:
 
         sequence_featuers = make_sequence_features(input_sequence, input_description, num_res)
 
-        all_hits = self._parse_template_hit_files(alignment_dir, input_sequence, alignment_scheme)
+        all_hits = self.parse_template_hit_files(alignment_dir, input_sequence, alignment_scheme)
         template_features = make_template_features(input_sequence, all_hits, self.template_featurizer)
 
-        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_scheme)
+        msa_features = self.process_msa_feats(alignment_dir, input_sequence, alignment_scheme)
 
         return {**sequence_featuers, **msa_features, **template_features}
 
@@ -301,10 +306,10 @@ class DataPipeline:
 
         input_sequence = mmcif.chain_to_seqres[chain_id]
 
-        hits = self._parse_template_hit_files(alignment_dir, input_sequence, alignment_scheme)
+        hits = self.parse_template_hit_files(alignment_dir, input_sequence, alignment_scheme)
         template_features = make_template_features(input_sequence, hits, self.template_featurizer)
 
-        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_scheme)
+        msa_features = self.process_msa_feats(alignment_dir, input_sequence, alignment_scheme)
 
         return {**mmcif_feats, **template_features, **msa_features}
 
@@ -375,7 +380,7 @@ class DataPipeline:
         template_feature_list = []
         for seq, desc in zip(input_seqs, input_descs):
             alignment_dir = os.path.join(super_alignment_dir, desc)
-            hits = self._parse_template_hit_files(alignment_dir, seq, alignment_scheme)
+            hits = self.parse_template_hit_files(alignment_dir, seq, alignment_scheme)
 
             template_features = make_template_features(seq, hits, self.template_featurizer)
             template_feature_list.append(template_features)
@@ -383,3 +388,165 @@ class DataPipeline:
         template_features = unify_template_features(template_feature_list)
 
         return {**sequence_features, **msa_features, **template_features}
+
+
+class DataPipelineMultimer:
+    """Assembles the input features."""
+
+    def __init__(
+        self,
+        monomer_data_pipeline: DataPipeline,
+    ) -> None:
+        self.monomer_data_pipeline = monomer_data_pipeline
+        self.alignment_scheme = {
+            "template": ["template_hits.sto"],
+            "uniprot": ["uniprot_hits.sto"],
+            "msa": ["*.sto", "*.a3m"],
+        }
+
+    def process_single_chain(
+        self,
+        chain_id: str,
+        sequence: str,
+        chain_alignment_dir: str,
+        is_homomer_or_monomer: bool,
+    ) -> FeatureDict:
+        """Runs the monomer pipeline on a single chain."""
+
+        chain_fasta_str = f">{chain_id}\n{sequence}\n"
+
+        if not os.path.exists(chain_alignment_dir):
+            raise ValueError(f"Alignment for {chain_id} not found")
+
+        with temp_fasta_file(chain_fasta_str) as chain_fasta_path:
+            alignment_scheme = SchemeRegularizer(
+                key_order=["template", "uniprot", "msa"],
+                base_dir=chain_alignment_dir,
+            ).process(self.alignment_scheme)
+            chain_features = self.monomer_data_pipeline.process_fasta(
+                fasta_path=chain_fasta_path,
+                alignment_dir=chain_alignment_dir,
+                alignment_scheme=alignment_scheme,
+            )
+
+            # Only construct the paring features if there are two or more unique sequences.
+            if not is_homomer_or_monomer:
+                all_seq_msa_features = self.all_seq_msa_features(chain_alignment_dir)
+                chain_features.update(all_seq_msa_features)
+
+        return chain_features
+
+    @staticmethod
+    def all_seq_msa_features(alignment_dir: str) -> FeatureDict:
+        """Get MSA features for unclustered UniProt for pairing."""
+
+        uniprot_msa_path = os.path.join(alignment_dir, "uniprot_hits.sto")
+        if not os.path.exists(uniprot_msa_path):
+            chain_id = os.path.basename(os.path.normpath(alignment_dir))
+            raise ValueError(f"Missing 'uniprot_hits.sto' for {chain_id} which is required for MSA pairing")
+
+        with open(uniprot_msa_path, "r") as fp:
+            uniprot_msa_string = fp.read()
+        msa = parsers.parse_stockholm(uniprot_msa_string)
+
+        all_seq_features = make_msa_features([msa])
+        valid_feats = msa_pairing.MSA_FEATURES + ("msa_species_identifiers")
+        feats = {f"{k}_all_seq": v for k, v in all_seq_features.items() if k in valid_feats}
+
+        return feats
+
+    def process_fasta(self, fasta_path: str, alignment_dir: str) -> FeatureDict:
+        with open(fasta_path, "r") as fp:
+            input_fasta_str = fp.read()
+
+        input_seqs, input_descs = parsers.parse_fasta(input_fasta_str)
+
+        all_chain_features = {}
+        sequence_features = {}
+        is_homomer_or_monomer = len(set(input_seqs)) == 1
+        for seq, desc in zip(input_seqs, input_descs):
+            if seq in sequence_features:
+                all_chain_features[desc] = copy.deepcopy(sequence_features[seq])
+                continue
+
+            chain_alignment_dir = os.path.join(alignment_dir, desc)
+            chain_features = self.process_single_chain(
+                chain_id=desc,
+                sequence=seq,
+                chain_alignment_dir=chain_alignment_dir,
+                is_homomer_or_monomer=is_homomer_or_monomer,
+            )
+            chain_features = convert_monomer_features(chain_features)
+
+            all_chain_features[desc] = chain_features
+            sequence_features[seq] = chain_features
+
+        all_chain_features = add_assembly_features(all_chain_features)
+
+        # Pair and merge chain features.
+        np_example = pair_and_merge(all_chain_features)
+
+        # Pad MSA to avoid zero-sized extra MSA.
+        np_example = pad_msa(np_example, 512)
+
+        return np_example
+
+    def get_mmcif_features(
+        self,
+        mmcif_object: mmcif_parsing.MmcifObject,
+        chain_id: str,
+    ) -> FeatureDict:
+        mmcif_feats = {}
+
+        all_atom_positions, all_atom_mask = mmcif_parsing.get_atom_coords(mmcif_object=mmcif_object, chain_id=chain_id)
+        mmcif_feats["all_atom_positions"] = all_atom_positions
+        mmcif_feats["all_atom_mask"] = all_atom_mask
+
+        mmcif_feats["resolution"] = np.array(mmcif_object.header["resolution"], dtype=np.float32)
+
+        mmcif_feats["release_date"] = np.array([mmcif_object.header["release_date"].encode("utf-8")], dtype=np.object_)
+
+        mmcif_feats["is_distillation"] = np.array(0.0, dtype=np.float32)
+
+        return mmcif_feats
+
+    def process_mmcif(
+        self,
+        mmcif: mmcif_parsing.MmcifObject,  # parsing is expensive, so no path
+        alignment_dir: str,
+    ) -> FeatureDict:
+
+        all_chain_features = {}
+        sequence_features = {}
+        is_homomer_or_monomer = len(set(list(mmcif.chain_to_seqres.values()))) == 1
+        for chain_id, seq in mmcif.chain_to_seqres.items():
+            desc = "_".join([mmcif.file_id, chain_id])
+
+            if seq in sequence_features:
+                all_chain_features[desc] = copy.deepcopy(sequence_features[seq])
+                continue
+
+            chain_alignment_dir = os.path.join(alignment_dir, desc)
+            chain_features = self.process_single_chain(
+                chain_id=desc,
+                sequence=seq,
+                chain_alignment_dir=chain_alignment_dir,
+                is_homomer_or_monomer=is_homomer_or_monomer,
+            )
+
+            chain_features = convert_monomer_features(chain_features)
+
+            mmcif_feats = self.get_mmcif_features(mmcif, chain_id)
+            chain_features.update(mmcif_feats)
+            all_chain_features[desc] = chain_features
+            sequence_features[seq] = chain_features
+
+        all_chain_features = add_assembly_features(all_chain_features)
+
+        # Pair and merge chain features.
+        np_example = pair_and_merge(all_chain_features)
+
+        # Pad MSA to avoid zero-sized extra_msa.
+        np_example = pad_msa(np_example, 512)
+
+        return np_example
