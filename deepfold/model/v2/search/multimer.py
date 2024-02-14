@@ -7,7 +7,7 @@ import logging
 import os
 import pickle
 
-from deepfold.model.v2.data.pipeline import DataPipeline
+from deepfold.model.v2.data.pipeline import DataPipeline, DataPipelineMultimer
 from deepfold.model.v2.data.search import AlignmentRunner
 from deepfold.model.v2.search.utils import SchemeRegularizer
 from deepfold.search.templates import HmmsearchHitFeaturizer
@@ -90,20 +90,13 @@ def main():
             obsolete_pdbs_path=args.obsolete_pdbs_path,
         )
 
-    data_processor = DataPipeline(template_featurizer)
-    alignment_scheme = {
-        "template": ["template_hits.sto"],
-        "msa": ["*.sto", "*.a3m"],
-    }
+    monomer_data_processor = DataPipeline(template_featurizer)
+    data_processor = DataPipelineMultimer(monomer_data_processor)
     alignment_scheme = SchemeRegularizer(
-        ["template", "msa"],
+        ["template", "uniprot", "msa"],
         base_dir=args.output_dir,
     ).process(alignment_scheme)
-    feature_dict = data_processor.process_fasta(
-        args.fasta_path,
-        args.output_dir,
-        alignment_scheme=alignment_scheme,
-    )
+    feature_dict = data_processor.process_fasta(args.fasta_path, args.output_dir)
 
     output_path = os.path.join(args.output_dir, "features.pkl")
     if args.compress:
