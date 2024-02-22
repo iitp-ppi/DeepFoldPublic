@@ -64,8 +64,9 @@ def ensembled_transform_fns(common_cfg: DictConfig, mode_cfg: DictConfig, ensemb
             )
         )
 
-    transforms.append(data_ops_multimer.nearest_neighbor_clusters())
+    transforms.append(data_ops_multimer.nearest_neighbor_clusters(gap_agreement_weight=0.0))
     transforms.append(data_ops_multimer.create_msa_feat)
+    transforms.append(data_ops_multimer.make_extra_msa_feat)
 
     crop_feats = dict(common_cfg.feat)
 
