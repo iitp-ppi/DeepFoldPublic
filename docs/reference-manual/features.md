@@ -28,3 +28,4 @@
 - bert_mask
 - seq_mask
 - msa_mask
+- num_sym

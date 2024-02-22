@@ -91,12 +91,14 @@ def add_assembly_features(all_chain_features: Dict[str, FeatureDict]) -> Dict[st
     new_all_chain_features = {}
     chain_id = 1
     for entity_id, group_chain_features in grouped_chains.items():
+        num_sym = len(group_chain_features)  #
         for sym_id, chain_features in enumerate(group_chain_features, start=1):
             new_all_chain_features[f"{int_id_to_str_id(entity_id)}_{sym_id}"] = chain_features
             seq_length = chain_features["seq_length"]
             chain_features["asym_id"] = (chain_id * np.ones(seq_length)).astype(np.int64)
             chain_features["sym_id"] = (sym_id * np.ones(seq_length)).astype(np.int64)
             chain_features["entity_id"] = (entity_id * np.ones(seq_length)).astype(np.int64)
+            chain_features["num_sym"] = (num_sym * np.ones(seq_length)).astype(np.int64)  #
             chain_id += 1
 
     return new_all_chain_features

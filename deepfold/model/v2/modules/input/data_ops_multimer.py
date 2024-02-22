@@ -72,8 +72,29 @@ def gumbel_argsort_sample_idx(logits: torch.Tensor, generator=None) -> torch.Ten
     return torch.argsort(logits + z, dim=-1, descending=True)
 
 
+def share_mask_by_entity(mask_position, batch):
+    if "num_sym" not in batch:  # TODO: Generate `num_sym`?
+        return mask_position
+
+    entity_id = batch["entity_id"]
+    sym_id = batch["sym_id"]
+    num_sym = batch["num_sym"]
+    unique_entity_ids = entity_id.unique()
+    first_sym_mask = sym_id == 1
+
+    for cur_entity_id in unique_entity_ids:
+        cur_entity_mask = entity_id == cur_entity_id
+        cur_num_sym = int(num_sym[cur_entity_mask][0])
+        if cur_num_sym > 1:
+            cur_sym_mask = first_sym_mask & cur_entity_mask
+            cur_sym_bert_mask = mask_position[:cur_sym_mask]
+            mask_position[:, cur_entity_mask] = cur_sym_bert_mask.repeat(1, cur_num_sym)
+
+    return mask_position
+
+
 @curry1
-def make_masked_msa(batch, config, replace_fraction, seed, eps=1e-6):
+def make_masked_msa(batch, config, replace_fraction, share_mask, seed, eps=1e-6):
     """Create data for BERT on raw MSA."""
     # Add a random amino acid uniformly.
     random_aa = torch.Tensor([0.05] * 20 + [0.0, 0.0], device=batch["msa"].device)
@@ -92,6 +113,9 @@ def make_masked_msa(batch, config, replace_fraction, seed, eps=1e-6):
     sh = batch["msa"].shape
     mask_position = torch.rand(sh, device=batch["msa"].device) < replace_fraction
     mask_position *= batch["msa_mask"].to(mask_position.dtype)
+
+    if share_mask:  # Share mask by entity
+        mask_position = share_mask_by_entity(mask_position, batch)
 
     logits = torch.log(categorical_probs + eps)
 
@@ -193,7 +217,7 @@ def create_msa_feat(batch):
     return batch
 
 
-def build_extra_msa_feat(batch):
+def make_extra_msa_feat(batch):
     """Expand extra_msa into 1hot and concat with other extra msa features.
 
     We do this as late as possible as the one_hot extra msa can be very large.
@@ -212,14 +236,17 @@ def build_extra_msa_feat(batch):
     # 23 = 20 amino acids + 'X' for unknown + gap + bert mask
     extra_msa = batch["extra_msa"]
     deletion_matrix = batch["extra_deletion_matrix"]
-    msa_1hot = torch.nn.functional.one_hot(extra_msa, 23)
-    has_deletion = torch.clamp(deletion_matrix, min=0.0, max=1.0)[..., None]
+    has_deletion = torch.clamp(deletion_matrix, min=0.0, max=1.0)
     pi = torch.acos(torch.zeros(1, device=deletion_matrix.device)) * 2
-    deletion_value = (torch.atan(deletion_matrix / 3.0) * (2.0 / pi))[..., None]
+    deletion_value = torch.atan(deletion_matrix / 3.0) * (2.0 / pi)
     extra_msa_mask = batch["extra_msa_mask"]
-    catted = torch.cat([msa_1hot, has_deletion, deletion_value], dim=-1)
 
-    return catted
+    batch["extra_msa"] = extra_msa
+    batch["extra_msa_mask"] = extra_msa_mask
+    batch["extra_msa_has_deletion"] = has_deletion
+    batch["extra_msa_deletion_value"] = deletion_value
+
+    return batch
 
 
 @curry1
@@ -239,11 +266,12 @@ def sample_msa(batch, max_seq, max_extra_msa_seq, seed, inf=1e6):
 
     # Sample uniformly among sequences with at least one non-masked position.
     logits = (torch.clamp(torch.sum(batch["msa_mask"], dim=-1), 0.0, 1.0) - 1.0) * inf
-    # The cluster_bias_mask can be used to preserve the first row (target
-    # sequence) for each chain, for example.
+    # The cluster_bias_mask can be used to preserve the first row (target sequence) for each chain.
     if "cluster_bias_mask" not in batch:
         cluster_bias_mask = torch.nn.functional.pad(
-            batch["msa"].new_zeros(batch["msa"].shape[0] - 1), (1, 0), value=1.0
+            batch["msa"].new_zeros(batch["msa"].shape[0] - 1),
+            (1, 0),
+            value=1.0,
         )
     else:
         cluster_bias_mask = batch["cluster_bias_mask"]
