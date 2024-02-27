@@ -98,7 +98,7 @@ def add_assembly_features(all_chain_features: Dict[str, FeatureDict]) -> Dict[st
             chain_features["asym_id"] = (chain_id * np.ones(seq_length)).astype(np.int64)
             chain_features["sym_id"] = (sym_id * np.ones(seq_length)).astype(np.int64)
             chain_features["entity_id"] = (entity_id * np.ones(seq_length)).astype(np.int64)
-            chain_features["num_sym"] = (num_sym * np.ones(seq_length)).astype(np.int64)  #
+            chain_features["num_sym"] = (num_sym * np.ones(seq_length)).astype(np.int64)  # v2
             chain_id += 1
 
     return new_all_chain_features
