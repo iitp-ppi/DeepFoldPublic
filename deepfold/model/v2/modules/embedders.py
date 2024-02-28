@@ -4,7 +4,7 @@
 """Embedder layers."""
 
 
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -210,7 +210,7 @@ class TemplatePairEmbedder(nn.Module):
         for d_in in self.d_in:
             self.linear.append(Linear(d_in, self.d_out, init="relu"))
 
-    def forward(self, x: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: List[torch.Tensor], z: torch.Tensor) -> torch.Tensor:
         if not self.v2_feature:  # AF2
             t = self.linear(x.type(self.linear[0].weight.dtype))
         else:  # AFM

@@ -4,14 +4,14 @@
 """Embed input features."""
 
 
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import torch
 import torch.nn as nn
 
 from deepfold.common import residue_constants as rc
 from deepfold.utils.geometry import Rigid, Rigid3Array
-from deepfold.utils.tensor_utils import batched_gather
+from deepfold.utils.tensor_utils import batched_gather, one_hot
 
 TensorDict = Dict[str, torch.Tensor]
 
@@ -92,13 +92,13 @@ def dgram_from_positions(
 
 def build_template_pair_feat(
     batch: TensorDict,
-    min_bin: int,
-    max_bin: int,
+    min_bin: float,
+    max_bin: float,
     num_bins: int,
-    use_unit_vector=False,
-    eps=1e-20,
-    inf=1e8,
-) -> torch.Tensor:
+    use_unit_vector: bool = False,
+    eps: float = 1e-20,
+    inf: float = 1e8,
+) -> List[torch.Tensor]:
     template_mask = batch["template_pseudo_beta_mask"]
     template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
 
@@ -145,7 +145,61 @@ def build_template_pair_feat(
     act = torch.cat(to_concat, dim=-1)
     act = act * template_mask_2d[..., None]
 
-    return act
+    return [act]
+
+
+def build_template_pair_feat_v2(
+    batch: TensorDict,
+    min_bin: float,
+    max_bin: float,
+    num_bins: int,
+    multichain_mask_2d=None,
+    eps=1e-20,
+    inf=1e8,
+) -> List[torch.Tensor]:
+    template_mask = batch["template_pseudo_beta_mask"]
+    template_mask_2d = template_mask[..., None] * template_mask[..., None, :]
+    if multichain_mask_2d is not None:
+        template_mask_2d *= multichain_mask_2d
+
+    tpb = batch["template_pseudo_beta"]
+    dgram = torch.sum((tpb[..., None, :] - tpb[..., None, :, :]) ** 2, dim=-1, keepdim=True)
+    lower = torch.linspace(min_bin, max_bin, num_bins, device=tpb.device) ** 2
+    upper = torch.cat([lower[1:], lower.new_tensor([inf])], dim=-1)
+    dgram = ((dgram > lower) * (dgram < upper)).type(dgram.dtype)
+    dgram *= template_mask_2d[..., None]
+    to_concat = [dgram, template_mask_2d[..., None]]
+
+    aatype_one_hot = one_hot(batch["template_aatype"], rc.restype_num + 2)
+
+    n_res = batch["template_aatype"].shape[-1]
+    to_concat.append(aatype_one_hot[..., None, :, :].expand(*aatype_one_hot.shape[:-2], n_res, -1, -1))
+    to_concat.append(aatype_one_hot[..., None, :].expand(*aatype_one_hot.shape[:-2], -1, n_res, -1))
+
+    n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
+    rigids = Rigid.make_transform_from_reference(
+        n_xyz=batch["template_all_atom_positions"][..., n, :],
+        ca_xyz=batch["template_all_atom_positions"][..., ca, :],
+        c_xyz=batch["template_all_atom_positions"][..., c, :],
+        eps=eps,
+    )
+    points = rigids.get_trans()[..., None, :, :]
+    rigid_vec = rigids[..., None].invert_apply(points)
+
+    inv_distance_scalar = torch.rsqrt(eps + torch.sum(rigid_vec**2, dim=-1))
+
+    t_aa_masks = batch["template_all_atom_mask"]
+    backbone_mask = t_aa_masks[..., n] * t_aa_masks[..., ca] * t_aa_masks[..., c]
+    backbone_mask_2d = backbone_mask[..., :, None] * backbone_mask[..., None, :]
+    if multichain_mask_2d is not None:
+        backbone_mask_2d *= multichain_mask_2d
+
+    inv_distance_scalar = inv_distance_scalar * backbone_mask_2d
+    unit_vector_data = rigid_vec * inv_distance_scalar[..., None]
+    to_concat.extend(torch.unbind(unit_vector_data[..., None, :], dim=-1))
+    to_concat.append(backbone_mask_2d[..., None])
+
+    return to_concat
 
 
 def build_extra_msa_feat(batch: TensorDict) -> torch.Tensor:
