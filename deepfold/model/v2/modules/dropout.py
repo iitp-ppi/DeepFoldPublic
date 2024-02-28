@@ -49,6 +49,8 @@ class Dropout(nn.Module):
 class DropoutRowwise(Dropout):
     """
     Row-wise dropout as described in subsection 1.11.6.
+
+    Mask shape: [1, N, C]
     """
 
     __init__ = partialmethod(Dropout.__init__, batch_dim=-3)
@@ -57,6 +59,8 @@ class DropoutRowwise(Dropout):
 class DropoutColumnwise(Dropout):
     """
     Column-wise dropout as described in subsection 1.11.6.
+
+    Mask shape: [N, 1, C]
     """
 
     __init__ = partialmethod(Dropout.__init__, batch_dim=-2)
