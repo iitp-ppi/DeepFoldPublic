@@ -74,10 +74,10 @@ TOKENS += RESERVED.values()
 
 class Lexer:
 
-    def __init__(self, **kwargs):
+    def __init__(self, debug=False, **kwargs):
         self.lexer = lex.lex(
             module=self,
-            debug=False,
+            debug=debug,
             **kwargs,
         )
 
@@ -332,7 +332,7 @@ class Lexer:
 
 class Parser:
 
-    def __init__(self, lexer=None, **kwargs):
+    def __init__(self, lexer=None, debug=False, **kwargs):
         if lexer is not None:
             if isinstance(lexer, Lexer):
                 self.lexer = lexer.lexer
@@ -340,13 +340,14 @@ class Parser:
                 # Assume that the lexer is a lex instance or similar
                 self.lexer = lexer
         else:
-            self.lexer = Lexer().lexer
+            self.lexer = Lexer(debug=debug).lexer
         self.parser = yacc.yacc(
             module=self,
-            debug=False,
+            debug=debug,
             write_tables=False,
             **kwargs,
         )
+        self.debug = debug
 
     tokens = TOKENS
 
@@ -400,13 +401,13 @@ class Parser:
         """
         def : LET id object
         """
-        p[0] = ["variable", p[2], p[3]]
+        p[0] = {"command": "variable", "id": p[2], "value": p[3]}
 
     def p_model_definition(self, p):
         """
         model : MODEL id object
         """
-        p[0] = ["model", p[2], p[3]]
+        p[0] = {"command": "model", "id": p[2], "models": p[3]}
 
     def p_predict(self, p):
         """
@@ -414,10 +415,9 @@ class Parser:
                 | PREDICT string STOI stoi_list USING id pred_options
         """
         if len(p) == 7:
-            p[0] = ["predict", p[2], p[4], p[6]]
+            p[0] = {"command": "predict", "name": p[2], "stoi": p[4], "model": p[6], "options": []}
         elif len(p) == 8:
-            flat = sum(p[7], [])
-            p[0] = ["predict", p[2], p[4], p[6], *flat]
+            p[0] = {"command": "predict", "name": p[2], "stoi": p[4], "model": p[6], "options": p[7]}
 
     def p_pred_opts(self, p):
         """
@@ -439,9 +439,9 @@ class Parser:
                     | IN string
         """
         if len(p) == 4:
-            p[0] = [p[1], p[2], p[3]]
+            p[0] = {"command": p[1], "mode": p[2], "options": p[3]}
         elif len(p) == 3:
-            p[0] = [p[1], p[2]]
+            p[0] = {"command": p[1], "mode": "path", "options": p[2]}
 
     def p_object(self, p):
         """
@@ -458,7 +458,7 @@ class Parser:
         entity : ENTITY id dict
                | ENTITY id string
         """
-        p[0] = ["entity", p[2], p[3]]
+        p[0] = {"command": "entity", "id": p[2], "options": p[3]}
 
     def p_stoi_list(self, p):
         """
@@ -482,7 +482,7 @@ class Parser:
         """
         graph : GRAPH id edge_list
         """
-        p[0] = ["graph", p[2], p[3]]
+        p[0] = {"command": "graph", "id": p[2], "edge_list": p[3]}
 
     def p_begin_edge(self, p):
         """
@@ -710,14 +710,15 @@ class Parser:
         if lexer is None:
             lexer = self.lexer
 
-        lexer.input(data)
-        print("===")
-        while True:
-            tok = lexer.token()
-            if not tok:
-                break
-            print(tok)
-        print("===")
+        if self.debug:
+            lexer.input(data)
+            print("=== TOKEN BEGIN ===")
+            while True:
+                tok = lexer.token()
+                if not tok:
+                    break
+                print(tok)
+            print("==== TOKEN END ====")
 
         lines = self.parser.parse(data, lexer=lexer, *args, **kwargs)
         if lines is not None:
