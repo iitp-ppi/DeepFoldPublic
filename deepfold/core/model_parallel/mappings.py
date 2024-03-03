@@ -1,17 +1,19 @@
 # Copyright 2024 DeepFold Team
 
 
-from typing import Any
+from typing import Any, Tuple
 
 import torch
 import torch.distributed
 
-from deepfold.core.model_parallel.utils import split_tensor
 from deepfold.core.parallel_state import (
     get_model_parallel_group,
     get_model_parallel_rank,
     get_model_parallel_world_size,
+    enable,
+    disable,
 )
+import deepfold.core.parallel_state as ps
 
 
 def _reduce(tensor: torch.Tensor) -> torch.Tensor:
@@ -31,22 +33,48 @@ def _gather(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
     """All-gather the input tensor across model parallel group."""
 
     world_size = get_model_parallel_world_size()
-    # Bypass
-    if world_size == 1:
-        return tensor
+    tensor = tensor.contiguous()
 
-    ndim = tensor.dim()
-    dim = dim + ndim if dim < 0 else dim
-    if dim < 0 or dim >= ndim:
-        raise ValueError(f"Dim {dim} is out of bound")
+    if dim == 1 and tensor.size(0) == 1:
+        # Tensors in the list are contiguous partst of the output
+        output_shape = list(tensor.shape)
+        output_shape[1] *= world_size
+        output = torch.empty(output_shape, dtype=tensor.dtype, device=tensor.device)
+        tensor_list = list(output.chunk(world_size, dim=1))
+        torch.distributed.all_gather(
+            tensor_list=tensor_list,
+            tensor=tensor,
+            group=get_model_parallel_group(),
+            async_op=False,
+        )
+    else:
+        tensor_list = [torch.empty_like(tensor) for _ in range(world_size)]
+        torch.distributed.all_gather(
+            tensor_list=tensor_list,
+            tensor=tensor,
+            group=get_model_parallel_group(),
+            async_op=False,
+        )
+        output = torch.cat(tensor_list, dim=dim)
 
-    tensor_list = [torch.empty_like(tensor) for _ in range(world_size)]
+    return output
 
-    # All-gather
-    torch.distributed.all_gather(tensor_list, tensor.contiguous(), group=get_model_parallel_group())
 
-    # Concatenate
-    output = torch.cat(tensor_list, dim=dim).contiguous()
+def _all_reduce_sum_split(tensor: torch.Tensor, dim: int) -> torch.Tensor:
+
+    world_szie = get_model_parallel_world_size()
+    rank = get_model_parallel_rank()
+    tensor = tensor.contiguous()
+
+    torch.distributed.all_reduce(
+        tensor=tensor,
+        op=torch.distributed.ReduceOp.SUM,
+        group=get_model_parallel_group(),
+    )
+
+    assert tensor.size(dim) % world_szie == 0
+    chunks = tensor.chunk(world_szie, dim=dim)
+    output = chunks[rank]
 
     return output
 
@@ -55,15 +83,13 @@ def _split(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
     """Split the tensor along the dimension and keep the corresponding slice."""
 
     world_size = get_model_parallel_world_size()
-    # Bypass
-    if world_size == 1:
-        return tensor
+    assert tensor.size(dim) % world_size == 0
 
-    # Split
-    tensor_list = split_tensor(tensor, world_size, dim=dim)
+    # chunk = split_tensor(tensor, world_size, dim=dim)
+    chunk = tensor.chunk(world_size, dim=dim)
 
     rank = get_model_parallel_rank()
-    output = tensor_list[rank].contiguous()
+    output = chunk[rank].contiguous()
 
     return output
 
@@ -78,17 +104,32 @@ def _all_to_all(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
     """
 
     world_size = get_model_parallel_world_size()
-    if world_size == 1:
-        return tensor
+    assert tensor.size(dim0) % world_size == 0
 
-    recv_buffer = torch.empty_like(tensor)
+    input_tensor_list = [input_tensor.contiguous() for input_tensor in tensor.chunk(world_size, dim=dim0)]
 
-    input_tensors = [x.contiguous() for x in tensor.chunk(world_size, dim=dim1)]
-    output_tensors = [x.contiguous() for x in recv_buffer.chunk(world_size, dim=dim1)]
+    if dim1 == 1 and tensor.size(0) == 1:
+        output_shape = list(input_tensor_list[0].shape)
+        output_shape[1] *= world_size
+        output = torch.empty(output_shape, dtype=tensor.dtype, device=tensor.device)
+        output_tensor_list = list(output.chunk(world_size, dim=1))
+        torch.distributed.all_to_all(
+            output_tensor_list=output_tensor_list,
+            input_tensor_list=input_tensor_list,
+            group=get_model_parallel_group(),
+            async_op=False,
+        )
+    else:
+        output_tensor_list = [torch.empty_like(input_tensor) for input_tensor in input_tensor_list]
+        torch.distributed.all_to_all(
+            output_tensor_list=output_tensor_list,
+            input_tensor_list=input_tensor_list,
+            group=get_model_parallel_group(),
+            async_op=False,
+        )
+        output = torch.cat(output_tensor_list, dim=dim1)
 
-    torch.distributed.all_to_all(output_tensors, input_tensors, group=get_model_parallel_group())
-
-    return torch.cat(output_tensors, dim=dim0)
+    return output
 
 
 def _broadcast(tensor: torch.Tensor, src_rank: int) -> torch.Tensor:
@@ -161,6 +202,25 @@ class _GatherFromModelParallelRegion(torch.autograd.Function):
         return _split(grad_output, dim=dim), None
 
 
+class _GatherAllReduceSumFromModelParallelRegion(torch.autograd.Function):
+
+    @staticmethod
+    def forward(
+        ctx: "_GatherAllReduceSumFromModelParallelRegion",
+        input: torch.Tensor,
+        dim: int,
+    ) -> torch.Tensor:
+        ctx.save_for_backward(torch.tensor([dim]))
+        return _gather(input, dim=dim)
+
+    @staticmethod
+    def backward(
+        ctx: "_GatherAllReduceSumFromModelParallelRegion",
+        grad_output: torch.Tensor,
+    ) -> Tuple[torch.Tensor, None]:
+        return _all_reduce_sum_split(grad_output, dim=int(ctx.saved_tensors[0][0])), None
+
+
 class _TransposeOnModelParallelRegion(torch.autograd.Function):
     """
     Transpose the input with the given dimensions.
@@ -206,12 +266,33 @@ def reduce_from_model_parallel_region(tensor: torch.Tensor) -> torch.Tensor:
     return _ReduceFromModelParallelRegion.apply(tensor)
 
 
-def scatter_to_model_parallel_region(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
-    return _ScatterToModelParallelRegion.apply(tensor, dim)
+def scatter_to_model_parallel_region(tensor: torch.Tensor, dim: int) -> torch.Tensor:
+    if not ps.is_enabled():
+        return tensor
+
+    if torch.is_grad_enabled() and tensor.requires_grad:
+        tensor = _ScatterToModelParallelRegion.apply(tensor, dim)
+    else:
+        tensor = _split(tensor, dim=dim)
+
+    return tensor
 
 
-def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
-    return _GatherFromModelParallelRegion.apply(tensor, dim)
+def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int, bwd: str = "split") -> torch.Tensor:
+    if not ps.is_enabled():
+        return tensor
+
+    if torch.is_grad_enabled() and tensor.requires_grad:
+        if bwd == "split":
+            tensor = _GatherFromModelParallelRegion.apply(tensor, dim)
+        elif bwd == "all_reduce_sum_split":
+            tensor = _GatherAllReduceSumFromModelParallelRegion.apply(tensor, dim)
+        else:
+            raise ValueError(f"Unknown bwd={repr(bwd)}")
+    else:
+        tensor = _gather(tensor, dim=dim)
+
+    return tensor
 
 
 def transpose_on_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
@@ -220,3 +301,27 @@ def transpose_on_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: in
 
 def broadcast_on_model_parallel_region(tensor: torch.Tensor, src_rank: int) -> torch.Tensor:
     return _BroadcastOnModelParallelRegion.apply(tensor, src_rank)
+
+
+def col_to_row(tensor: torch.Tensor) -> torch.Tensor:
+    if not ps.is_enabled():
+        return tensor
+
+    if torch.is_grad_enabled() and tensor.requires_grad:
+        tensor = _TransposeOnModelParallelRegion.apply(tensor, -3, -2)
+    else:
+        tensor = _all_to_all(tensor, -3, -2)
+
+    return tensor
+
+
+def row_to_col(tensor: torch.Tensor) -> torch.Tensor:
+    if not ps.is_enabled():
+        return tensor
+
+    if torch.is_grad_enabled() and tensor.requires_grad:
+        tensor = _TransposeOnModelParallelRegion.apply(tensor, -2, -3)
+    else:
+        tensor = _all_to_all(tensor, -2, -3)
+
+    return tensor

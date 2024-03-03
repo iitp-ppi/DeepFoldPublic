@@ -30,6 +30,12 @@ _MODEL_AND_DATA_PARALLEL_GROUP = None
 # Memory buffers to avoid dynamic memory allocation
 _GLOBAL_MEMORY_BUFFER = None
 
+# Whether model parallel has been initialized or not
+_MODEL_PARALLEL_INITIALIZED = False
+
+# Whether model parallel is enabled or not
+_MODEL_PARALLEL_ENABLED = False
+
 
 def get_nccl_options(pg_name, nccl_comm_cfgs):
     """Set the NCCL process group options.
@@ -104,6 +110,9 @@ def initialize_model_parallel(
         _MODEL_AND_DATA_PARALLEL_GROUP = group
 
     _set_global_memory_buffer()
+
+    _MODEL_PARALLEL_INITIALIZED = True
+    _MODEL_PARALLEL_ENABLED = True
 
 
 def model_parallel_is_initialized() -> bool:
@@ -199,3 +208,58 @@ def destroy_model_parallel():
     _MODEL_AND_DATA_PARALLEL_GROUP = None
     global _GLOBAL_MEMORY_BUFFER
     _GLOBAL_MEMORY_BUFFER = None
+
+
+def is_initialized() -> bool:
+    return _MODEL_PARALLEL_INITIALIZED
+
+
+def is_enabled() -> bool:
+    return _MODEL_PARALLEL_ENABLED
+
+
+def _enable() -> None:
+    global _MODEL_PARALLEL_ENABLED
+    _MODEL_PARALLEL_ENABLED = True
+
+
+def _disable() -> None:
+    global _MODEL_PARALLEL_ENABLED
+    _MODEL_PARALLEL_ENABLED = False
+
+
+class Enable(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx: "Enable") -> None:
+        return _enable()
+
+    @staticmethod
+    def backward(ctx: "Enable") -> None:
+        return _enable()
+
+
+class Disable(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx: "Disable") -> None:
+        return _disable()
+
+    @staticmethod
+    def backward(ctx: "Disable") -> None:
+        return _enable()
+
+
+def enable() -> None:
+    if is_initialized():
+        if torch.is_grad_enabled():
+            Enable.apply()
+        else:
+            _enable()
+
+
+def disable() -> None:
+    if is_initialized():
+        if torch.is_grad_enabled():
+            Disable.apply()
+        else:
+            _disable()
