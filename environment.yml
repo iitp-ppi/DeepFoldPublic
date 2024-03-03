@@ -15,6 +15,7 @@ dependencies:
   - hydra-core
   - omegaconf=2.3.0
   - networkx=3.2.1
+  - ply
   - pytorch=2.2.0
   - torchaudio
   - torchvision
