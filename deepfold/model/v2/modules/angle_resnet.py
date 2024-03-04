@@ -28,7 +28,7 @@ class AngleResnet(nn.Module):
         num_angles: int,
         eps: float,
     ) -> None:
-        super(AngleResnet, self).__init__()
+        super().__init__()
         self.c_s = c_s
         self.c_hidden = c_hidden
         self.num_blocks = num_blocks
@@ -93,7 +93,7 @@ class AngleResnetBlock(nn.Module):
     """Angle Resnet Block module."""
 
     def __init__(self, c_hidden: int) -> None:
-        super(AngleResnetBlock, self).__init__()
+        super().__init__()
         self.linear_1 = Linear(c_hidden, c_hidden, bias=True, init="relu")
         self.linear_2 = Linear(c_hidden, c_hidden, bias=True, init="final")
 
