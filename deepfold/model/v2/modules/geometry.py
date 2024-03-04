@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from deepfold.model.v2.modules.primitives import Linear
+from deepfold.model.v2.modules.linear import Linear
 from deepfold.utils.geometry import Rigid, Rigid3Array, Rot3Array, Rotation, Vec3Array
 
 __all__ = ["QuatRigid", "Rigid", "Rigid3Array", "Rot3Array", "Rotation", "Vec3Array"]
@@ -16,8 +16,8 @@ class QuatRigid(nn.Module):
         else:
             rigid_dim = 6
 
-        # NOTE: Higher precision is recommended
-        self.linear = Linear(c_hidden, rigid_dim, init="final", prec=torch.float32)
+        # TODO: Higher precision is recommended
+        self.linear = Linear(c_hidden, rigid_dim, init="final")
 
     def forward(self, activations: torch.Tensor) -> Rigid3Array:
         # NOTE: During training, this needs to be run in higher precision
