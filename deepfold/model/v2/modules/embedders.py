@@ -9,14 +9,14 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 
-from deepfold.model.v2.modules.configuration import (
+from deepfold.model.v2.config import (
     ExtraMsaEmbedderConfig,
     InputEmbedderConfig,
     RecyclingEmbedderConfig,
     TemplateAngleEmbedderConfig,
     TemplatePairEmbedderConfig,
 )
-from deepfold.model.v2.modules.primitives import LayerNorm, Linear, residual
+from deepfold.model.v2.modules._primitives import LayerNorm, Linear, residual
 from deepfold.utils.tensor_utils import one_hot
 
 
@@ -24,14 +24,14 @@ class InputEmbedder(nn.Module):
     def __input__(self, config: InputEmbedderConfig) -> None:
         super().__init__()
 
-        self.tf_dim = config.target_feature_dim
-        self.msa_dim = config.msa_feature_dim
+        self.tf_dim = config.tf_dim
+        self.msa_dim = config.msa_dim
 
-        self.d_pair = config.pair_representation_dim
-        self.d_msa = config.msa_feature_dim
+        self.d_pair = config.c_z
+        self.d_msa = config.c_m
 
         # Relative positional embedding
-        self.max_relative_idx = config.max_relative_idx
+        self.max_relative_idx = config.max_relative_chain
         self.use_chain_relative = config.use_chain_relative
         self.max_relative_chain = config.max_relative_chain
 
@@ -124,8 +124,8 @@ class RecyclingEmbedder(nn.Moudle):
     def __init__(self, config: RecyclingEmbedderConfig) -> None:
         super().__init__()
 
-        self.d_msa = config.msa_representation_dim
-        self.d_pair = config.pair_representation_dim
+        self.d_msa = config.c_m
+        self.d_pair = config.c_z
         self.min_bin = config.min_bin
         self.max_bin = config.max_bin
         self.num_bins = config.num_bins
@@ -177,8 +177,8 @@ class TemplateAngleEmbedder(nn.Module):
     def __init__(self, config: TemplateAngleEmbedderConfig) -> None:
         super().__init__()
 
-        self.d_in = config.template_angle_feature_dim
-        self.d_out = config.msa_representation_dim
+        self.d_in = config.ta_dim
+        self.d_out = config.c_m
 
         self.linear_1 = Linear(self.d_in, self.d_out, init="relu")
         self.act = nn.Relu()
@@ -198,10 +198,10 @@ class TemplateAngleEmbedder(nn.Module):
 
 class TemplatePairEmbedder(nn.Module):
     def __init__(self, config: TemplatePairEmbedderConfig) -> None:
-        self.d_out = config.template_representation_dim
-        self.d_in = config.template_feature_dims
+        self.d_out = config.c_t
+        self.d_in = config.tp_dim
         self.v2_feature = config.v2_feature
-        self.d_pair = config.pair_representation_dim
+        self.d_pair = config.c_z
 
         if self.v2_feature:
             self.z_layer_norm = LayerNorm(self.d_out)
@@ -227,8 +227,8 @@ class ExtraMsaEmbedder(nn.Module):
     def __init__(self, config: ExtraMsaEmbedderConfig) -> None:
         super().__init__()
 
-        self.d_in = config.extra_msa_feature_dim
-        self.d_out = config.extra_msa_representation_dim
+        self.d_in = config.extra_msa_dim
+        self.d_out = config.c_e
         self.linear = Linear(self.d_in, self.d_out)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
