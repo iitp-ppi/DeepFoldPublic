@@ -1,11 +1,11 @@
-from typing import Union, Tuple, Optional
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.core.parallel_state as ps
 import deepfold.core.model_parallel.mappings as cc
+import deepfold.core.parallel_state as ps
 
 
 class Dropout(nn.Module):
