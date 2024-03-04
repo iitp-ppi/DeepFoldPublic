@@ -31,9 +31,11 @@ class RecyclingEmbedder(nn.Module):
         num_bins: int,
         inf: float,
     ) -> None:
-        super(RecyclingEmbedder, self).__init__()
+        super().__init__()
+
         self.c_m = c_m
         self.c_z = c_z
+
         self.min_bin = min_bin
         self.max_bin = max_bin
         self.num_bins = num_bins

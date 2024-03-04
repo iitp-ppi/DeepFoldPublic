@@ -30,7 +30,7 @@ class InputEmbedder(nn.Module):
         relpos_k: int,
         **kwargs,
     ) -> None:
-        super(InputEmbedder, self).__init__()
+        super().__init__()
 
         self.tf_dim = tf_dim
         self.msa_dim = msa_dim
