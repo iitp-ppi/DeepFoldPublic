@@ -413,6 +413,8 @@ class Parser:
         """
         predict : PREDICT string STOI stoi_list USING id
                 | PREDICT string STOI stoi_list USING id pred_options
+                | PREDICT id STOI stoi_list USING id
+                | PREDICT id STOI stoi_list USING id pred_options
         """
         if len(p) == 7:
             p[0] = {"command": "predict", "name": p[2], "stoi": p[4], "model": p[6], "options": []}
@@ -436,7 +438,7 @@ class Parser:
         """
         pred_option : PAIR string object
                     | SAMPLE string object
-                    | IN string
+                    | IN object
         """
         if len(p) == 4:
             p[0] = {"command": p[1], "mode": p[2], "options": p[3]}
@@ -731,41 +733,3 @@ class Parser:
 
 # Maintain a reusable parser instance
 parser = None
-
-
-def parse(s):
-    """Parse a string-like object and return the corresponding python structure.
-
-    Args:
-      s: a string-like object
-    Returns:
-      A python dict or array
-    """
-    global parser
-    if parser is None:
-        parser = Parser()
-    return parser.parse(s)
-
-
-def parse_file(f):
-    return parse(f.read())
-
-
-def main(argv):
-    if len(argv) == 2:
-        for filename in argv[1:]:
-            s = parse_file(open(filename))
-    elif len(argv) == 1:
-        s = parse_file(sys.stdin)
-    else:
-        raise ValueError()
-
-    if len(s) == 0:
-        print("> NULL")
-    else:
-        for x in s:
-            print(">", x)
-
-
-if __name__ == "__main__":
-    main(sys.argv)
