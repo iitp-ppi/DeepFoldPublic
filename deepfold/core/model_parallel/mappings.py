@@ -6,14 +6,14 @@ from typing import Any, Tuple
 import torch
 import torch.distributed
 
+import deepfold.core.parallel_state as ps
 from deepfold.core.parallel_state import (
+    disable,
+    enable,
     get_model_parallel_group,
     get_model_parallel_rank,
     get_model_parallel_world_size,
-    enable,
-    disable,
 )
-import deepfold.core.parallel_state as ps
 
 
 def _reduce(tensor: torch.Tensor) -> torch.Tensor:
