@@ -65,7 +65,7 @@ class InputEmbedderConfig(_ConfigBase):
     msa_dim: int = 49
     c_z: int = PAIR_REPRESENTATION_DIM
     c_m: int = MSA_REPRESENTATION_DIM
-    max_relative_idx: int = 32
+    max_relative_index: int = 32  # relpos_k
     use_chain_relative: bool = False  # True
     max_relative_chain: int = 2
 
