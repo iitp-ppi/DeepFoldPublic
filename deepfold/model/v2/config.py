@@ -53,10 +53,19 @@ class EmbedderConfig(_ConfigBase):
     template_angle_embedder: "TemplateAngleEmbedderConfig" = None
     template_pair_embedder: "TemplatePairEmbedderConfig" = None
     template_pair_stack: "TemplatePairStackConfig" = None
-    template_projector: "TemplateProjectorConfig" = None
+    template_pointwise_attention: "TemplatePointwiseAttentionConfig" = None
     # Extra MSA embedders
     extra_msa_embedder: "ExtraMsaEmbedderConfig" = None
     extra_msa_stack: "ExtraMsaStackConfig" = None
+
+    template_enabled: bool = True
+    embed_template_torsion_angles: bool = True
+    template_pair_feat_distogram_min_bin: float = 3.25
+    template_pair_feat_distogram_max_bin: float = 50.75
+    template_pair_feat_distogram_num_bins: int = 39
+    template_pair_feat_use_unit_vector: bool = False
+    template_pair_feat_inf: float = 1e5
+    template_pair_feat_eps: float = 1e-6
 
 
 @dataclass(kw_only=True)
@@ -89,10 +98,16 @@ class TemplateAngleEmbedderConfig(_ConfigBase):
 
 @dataclass(kw_only=True)
 class TemplatePairEmbedderConfig(_ConfigBase):
-    c_z: int = PAIR_REPRESENTATION_DIM
-    tp_dim: list[int] = [88]  # [39, 1, 22, 22, 1, 1, 1, 1]
     c_t: int = TEMPLATE_REPRESENTATION_DIM
-    v2_feature: bool = False
+    tp_dim: int = 88  # [39, 1, 22, 22, 1, 1, 1, 1]
+
+
+@dataclass(kw_only=True)
+class TemplatePairEmbedderMultimerConfig(_ConfigBase):
+    c_t: int = TEMPLATE_REPRESENTATION_DIM
+    c_z: int = PAIR_REPRESENTATION_DIM
+    c_dgram: int = 39
+    c_aatype: int = 22
 
 
 @dataclass(kw_only=True)
@@ -111,14 +126,14 @@ class TemplatePairStackConfig(_ConfigBase):
 
 
 @dataclass(kw_only=True)
-class TemplateProjectorConfig(_ConfigBase):
+class TemplatePointwiseAttentionConfig(_ConfigBase):
     c_t: int = TEMPLATE_REPRESENTATION_DIM
     c_z: int = PAIR_REPRESENTATION_DIM
     enable_point_att: bool = True
     c_hidden: int = 16
     num_heads: int = 4
-    chunk_size: Optional[int] = None
     inf: float = 1e5
+    chunk_size: Optional[int] = None
 
 
 @dataclass(kw_only=True)
@@ -268,7 +283,7 @@ class DeepFoldConfig(_ConfigBase):
     # Training loss configuration
     loss_config: DeepFoldLossConfig = field(default=DeepFoldLossConfig())
 
-    # Recycling (last dimension in the batch dict):
+    # Recycling (last dimension in the batch dict)
     num_recycling_iters: int = 3  # 20 for multimer
 
     # Fused Adam + SWA
@@ -280,12 +295,46 @@ class DeepFoldConfig(_ConfigBase):
     # Evoformer Attention
     evo_attn: bool = False
 
+    # Primary sequence and MSA related feature names
+    primary_raw_feature_names: List[str] = field(
+        default_factory=lambda: [
+            "aatype",
+            "residue_index",
+            "msa",
+            "num_alignments",
+            "seq_length",
+            "deletion_matrix",
+        ]
+    )
+
+    # Template related feature names
+    template_raw_feature_names: List[str] = field(
+        default_factory=lambda: [
+            "template_all_atom_positions",
+            "template_sum_probs",
+            "template_aatype",
+            "template_all_atom_mask",
+        ]
+    )
+
+    # Target and related to supervised training feature names
+    supervised_raw_features_names: List[str] = field(
+        default_factory=lambda: [
+            "all_atom_mask",
+            "all_atom_positions",
+            "resolution",
+            "is_distillation",
+        ]
+    )
+
     def __post_init__(self):
         super().__post_init__()
 
+        # Triton MHA and Evoformer attention cannot be enabled simultaneously
         if self.triton_mha and self.evo_attn:
             raise ValueError("Triton multi-head attention and Evoformer attention cannot be enabled simultaneously")
 
+        # Redcue infinity for lower precisions
         if self.precision in {"fp32", "tf32", "bf16"}:
             pass
         elif self.precision in {"amp", "fp16"}:
@@ -297,3 +346,9 @@ class DeepFoldConfig(_ConfigBase):
             self.template_pair_feat_inf = 1e4
         else:
             raise ValueError(f"Unknown precision '{repr(self.precision)}'")
+
+        # Multimer support
+        if self.multimer:
+            self.primary_raw_feature_names.extend(["asym_id", "entity_id", "sym_id"])
+        else:
+            self.primary_raw_feature_names.append("between_segment_residues")
