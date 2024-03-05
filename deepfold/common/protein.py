@@ -7,8 +7,7 @@
 
 import dataclasses
 import io
-import string
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional
 
 import numpy as np
 from Bio.PDB import PDBParser
@@ -43,23 +42,21 @@ class Protein:
     # Residue index as used in PDB. It is not necessarily continuous or 0-indexed.
     residue_index: np.ndarray  # [num_res]
 
+    # 0-indexed number corresponding to the chain in the protein that this residue
+    # belongs to.
+    chain_index: np.ndarray  # [num_res]
+
     # B-factors, or temperature factors, of each residue (in sq. angstroms units),
     # representing the displacement of the residue from its ground truth mean
     # value.
     b_factors: np.ndarray  # [num_res, num_atom_type]
 
-    # Chain indices for multi-chain predictions
-    chain_index: Optional[np.ndarray] = None
-
-    # Optional remark about the protein. Included as a comment in output PDB
-    # files
-    remark: Optional[str] = None
-
-    # Templates used to generate this protein (prediction-only)
-    parents: Optional[Sequence[str]] = None
-
-    # Chain corresponding to each parent
-    parents_chain_index: Optional[Sequence[int]] = None
+    def __post_init__(self):
+        if len(np.unique(self.chain_index)) > PDB_MAX_CHAINS:
+            raise ValueError(
+                f"Cannot build an instance with more than {PDB_MAX_CHAINS} chains "
+                "because these cannot be written to PDB format."
+            )
 
 
 def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
@@ -70,9 +67,8 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
 
     Args:
       pdb_str: The contents of the pdb file
-      chain_id: If None, then the pdb file must contain a single chain (which
-        will be parsed). If chain_id is specified (e.g. A), then only that chain
-        is parsed.
+      chain_id: If chain_id is specified (e.g. A), then only that chain
+        is parsed. Otherwise all chains are parsed.
 
     Returns:
       A new `Protein` parsed from the pdb contents.
@@ -96,6 +92,11 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
         if chain_id is not None and chain.id != chain_id:
             continue
         for res in chain:
+            if res.id[2] != " ":
+                raise ValueError(
+                    f"PDB contains an insertion code at chain {chain.id} and residue "
+                    f"index {res.id[1]}. These are not supported."
+                )
             res_shortname = rc.restype_3to1.get(res.resname, "X")
             restype_idx = rc.restype_order.get(res_shortname, rc.restype_num)
             pos = np.zeros((rc.atom_type_num, 3))
@@ -117,22 +118,9 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
             chain_ids.append(chain.id)
             b_factors.append(res_b_factors)
 
-    parents = None
-    parents_chain_index = None
-    if "PARENT" in pdb_str:
-        parents = []
-        parents_chain_index = []
-        chain_id = 0
-        for l in pdb_str.split("\n"):
-            if "PARENT" in l:
-                if not "N/A" in l:
-                    parent_names = l.split()[1:]
-                    parents.extend(parent_names)
-                    parents_chain_index.extend([chain_id for _ in parent_names])
-                chain_id += 1
-
+    # Chain IDs are usually characters so map these to ints.
     unique_chain_ids = np.unique(chain_ids)
-    chain_id_mapping = {cid: n for n, cid in enumerate(string.ascii_uppercase)}
+    chain_id_mapping = {cid: n for n, cid in enumerate(unique_chain_ids)}
     chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
 
     return Protein(
@@ -142,79 +130,7 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
         residue_index=np.array(residue_index),
         chain_index=chain_index,
         b_factors=np.array(b_factors),
-        parents=parents,
-        parents_chain_index=parents_chain_index,
     )
-
-
-def get_pdb_headers(prot: Protein, chain_id: int = 0) -> Sequence[str]:
-    pdb_headers = []
-
-    remark = prot.remark
-    if remark is not None:
-        pdb_headers.append(f"REMARK {remark}")
-
-    parents = prot.parents
-    parents_chain_index = prot.parents_chain_index
-    if parents_chain_index is not None:
-        parents = [p for i, p in zip(parents_chain_index, parents) if i == chain_id]
-
-    if parents is None or len(parents) == 0:
-        parents = ["N/A"]
-
-    pdb_headers.append(f"PARENT {' '.join(parents)}")
-
-    return pdb_headers
-
-
-def add_pdb_headers(prot: Protein, pdb_str: str) -> str:
-    """Add pdb headers to an existing PDB string. Useful during multi-chain
-    recycling
-    """
-    out_pdb_lines = []
-    lines = pdb_str.split("\n")
-
-    remark = prot.remark
-    if remark is not None:
-        out_pdb_lines.append(f"REMARK {remark}")
-
-    parents_per_chain = None
-    if prot.parents is not None and len(prot.parents) > 0:
-        parents_per_chain = []
-        if prot.parents_chain_index is not None:
-            cur_chain = prot.parents_chain_index[0]
-            parent_dict = {}
-            for p, i in zip(prot.parents, prot.parents_chain_index):
-                parent_dict.setdefault(str(i), [])
-                parent_dict[str(i)].append(p)
-
-            max_idx = max([int(chain_idx) for chain_idx in parent_dict])
-            for i in range(max_idx + 1):
-                chain_parents = parent_dict.get(str(i), ["N/A"])
-                parents_per_chain.append(chain_parents)
-        else:
-            parents_per_chain.append(prot.parents)
-    else:
-        parents_per_chain = [["N/A"]]
-
-    make_parent_line = lambda p: f"PARENT {' '.join(p)}"
-
-    out_pdb_lines.append(make_parent_line(parents_per_chain[0]))
-
-    chain_counter = 0
-    for i, l in enumerate(lines):
-        if "PARENT" not in l and "REMARK" not in l:
-            out_pdb_lines.append(l)
-        if "TER" in l and not "END" in lines[i + 1]:
-            chain_counter += 1
-            if not chain_counter >= len(parents_per_chain):
-                chain_parents = parents_per_chain[chain_counter]
-            else:
-                chain_parents = ["N/A"]
-
-            out_pdb_lines.append(make_parent_line(chain_parents))
-
-    return "\n".join(out_pdb_lines)
 
 
 def _chain_end(atom_index, end_resname, chain_name, residue_index) -> str:
@@ -224,8 +140,10 @@ def _chain_end(atom_index, end_resname, chain_name, residue_index) -> str:
 
 def to_pdb(prot: Protein) -> str:
     """Converts a `Protein` instance to a PDB string.
+
     Args:
       prot: The protein to convert to PDB.
+
     Returns:
       PDB string.
     """
@@ -260,7 +178,12 @@ def to_pdb(prot: Protein) -> str:
         # Close the previous chain if in a multichain PDB.
         if last_chain_index != chain_index[i]:
             pdb_lines.append(
-                _chain_end(atom_index, res_1to3(aatype[i - 1]), chain_ids[chain_index[i - 1]], residue_index[i - 1])
+                _chain_end(
+                    atom_index,
+                    res_1to3(aatype[i - 1]),
+                    chain_ids[chain_index[i - 1]],
+                    residue_index[i - 1],
+                )
             )
             last_chain_index = chain_index[i]
             atom_index += 1  # Atom index increases at the TER symbol.
@@ -290,7 +213,14 @@ def to_pdb(prot: Protein) -> str:
             atom_index += 1
 
     # Close the final chain.
-    pdb_lines.append(_chain_end(atom_index, res_1to3(aatype[-1]), chain_ids[chain_index[-1]], residue_index[-1]))
+    pdb_lines.append(
+        _chain_end(
+            atom_index,
+            res_1to3(aatype[-1]),
+            chain_ids[chain_index[-1]],
+            residue_index[-1],
+        )
+    )
     pdb_lines.append("ENDMDL")
     pdb_lines.append("END")
 
@@ -315,27 +245,23 @@ def ideal_atom_mask(prot: Protein) -> np.ndarray:
     return rc.STANDARD_ATOM_MASK[prot.aatype]
 
 
-def from_prediction(
-    features: FeatureDict,
-    result: ModelOutput,
-    b_factors: Optional[np.ndarray] = None,
-    chain_index: Optional[np.ndarray] = None,
-    remark: Optional[str] = None,
-    parents: Optional[Sequence[str]] = None,
-    parents_chain_index: Optional[Sequence[int]] = None,
-) -> Protein:
+def from_prediction(features: FeatureDict, result: ModelOutput, b_factors: Optional[np.ndarray] = None) -> Protein:
     """Assembles a protein from a prediction.
 
     Args:
       features: Dictionary holding model inputs.
-      result: Dictionary holding model outputs.
+      fold_output: Dictionary holding model outputs.
       b_factors: (Optional) B-factors to use for the protein.
-      chain_index: (Optional) Chain indices for multi-chain predictions
-      remark: (Optional) Remark about the prediction
-      parents: (Optional) List of template names
+
     Returns:
       A protein instance.
     """
+
+    if "asym_id" in features:
+        chain_index = features["asym_id"] - 1
+    else:
+        chain_index = np.zeros_like((features["aatype"]))
+
     if b_factors is None:
         b_factors = np.zeros_like(result["final_atom_mask"])
 
@@ -344,9 +270,35 @@ def from_prediction(
         atom_positions=result["final_atom_positions"],
         atom_mask=result["final_atom_mask"],
         residue_index=features["residue_index"] + 1,
-        b_factors=b_factors,
         chain_index=chain_index,
-        remark=remark,
-        parents=parents,
-        parents_chain_index=parents_chain_index,
+        b_factors=b_factors,
+    )
+
+
+def from_feature(features: FeatureDict, b_factors: Optional[np.ndarray] = None) -> Protein:
+    """Assembles a standard pdb from input atom positions & mask.
+
+    Args:
+      features: Dictionary holding model inputs.
+      b_factors: (Optional) B-factors to use for the protein.
+
+    Returns:
+      A protein instance.
+    """
+
+    if "asym_id" in features:
+        chain_index = features["asym_id"] - 1
+    else:
+        chain_index = np.zeros_like((features["aatype"]))
+
+    if b_factors is None:
+        b_factors = np.zeros_like(features["all_atom_mask"])
+
+    return Protein(
+        aatype=features["aatype"],
+        atom_positions=features["all_atom_positions"],
+        atom_mask=features["all_atom_mask"],
+        residue_index=features["residue_index"] + 1,
+        chain_index=chain_index,
+        b_factors=b_factors,
     )
