@@ -4,12 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import deepfold.core.model_parallel.mappings as cc
+import deepfold.core.parallel_state as ps
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
 from deepfold.model.v2.utils.iter_utils import slice_generator
 from deepfold.utils.precision import is_fp16_enabled
-import deepfold.core.model_parallel.mappings as cc
-import deepfold.core.parallel_state as ps
 
 
 class OuterProductMean(nn.Module):
@@ -82,7 +82,7 @@ class OuterProductMean(nn.Module):
         # mask: [batch, N_seq, N_res, 1]
 
         if ps.is_enabled():
-            mask_s = cc.scatter(mask, dim=2)
+            mask_s = cc.scatter_to_model_parallel_region(mask, dim=2)
             a, b = _forward_linear_a_b(
                 m,
                 self.linear_1.weight,
@@ -91,7 +91,7 @@ class OuterProductMean(nn.Module):
                 self.linear_2.bias,
                 mask_s,
             )
-            b = cc.gather(b, dim=2, bwd="all_reduce_sum_split")
+            b = cc.gather_from_model_parallel_region(b, dim=2, bwd="all_reduce_sum_split")
         else:
             a, b = _forward_linear_a_b(
                 m,
@@ -115,7 +115,7 @@ class OuterProductMean(nn.Module):
         # norm: [batch, N_res, N_res, 1]
 
         if ps.is_enabled():
-            norm = cc.scatter(norm, dim=1)
+            norm = cc.scatter_to_model_parallel_region(norm, dim=1)
 
         outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
         # outer: [batch, N_res, N_res, c_z]
