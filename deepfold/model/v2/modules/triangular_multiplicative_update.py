@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.core.parallel_state as ps
 import deepfold.core.model_parallel.mappings as cc
+import deepfold.core.parallel_state as ps
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
 from deepfold.utils.precision import is_fp16_enabled
