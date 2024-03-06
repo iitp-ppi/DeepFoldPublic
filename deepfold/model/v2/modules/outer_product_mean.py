@@ -1,12 +1,15 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
 from deepfold.model.v2.utils.iter_utils import slice_generator
 from deepfold.utils.precision import is_fp16_enabled
+import deepfold.core.model_parallel.mappings as cc
+import deepfold.core.parallel_state as ps
 
 
 class OuterProductMean(nn.Module):
@@ -31,8 +34,8 @@ class OuterProductMean(nn.Module):
         eps: float,
         chunk_size: Optional[int],
     ) -> None:
-        super().__init__()
-        assert eps == 1e-3  # NOTE: Important
+        super(OuterProductMean, self).__init__()
+        assert eps == 1e-3
         self.c_m = c_m
         self.c_z = c_z
         self.c_hidden = c_hidden
@@ -47,27 +50,30 @@ class OuterProductMean(nn.Module):
         self,
         m: torch.Tensor,
         mask: torch.Tensor,
+        add_output_to: torch.Tensor,
     ) -> torch.Tensor:
         """Outer Product Mean forward pass.
 
         Args:
             m: [batch, N_seq, N_res, c_m] MSA representation
             mask: [batch, N_seq, N_res] MSA mask
+            add_output_to: pair representation to which add outer update
 
         Returns:
-            outer: [batch, N_res, N_res, c_z] pair representation update
+            outer: [batch, N_res, N_res, c_z] updated pair representation
 
         """
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
-                return self._forward(m=m.float(), mask=mask)
+                return self._forward(m.float(), mask, add_output_to)
         else:
-            return self._forward(m=m, mask=mask)
+            return self._forward(m, mask, add_output_to)
 
     def _forward(
         self,
         m: torch.Tensor,
         mask: torch.Tensor,
+        add_output_to: torch.Tensor,
     ) -> torch.Tensor:
         m = self.layer_norm(m)
         # m: [batch, N_seq, N_res, c_m]
@@ -75,25 +81,43 @@ class OuterProductMean(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_seq, N_res, 1]
 
-        a = self.linear_1(m) * mask
-        # a: [batch, N_seq, N_res, c_hidden]
+        if ps.is_enabled():
+            mask_s = cc.scatter(mask, dim=2)
+            a, b = _forward_linear_a_b(
+                m,
+                self.linear_1.weight,
+                self.linear_1.bias,
+                self.linear_2.weight,
+                self.linear_2.bias,
+                mask_s,
+            )
+            b = cc.gather(b, dim=2, bwd="all_reduce_sum_split")
+        else:
+            a, b = _forward_linear_a_b(
+                m,
+                self.linear_1.weight,
+                self.linear_1.bias,
+                self.linear_2.weight,
+                self.linear_2.bias,
+                mask,
+            )
+            # a: [batch, N_seq, N_res, c_hidden]
+            # b: [batch, N_seq, N_res, c_hidden]
 
-        b = self.linear_2(m) * mask
-        # b: [batch, N_seq, N_res, c_hidden]
-
-        a = a.transpose(-2, -3)
-        # a: [batch, N_res, N_seq, c_hidden]
-
-        b = b.transpose(-2, -3)
-        # b: [batch, N_res, N_seq, c_hidden]
-
-        outer = self._outer_forward(a=a, b=b)
-        # outer: [batch, N_res, N_res, c_z]
+            a = a.transpose(-2, -3)
+            # a: [batch, N_res, N_seq, c_hidden]
+            b = b.transpose(-2, -3)
+            # b: [batch, N_res, N_seq, c_hidden]
+            outer = self._outer_forward(a=a, b=b)
+            # outer: [batch, N_res, N_res, c_z]
 
         norm = torch.einsum("...abc,...adc->...bdc", mask, mask)
         # norm: [batch, N_res, N_res, 1]
 
-        outer = outer / (norm + self.eps)
+        if ps.is_enabled():
+            norm = cc.scatter(norm, dim=1)
+
+        outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
         # outer: [batch, N_res, N_res, c_z]
 
         return outer
@@ -107,10 +131,8 @@ class OuterProductMean(nn.Module):
     def _outer(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
         outer = torch.einsum("...bac,...dae->...bdce", a, b)
         # outer: [batch, a_N_res, b_N_res, c_hidden, c_hidden]
-
         outer = outer.reshape(outer.shape[:-2] + (self.c_hidden * self.c_hidden,))
         # outer: [batch, a_N_res, b_N_res, c_hidden * c_hidden]
-
         outer = self.linear_out(outer)
         # outer: [batch, a_N_res, b_N_res, c_z]
         return outer
@@ -123,3 +145,95 @@ class OuterProductMean(nn.Module):
             outer_chunk = self._outer(a=a_chunk, b=b)
             outer_chunks.append(outer_chunk)
         return torch.cat(outer_chunks, dim=1)
+
+
+def _forward_linear_a_b_native(
+    m: torch.Tensor,
+    w1: torch.Tensor,
+    b1: torch.Tensor,
+    w2: torch.Tensor,
+    b2: torch.Tensor,
+    mask: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    a = F.linear(m, w1, b1) * mask
+    b = F.linear(m, w2, b2) * mask
+    return a, b
+
+
+# _forward_linear_a_b_jit = torch.compile(_forward_linear_a_b_native)
+
+
+def _forward_linear_a_b(
+    m: torch.Tensor,
+    w1: torch.Tensor,
+    b1: torch.Tensor,
+    w2: torch.Tensor,
+    b2: torch.Tensor,
+    mask: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    forward_linear_a_b_fn = _forward_linear_a_b_native
+    return forward_linear_a_b_fn(m, w1, b1, w2, b2, mask)
+
+
+def _forward_outer_native(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    w_o: torch.Tensor,
+    b_o: torch.Tensor,
+    batch: int,
+    a_N_res: int,
+    b_N_res: int,
+    c_hidden: int,
+) -> torch.Tensor:
+    # a: [batch, N_seq, N_res, c_hidden]
+    a = a.transpose(-2, -3)
+    # a: [batch, N_res, N_seq, c_hidden]
+    a = a.transpose(-1, -2)
+    # a: [batch, N_res, c_hidden, N_seq]
+    a = a.flatten(1, 2)
+    # a: [batch, N_res * c_hidden, N_seq]
+
+    # b: [batch, N_seq, N_res, c_hidden]
+    b = b.flatten(-2, -1)
+    # b: [batch, N_seq, N_res * c_hidden]
+
+    outer = torch.bmm(a, b)
+    # outer: [batch, a_N_res * c_hidden, b_N_res * c_hidden]
+
+    outer = outer.reshape((batch, a_N_res, c_hidden, b_N_res, c_hidden))
+    # outer: [batch, a_N_res, c_hidden, b_N_res, c_hidden]
+    outer = outer.transpose(2, 3)
+    # outer: [batch, a_N_res, b_N_res, c_hidden, c_hidden]
+    outer = outer.flatten(-2, -1)
+    # outer: [batch, a_N_res, b_N_res, c_hidden * c_hidden]
+
+    outer = F.linear(outer, w_o, b_o)
+    # outer: [batch, a_N_res, b_N_res, c_z]
+
+    return outer
+
+
+_forward_outer_jit = torch.compile(_forward_outer_native)
+
+
+def _forward_normalize_add_native(
+    norm: torch.Tensor,
+    outer: torch.Tensor,
+    z: torch.Tensor,
+    eps: float,
+) -> torch.Tensor:
+    outer = outer / (norm + eps)
+    return z + outer
+
+
+# _forward_normalize_add_jit = torch.compile(_forward_normalize_add_native)
+
+
+def _forward_normalize_add(
+    norm: torch.Tensor,
+    outer: torch.Tensor,
+    z: torch.Tensor,
+    eps: float,
+) -> torch.Tensor:
+    forward_normalize_add_fn = _forward_normalize_add_native
+    return forward_normalize_add_fn(norm, outer, z, eps)
