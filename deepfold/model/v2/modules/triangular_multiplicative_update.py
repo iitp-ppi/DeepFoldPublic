@@ -79,9 +79,9 @@ class TriangleMultiplicativeUpdate(nn.Module):
 
         if ps.is_enabled():
             if self._is_outgoing:
-                b = cc.gather_from_model_parallel_region(b, dim=1, bwd="all_reduce_sum_split")
+                b = cc.gather_from_model_parallel_region(b, dim=-3, bwd="all_reduce_sum_split")
             else:
-                a = cc.gather_from_model_parallel_region(a, dim=2, bwd="all_reduce_sum_split")
+                a = cc.gather_from_model_parallel_region(a, dim=-2, bwd="all_reduce_sum_split")
 
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):

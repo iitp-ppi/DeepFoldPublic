@@ -70,7 +70,7 @@ class MSARowAttentionWithPairBias(nn.Module):
         z = self.layer_norm_z(z)
         z = self.linear_z(z)
         if ps.is_enabled():
-            z = cc.gather_from_model_parallel_region(z, dim=1, bwd="all_reduce_sum_split")
+            z = cc.gather_from_model_parallel_region(z, dim=-3, bwd="all_reduce_sum_split")
         # z: [batch, N_res, N_res, num_heads]
 
         z = z.movedim(-1, -3).unsqueeze(-4)
