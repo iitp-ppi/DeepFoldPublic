@@ -22,7 +22,7 @@ class AlphaFoldLoss(nn.Module):
     """
 
     def __init__(self, config: LossConfig) -> None:
-        super(AlphaFoldLoss, self).__init__()
+        super().__init__()
         self.fape_loss_config = config.fape_loss_config
         self.supervised_chi_loss_config = config.supervised_chi_loss_config
         self.distogram_loss_config = config.distogram_loss_config
