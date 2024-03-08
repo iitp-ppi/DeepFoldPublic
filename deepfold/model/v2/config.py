@@ -4,148 +4,74 @@
 """DeepFold2 model configuration."""
 
 
-import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import List, Optional
 
-from omegaconf import DictConfig, OmegaConf
 
-logger = logging.getLogger(__name__)
-
-
-PAIR_REPRESENTATION_DIM = 128
-MSA_REPRESENTATION_DIM = 256
-SINGLE_REPRESENTATION_DIM = 384
-EXTRA_MSA_REPRESENTATION_DIM = 64
-TEMPLATE_REPRESENTATION_DIM = 64
-
-
-@dataclass(kw_only=True)
-class _ConfigBase:
-    r"""
-    Base class for configurations.
-    """
-
-    def to_omegaconf(self):
-        return OmegaConf.structured(self)
-
-    def to_dict(self):
-        return asdict(self)
-
-    def __post_init__(self):
-        for k, v in self.__annotations__.items():
-            if not issubclass(v, _ConfigBase):
-                continue
-            com = getattr(self, k)
-            if com is None:
-                setattr(self, k, v())
-            elif isinstance(com, (dict, DictConfig)):
-                setattr(self, k, v(**com))
-
-
-@dataclass(kw_only=True)
-class EmbedderConfig(_ConfigBase):
-
-    # Input and recylcing embedder
-    input_embedder: "InputEmbedderConfig" = None
-    recycling_embedder: "RecyclingEmbedderConfig" = None
-    # Template embedders
-    template_angle_embedder: "TemplateAngleEmbedderConfig" = None
-    template_pair_embedder: "TemplatePairEmbedderConfig" = None
-    template_pair_stack: "TemplatePairStackConfig" = None
-    template_pointwise_attention: "TemplatePointwiseAttentionConfig" = None
-    # Extra MSA embedders
-    extra_msa_embedder: "ExtraMsaEmbedderConfig" = None
-    extra_msa_stack: "ExtraMsaStackConfig" = None
-
-    template_enabled: bool = True
-    embed_template_torsion_angles: bool = True
-    template_pair_feat_distogram_min_bin: float = 3.25
-    template_pair_feat_distogram_max_bin: float = 50.75
-    template_pair_feat_distogram_num_bins: int = 39
-    template_pair_feat_use_unit_vector: bool = False
-    template_pair_feat_inf: float = 1e5
-    template_pair_feat_eps: float = 1e-6
-
-
-@dataclass(kw_only=True)
-class InputEmbedderConfig(_ConfigBase):
-    tf_dim: int = 22  # 21
+@dataclass
+class InputEmbedderConfig:
+    tf_dim: int = 22
     msa_dim: int = 49
-    c_z: int = PAIR_REPRESENTATION_DIM
-    c_m: int = MSA_REPRESENTATION_DIM
-    max_relative_index: int = 32  # relpos_k
-    use_chain_relative: bool = False  # True
-    max_relative_chain: int = 2
+    c_z: int = 128
+    c_m: int = 256
+    relpos_k: int = 32
 
 
-@dataclass(kw_only=True)
-class RecyclingEmbedderConfig(_ConfigBase):
-    c_z: int = PAIR_REPRESENTATION_DIM
-    c_m: int = MSA_REPRESENTATION_DIM
-    recycle_positions: bool = True
+@dataclass
+class RecyclingEmbedderConfig:
+    c_m: int = 256
+    c_z: int = 128
     min_bin: float = 3.25
     max_bin: float = 20.75
     num_bins: int = 15
     inf: float = 1e8
 
 
-@dataclass(kw_only=True)
-class TemplateAngleEmbedderConfig(_ConfigBase):
-    ta_dim: int = 57  # 34
-    c_m: int = MSA_REPRESENTATION_DIM
+@dataclass
+class TemplateAngleEmbedderConfig:
+    ta_dim: int = 57
+    c_m: int = 256
 
 
-@dataclass(kw_only=True)
-class TemplatePairEmbedderConfig(_ConfigBase):
-    c_t: int = TEMPLATE_REPRESENTATION_DIM
-    tp_dim: int = 88  # [39, 1, 22, 22, 1, 1, 1, 1]
+@dataclass
+class TemplatePairEmbedderConfig:
+    tp_dim: int = 88
+    c_t: int = 64
 
 
-@dataclass(kw_only=True)
-class TemplatePairEmbedderMultimerConfig(_ConfigBase):
-    c_t: int = TEMPLATE_REPRESENTATION_DIM
-    c_z: int = PAIR_REPRESENTATION_DIM
-    c_dgram: int = 39
-    c_aatype: int = 22
-
-
-@dataclass(kw_only=True)
-class TemplatePairStackConfig(_ConfigBase):
-    c_t: int = TEMPLATE_REPRESENTATION_DIM
+@dataclass
+class TemplatePairStackConfig:
+    c_t: int = 64
     c_hidden_tri_att: int = 16
     c_hidden_tri_mul: int = 64
     num_blocks: int = 2
     num_heads_tri: int = 4
-    num_pair_transitions: int = 2
-    chunk_size: int = 128
-    chunk_size_tri_att: Optional[int] = None
+    pair_transition_n: int = 2
     dropout_rate: float = 0.25
     inf: float = 1e9
-    tri_att_first: bool = True
+    chunk_size_tri_att: Optional[int] = None
 
 
-@dataclass(kw_only=True)
-class TemplatePointwiseAttentionConfig(_ConfigBase):
-    c_t: int = TEMPLATE_REPRESENTATION_DIM
-    c_z: int = PAIR_REPRESENTATION_DIM
-    enable_point_att: bool = True
+@dataclass
+class TemplatePointwiseAttentionConfig:
+    c_t: int = 64
+    c_z: int = 128
     c_hidden: int = 16
     num_heads: int = 4
     inf: float = 1e5
     chunk_size: Optional[int] = None
 
 
-@dataclass(kw_only=True)
-class ExtraMsaEmbedderConfig(_ConfigBase):
-    extra_msa_dim: int = 25
-    c_e: int = EXTRA_MSA_REPRESENTATION_DIM
+@dataclass
+class ExtraMSAEmbedderConfig:
+    emsa_dim: int = 25
+    c_e: int = 64
 
 
-@dataclass(kw_only=True)
-class ExtraMsaStackConfig(_ConfigBase):
-    c_e: int = EXTRA_MSA_REPRESENTATION_DIM
-    c_z: int = PAIR_REPRESENTATION_DIM
+@dataclass
+class ExtraMSAStackConfig:
+    c_e: int = 64
+    c_z: int = 128
     c_hidden_msa_att: int = 8
     c_hidden_opm: int = 32
     c_hidden_tri_mul: int = 128
@@ -153,8 +79,7 @@ class ExtraMsaStackConfig(_ConfigBase):
     num_heads_msa: int = 8
     num_heads_tri: int = 4
     num_blocks: int = 4
-    num_msa_transitions: int = 4
-    num_pair_transitions: int = 4
+    transition_n: int = 4
     msa_dropout: float = 0.15
     pair_dropout: float = 0.25
     inf: float = 1e9
@@ -165,20 +90,19 @@ class ExtraMsaStackConfig(_ConfigBase):
     chunk_size_tri_att: Optional[int] = None
 
 
-@dataclass(kw_only=True)
-class EvoformerStackConfig(_ConfigBase):
-    c_m: int = MSA_REPRESENTATION_DIM
-    c_z: int = PAIR_REPRESENTATION_DIM
+@dataclass
+class EvoformerStackConfig:
+    c_m: int = 256
+    c_z: int = 128
     c_hidden_msa_att: int = 32
     c_hidden_opm: int = 32
     c_hidden_tri_mul: int = 128
     c_hidden_tri_att: int = 32
-    c_s: int = SINGLE_REPRESENTATION_DIM
+    c_s: int = 384
     num_heads_msa: int = 8
     num_heads_tri: int = 4
     num_blocks: int = 48
-    num_msa_transitions: int = 4
-    num_pair_transitions: int = 4
+    transition_n: int = 4
     msa_dropout: float = 0.15
     pair_dropout: float = 0.25
     inf: float = 1e9
@@ -188,21 +112,10 @@ class EvoformerStackConfig(_ConfigBase):
     chunk_size_tri_att: Optional[int] = None
 
 
-@dataclass(kw_only=True)
-class HeadsConfig(_ConfigBase):
-    distogram: "DistogramHeadConfig" = None
-    experimentally_resolved: "ExperimentallyResolvedHeadConfig" = None
-    masked_msa: "MaskedMsaHeadConfig" = None
-    predicted_aligned_error: "PredictedAlignedErrorHeadConfig" = None
-    predicted_lddt: "PredictedPlddtHeadConfig" = None
-    structure_module: "StructureModuleConfig" = None
-
-
-@dataclass(kw_only=True)
-class StructureModuleConfig(_ConfigBase):
-    c_s: int = SINGLE_REPRESENTATION_DIM
-    c_z: int = PAIR_REPRESENTATION_DIM
-
+@dataclass
+class StructureModuleConfig:
+    c_s: int = 384
+    c_z: int = 128
     c_hidden_ipa: int = 16
     c_hidden_ang_res: int = 128
     num_heads_ipa: int = 12
@@ -212,143 +125,158 @@ class StructureModuleConfig(_ConfigBase):
     num_blocks: int = 8
     num_ang_res_blocks: int = 2
     num_angles: int = 7
-    scale_factor: float = 10.0  # AA to nm
+    scale_factor: float = 10.0
     inf: float = 1e5
-    eps: float = 1e-8  # TODO: Check
+    eps: float = 1e-8
 
 
-@dataclass(kw_only=True)
-class DistogramHeadConfig(_ConfigBase):
-    c_z: int = PAIR_REPRESENTATION_DIM
-    output_dim: int = 64
+@dataclass
+class PerResidueLDDTCaPredictorConfig:
+    c_s: int = 384
+    c_hidden: int = 128
+    num_bins: int = 50
 
 
-@dataclass(kw_only=True)
-class ExperimentallyResolvedHeadConfig(_ConfigBase):
+@dataclass
+class DistogramHeadConfig:
+    c_z: int = 128
+    num_bins: int = 64
+
+
+@dataclass
+class MaskedMSAHeadConfig:
+    c_m: int = 256
+    c_out: int = 23
+
+
+@dataclass
+class ExperimentallyResolvedHeadConfig:
+    c_s: int = 384
+    c_out: int = 37
+
+
+@dataclass
+class TMScoreHeadConfig:
+    c_z: int = 128
+    num_bins: int = 64
+    max_bin: int = 31
+
+
+@dataclass
+class AuxiliaryHeadsConfig:
+    per_residue_lddt_ca_predictor_config: PerResidueLDDTCaPredictorConfig = field(
+        default=PerResidueLDDTCaPredictorConfig(),
+    )
+    distogram_head_config: DistogramHeadConfig = field(
+        default=DistogramHeadConfig(),
+    )
+    masked_msa_head_config: MaskedMSAHeadConfig = field(
+        default=MaskedMSAHeadConfig(),
+    )
+    experimentally_resolved_head_config: ExperimentallyResolvedHeadConfig = field(
+        default=ExperimentallyResolvedHeadConfig(),
+    )
+    tm_score_head_config: TMScoreHeadConfig = field(
+        default=TMScoreHeadConfig(),
+    )
+    tm_score_head_enabled: bool = False
+
+
+@dataclass
+class FAPELossConfig:
+    weight: float = 1.0
+    backbone_clamp_distance: float = 10.0
+    backbone_loss_unit_distance: float = 10.0
+    backbone_weight: float = 0.5
+    sidechain_clamp_distance: float = 10.0
+    sidechain_length_scale: float = 10.0
+    sidechain_weight: float = 0.5
+    eps: float = 1e-4
+
+
+@dataclass
+class SupervisedChiLossConfig:
+    weight: float = 1.0
+    chi_weight: float = 0.5
+    angle_norm_weight: float = 0.01
+    eps: float = 1e-8
+
+
+@dataclass
+class DistogramLossConfig:
+    weight: float = 0.3
+    min_bin: float = 2.3125
+    max_bin: float = 21.6875
+    num_bins: int = 64
+    eps: float = 1e-8
+
+
+@dataclass
+class MaskedMSALossConfig:
+    weight: float = 2.0
+    eps: float = 1e-8
+
+
+@dataclass
+class PLDDTLossConfig:
+    weight: float = 0.01
+    cutoff: float = 15.0
+    min_resolution: float = 0.1
+    max_resolution: float = 3.0
+    num_bins: int = 50
+    eps: float = 1e-8
+
+
+@dataclass
+class ExperimentallyResolvedLossConfig:
+    weight: float = 0.0
+    min_resolution: float = 0.1
+    max_resolution: float = 3.0
+    eps: float = 1e-8
+
+
+@dataclass
+class ViolationLossConfig:
+    weight: float = 0.0
+    violation_tolerance_factor: float = 12.0
+    clash_overlap_tolerance: float = 1.5
+    eps: float = 1e-8
+
+
+@dataclass
+class TMLossConfig:
     enabled: bool = False
-    c_s: int = SINGLE_REPRESENTATION_DIM
-    output_dim: int = 37
+    weight: float = 0.0
+    min_resolution: float = 0.1
+    max_resolution: float = 3.0
+    num_bins: int = 64
+    max_bin: int = 31
+    eps: float = 1e-8
 
 
-@dataclass(kw_only=True)
-class MaskedMsaHeadConfig(_ConfigBase):
-    c_m: int = MSA_REPRESENTATION_DIM
-    output_dim: int = 23  # 22 for multimer
-
-
-@dataclass(kw_only=True)
-class PredictedAlignedErrorHeadConfig(_ConfigBase):
-    enabled: bool = False
-    c_z: int = PAIR_REPRESENTATION_DIM
-    output_dim: int = 64
-    iptm_weight: float = 0.8
-
-
-@dataclass(kw_only=True)
-class PredictedPlddtHeadConfig(_ConfigBase):
-    c_s: int = SINGLE_REPRESENTATION_DIM
-    output_dim: int = 50
-    hidden_dim: int = 128
-
-
-@dataclass(kw_only=True)
-class DeepFoldLossConfig(_ConfigBase):
-    # distogram
-    # experimentally_resolved
-    # fape
-    # plddt
-    # masked_msa
-    # supervised_chi
-    # violation
-    # predicted_aligned_error
-    # chain_center_of_mass
-    pass
-
-
-@dataclass(kw_only=True)
-class DeepFoldConfig(_ConfigBase):
-    r"""
-    This is the configuration class to store the configuration of a DeepFold model. It is used to instantiate a
-    DeepFold model according to the specified arguments, defining model architecture.
-    """
-
-    multimer: bool = False
-    precision: str = "fp32"
-
-    # Modules configuratiaon
-    embedder: "EmbedderConfig" = field(default_factory=EmbedderConfig())
-    encoder: "EvoformerStackConfig" = field(default_factory=EvoformerStackConfig())
-    decoder: "HeadsConfig" = field(default_factory=HeadsConfig())
-
-    # Training loss configuration
-    loss_config: DeepFoldLossConfig = field(default=DeepFoldLossConfig())
-
-    # Recycling (last dimension in the batch dict)
-    num_recycling_iters: int = 3  # 20 for multimer
-
-    # Fused Adam + SWA
-    fused_adam_swa: bool = True
-
-    # Triton MHA
-    triton_mha: bool = False
-
-    # Evoformer Attention
-    evo_attn: bool = False
-
-    # Primary sequence and MSA related feature names
-    primary_raw_feature_names: List[str] = field(
-        default_factory=lambda: [
-            "aatype",
-            "residue_index",
-            "msa",
-            "num_alignments",
-            "seq_length",
-            "deletion_matrix",
-        ]
+@dataclass
+class LossConfig:
+    fape_loss_config: FAPELossConfig = field(
+        default=FAPELossConfig(),
     )
-
-    # Template related feature names
-    template_raw_feature_names: List[str] = field(
-        default_factory=lambda: [
-            "template_all_atom_positions",
-            "template_sum_probs",
-            "template_aatype",
-            "template_all_atom_mask",
-        ]
+    supervised_chi_loss_config: SupervisedChiLossConfig = field(
+        default=SupervisedChiLossConfig(),
     )
-
-    # Target and related to supervised training feature names
-    supervised_raw_features_names: List[str] = field(
-        default_factory=lambda: [
-            "all_atom_mask",
-            "all_atom_positions",
-            "resolution",
-            "is_distillation",
-        ]
+    distogram_loss_config: DistogramLossConfig = field(
+        default=DistogramLossConfig(),
     )
-
-    def __post_init__(self):
-        super().__post_init__()
-
-        # Triton MHA and Evoformer attention cannot be enabled simultaneously
-        if self.triton_mha and self.evo_attn:
-            raise ValueError("Triton multi-head attention and Evoformer attention cannot be enabled simultaneously")
-
-        # Redcue infinity for lower precisions
-        if self.precision in {"fp32", "tf32", "bf16"}:
-            pass
-        elif self.precision in {"amp", "fp16"}:
-            self.embedder.recycling_embedder.inf = 1e4
-            self.embedder.template_pair_stack.inf = 1e4
-            self.embedder.template_projector.inf = 1e4
-            self.embedder.extra_msa_stack.inf = 1e4
-            self.encoder.inf = 1e4
-            self.template_pair_feat_inf = 1e4
-        else:
-            raise ValueError(f"Unknown precision '{repr(self.precision)}'")
-
-        # Multimer support
-        if self.multimer:
-            self.primary_raw_feature_names.extend(["asym_id", "entity_id", "sym_id"])
-        else:
-            self.primary_raw_feature_names.append("between_segment_residues")
+    masked_msa_loss_config: MaskedMSALossConfig = field(
+        default=MaskedMSALossConfig(),
+    )
+    plddt_loss_config: PLDDTLossConfig = field(
+        default=PLDDTLossConfig(),
+    )
+    experimentally_resolved_loss_config: ExperimentallyResolvedLossConfig = field(
+        default=ExperimentallyResolvedLossConfig(),
+    )
+    violation_loss_config: ViolationLossConfig = field(
+        default=ViolationLossConfig(),
+    )
+    tm_loss_config: TMLossConfig = field(
+        default=TMLossConfig(),
+    )
