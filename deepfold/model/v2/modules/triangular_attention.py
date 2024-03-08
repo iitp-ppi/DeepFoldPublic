@@ -34,7 +34,7 @@ class TriangleAttention(nn.Module):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(TriangleAttention, self).__init__()
+        super().__init__()
         self._is_starting = {"starting": True, "ending": False}[ta_type]
         self.layer_norm = LayerNorm(c_z)
         self.linear = Linear(c_z, num_heads, bias=False, init="normal")
@@ -119,7 +119,7 @@ class TriangleAttentionStartingNode(TriangleAttention):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(TriangleAttentionStartingNode, self).__init__(
+        super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             num_heads=num_heads,
@@ -152,7 +152,7 @@ class TriangleAttentionEndingNode(TriangleAttention):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(TriangleAttentionEndingNode, self).__init__(
+        super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             num_heads=num_heads,

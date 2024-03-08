@@ -42,7 +42,7 @@ class TemplatePairStack(nn.Module):
         inf: float,
         chunk_size_tri_att: Optional[int],
     ) -> None:
-        super(TemplatePairStack, self).__init__()
+        super().__init__()
         self.blocks = nn.ModuleList(
             [
                 TemplatePairBlock(

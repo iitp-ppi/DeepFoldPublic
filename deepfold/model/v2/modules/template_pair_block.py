@@ -43,7 +43,7 @@ class TemplatePairBlock(nn.Module):
         inf: float,
         chunk_size_tri_att: Optional[int],
     ) -> None:
-        super(TemplatePairBlock, self).__init__()
+        super().__init__()
         self.tri_att_start = TriangleAttentionStartingNode(
             c_z=c_t,
             c_hidden=c_hidden_tri_att,

@@ -26,7 +26,7 @@ class PairTransition(nn.Module):
         c_z: int,
         n: int,
     ) -> None:
-        super(PairTransition, self).__init__()
+        super().__init__()
         self.layer_norm = LayerNorm(c_z)
         self.linear_1 = Linear(c_z, n * c_z, bias=True, init="relu")
         self.linear_2 = Linear(n * c_z, c_z, bias=True, init="final")

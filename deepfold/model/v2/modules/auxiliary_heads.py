@@ -15,7 +15,7 @@ class AuxiliaryHeads(nn.Module):
     """Auxiliary Heads module."""
 
     def __init__(self, config: HeadsConfig) -> None:
-        super(AuxiliaryHeads, self).__init__()
+        super().__init__()
         self.plddt = PerResidueLDDTCaPredictor(
             **asdict(config.per_residue_lddt_ca_predictor_config),
         )
@@ -76,7 +76,7 @@ class PerResidueLDDTCaPredictor(nn.Module):
         c_hidden: int,
         num_bins: int,
     ) -> None:
-        super(PerResidueLDDTCaPredictor, self).__init__()
+        super().__init__()
         self.layer_norm = LayerNorm(c_s)
         self.linear_1 = Linear(c_s, c_hidden, bias=True, init="relu")
         self.linear_2 = Linear(c_hidden, c_hidden, bias=True, init="relu")
@@ -110,7 +110,7 @@ class DistogramHead(nn.Module):
         c_z: int,
         num_bins: int,
     ) -> None:
-        super(DistogramHead, self).__init__()
+        super().__init__()
         self.linear = Linear(c_z, num_bins, bias=True, init="final")
 
     def _forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -142,7 +142,7 @@ class MaskedMSAHead(nn.Module):
         c_m: int,
         c_out: int,
     ) -> None:
-        super(MaskedMSAHead, self).__init__()
+        super().__init__()
         self.linear = Linear(c_m, c_out, bias=True, init="final")
 
     def forward(self, m: torch.Tensor) -> torch.Tensor:
@@ -166,7 +166,7 @@ class ExperimentallyResolvedHead(nn.Module):
         c_s: int,
         c_out: int,
     ) -> None:
-        super(ExperimentallyResolvedHead, self).__init__()
+        super().__init__()
         self.linear = Linear(c_s, c_out, bias=True, init="final")
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
@@ -192,7 +192,7 @@ class TMScoreHead(nn.Module):
         num_bins: int,
         max_bin: int,
     ) -> None:
-        super(TMScoreHead, self).__init__()
+        super().__init__()
         self.num_bins = num_bins
         self.max_bin = max_bin
         self.linear = Linear(c_z, num_bins, bias=True, init="final")

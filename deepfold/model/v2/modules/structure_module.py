@@ -54,7 +54,7 @@ class StructureModule(nn.Module):
         inf: float,
         eps: float,
     ) -> None:
-        super().__init__()
+        super(StructureModule, self).__init__()
         self.c_s = c_s
         self.c_z = c_z
         self.c_hidden_ipa = c_hidden_ipa

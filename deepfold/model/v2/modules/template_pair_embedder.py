@@ -29,7 +29,7 @@ class TemplatePairEmbedder(nn.Module):
         tp_dim: int,
         c_t: int,
     ) -> None:
-        super(TemplatePairEmbedder, self).__init__()
+        super().__init__()
         self.tp_dim = tp_dim
         self.c_t = c_t
         self.linear = Linear(tp_dim, c_t, bias=True, init="relu")

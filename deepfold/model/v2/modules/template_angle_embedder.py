@@ -24,7 +24,7 @@ class TemplateAngleEmbedder(nn.Module):
         ta_dim: int,
         c_m: int,
     ) -> None:
-        super(TemplateAngleEmbedder, self).__init__()
+        super().__init__()
         self.linear_1 = Linear(ta_dim, c_m, bias=True, init="relu")
         self.linear_2 = Linear(c_m, c_m, bias=True, init="relu")
 

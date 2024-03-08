@@ -30,7 +30,7 @@ class TemplatePointwiseAttention(nn.Module):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(TemplatePointwiseAttention, self).__init__()
+        super().__init__()
         self.mha = CrossAttentionNoGate(
             c_q=c_z,
             c_kv=c_t,

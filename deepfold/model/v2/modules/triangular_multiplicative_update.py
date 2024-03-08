@@ -30,7 +30,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
         c_hidden: int,
         tmu_type: str,
     ) -> None:
-        super(TriangleMultiplicativeUpdate, self).__init__()
+        super().__init__()
         self.c_z = c_z
         self.c_hidden = c_hidden
         self._is_outgoing = {"outgoing": True, "incoming": False}[tmu_type]
@@ -143,7 +143,7 @@ class TriangleMultiplicationOutgoing(TriangleMultiplicativeUpdate):
         c_z: int,
         c_hidden: int,
     ) -> None:
-        super(TriangleMultiplicationOutgoing, self).__init__(
+        super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             tmu_type="outgoing",
@@ -167,7 +167,7 @@ class TriangleMultiplicationIncoming(TriangleMultiplicativeUpdate):
         c_z: int,
         c_hidden: int,
     ) -> None:
-        super(TriangleMultiplicationIncoming, self).__init__(
+        super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             tmu_type="incoming",
