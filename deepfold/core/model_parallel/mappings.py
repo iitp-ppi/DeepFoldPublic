@@ -266,6 +266,9 @@ def reduce_from_model_parallel_region(tensor: torch.Tensor) -> torch.Tensor:
     return _ReduceFromModelParallelRegion.apply(tensor)
 
 
+reduce = reduce_from_model_parallel_region
+
+
 def scatter_to_model_parallel_region(tensor: torch.Tensor, dim: int) -> torch.Tensor:
     if not ps.is_enabled():
         return tensor
@@ -276,6 +279,9 @@ def scatter_to_model_parallel_region(tensor: torch.Tensor, dim: int) -> torch.Te
         tensor = _split(tensor, dim=dim)
 
     return tensor
+
+
+scatter = scatter_to_model_parallel_region
 
 
 def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int, bwd: str = "split") -> torch.Tensor:
@@ -295,12 +301,21 @@ def gather_from_model_parallel_region(tensor: torch.Tensor, dim: int, bwd: str =
     return tensor
 
 
+gather = gather_from_model_parallel_region
+
+
 def transpose_on_model_parallel_region(tensor: torch.Tensor, dim0: int, dim1: int) -> torch.Tensor:
     return _TransposeOnModelParallelRegion.apply(tensor, dim0, dim1)
 
 
+all_to_all = transpose_on_model_parallel_region
+
+
 def broadcast_on_model_parallel_region(tensor: torch.Tensor, src_rank: int) -> torch.Tensor:
     return _BroadcastOnModelParallelRegion.apply(tensor, src_rank)
+
+
+broadcast = broadcast_on_model_parallel_region
 
 
 def col_to_row(tensor: torch.Tensor) -> torch.Tensor:
