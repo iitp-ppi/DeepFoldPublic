@@ -2,10 +2,12 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
-from deepfold.utils.chunk_utils import chunk_layer
+from deepfold.utils.iter_utils import slice_generator
 
 
 class PairTransition(nn.Module):
@@ -24,7 +26,7 @@ class PairTransition(nn.Module):
         c_z: int,
         n: int,
     ) -> None:
-        super().__init__()
+        super(PairTransition, self).__init__()
         self.layer_norm = LayerNorm(c_z)
         self.linear_1 = Linear(c_z, n * c_z, bias=True, init="relu")
         self.linear_2 = Linear(n * c_z, c_z, bias=True, init="final")
@@ -32,8 +34,7 @@ class PairTransition(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        chunk_size: Optional[int] = None,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
         """Pair Transition forward pass.
 
@@ -42,39 +43,106 @@ class PairTransition(nn.Module):
             mask: [batch, N_res, N_res] pair mask
 
         Returns:
-            z_update: [batch, N_res, N_res, c_z] pair representation update
+            z: [batch, N_res, N_res, c_z] updated pair representation
 
         """
-        # DeepMind forgets to apply the MSA mask here.
-        if mask is None:
-            mask = z.new_ones(z.shape[-1])
+        # DeepMind forgets to apply the pair mask here.
+        input_z = z
 
-        mask = mask.unsqueeze(-1)
-
-        if chunk_size is not None:
-            z = self._chunk(z, mask, chunk_size)
-        else:
-            z = self._transition(z, mask)
-
-        return z
-
-    def _transition(self, z: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         z = self.layer_norm(z)
-        z = self.linear_1(z)
-        z = torch.relu(z)
-        z = self.linear_2(z) * mask
+
+        # make inductor happy - but why? what is the problem with original shape?
+        original_shape = z.shape
+        z = z.view(-1, z.shape[-1])
+
+        if inductor.is_enabled():
+            linear_relu_fn = _linear_relu_jit
+        else:
+            linear_relu_fn = _linear_relu_eager
+        z = linear_relu_fn(z, self.linear_1.weight, self.linear_1.bias)
+
+        if inductor.is_enabled():
+            linear_view_add_fn = _linear_view_add_jit
+        else:
+            linear_view_add_fn = _linear_view_add_eager
+        z = linear_view_add_fn(z, self.linear_2.weight, self.linear_2.bias, input_z)
+
+        z = z.view(original_shape)
         return z
 
-    @torch.jit.ignore
-    def _chunk(
-        self,
-        z: torch.Tensor,
-        mask: torch.Tensor,
-        chunk_size: int,
-    ) -> torch.Tensor:
-        return chunk_layer(
-            self._transition,
-            {"z": z, "mask": mask},
-            chunk_size=chunk_size,
-            num_batch_dims=len(z.shape[:-2]),
-        )
+    # def forward(
+    #     self,
+    #     z: torch.Tensor,
+    #     mask: torch.Tensor,
+    # ) -> torch.Tensor:
+    #     """Pair Transition forward pass.
+
+    #     Args:
+    #         z: [batch, N_res, N_res, c_z] pair representation
+    #         mask: [batch, N_res, N_res] pair mask
+
+    #     Returns:
+    #         z: [batch, N_res, N_res, c_z] updated pair representation
+
+    #     """
+    #     # DeepMind forgets to apply the pair mask here.
+    #     # TODO: why can't we just use this code which is similar to MSA transition?
+    #     if inductor.is_enabled_on_ampere():
+    #         forward_fn = _forward_jit
+    #     elif inductor.is_enabled_on_hopper() and dap.size() in {2, 8}:
+    #         forward_fn = _forward_jit
+    #     elif inductor.is_enabled_on_hopper_and_autograd_off():
+    #         forward_fn = _forward_jit
+    #     else:
+    #         forward_fn = _forward_eager
+    #     return forward_fn(
+    #         self.layer_norm(z),
+    #         self.linear_1.weight,
+    #         self.linear_1.bias,
+    #         self.linear_2.weight,
+    #         self.linear_2.bias,
+    #         z,
+    #     )
+
+
+def _linear_relu_eager(
+    x: torch.Tensor,
+    w: torch.Tensor,
+    b: torch.Tensor,
+) -> torch.Tensor:
+    return torch.relu(F.linear(x, w, b))
+
+
+_linear_relu_jit = torch.compile(_linear_relu_eager)
+
+
+def _linear_view_add_eager(
+    z: torch.Tensor,
+    w: torch.Tensor,
+    b: torch.Tensor,
+    out: torch.Tensor,
+) -> torch.Tensor:
+    z = F.linear(z, w, b)
+    z = z.view(out.shape)
+    z = out + z
+    return z
+
+
+_linear_view_add_jit = torch.compile(_linear_view_add_eager)
+
+
+# TODO: switch to this if possible:
+# def _forward_eager(
+#     z: torch.Tensor,
+#     w1: torch.Tensor,
+#     b1: torch.Tensor,
+#     w2: torch.Tensor,
+#     b2: torch.Tensor,
+#     out: torch.Tensor,
+# ) -> torch.Tensor:
+#     z = F.linear(z, w1, b1)
+#     z = torch.relu(z)
+#     z = F.linear(z, w2, b2)
+#     z = out + z
+#     return z
+# _forward_jit = torch.compile(_forward_eager)

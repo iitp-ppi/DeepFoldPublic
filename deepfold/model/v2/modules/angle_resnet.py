@@ -2,7 +2,9 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.modules.linear import Linear
 
 
@@ -71,19 +73,12 @@ class AngleResnet(nn.Module):
         s = self.linear_out(s)
         # s: [batch, N_res, num_angles * 2]
 
-        s = s.view(s.shape[:-1] + (self.num_angles, 2))
-        # s: [batch, N_res, num_angles, 2]
-
-        unnormalized_angles = s
+        if inductor.is_enabled():
+            forward_angles_fn = _forward_angles_jit
+        else:
+            forward_angles_fn = _forward_angles_eager
+        unnormalized_angles, angles = forward_angles_fn(s, self.num_angles, self.eps)
         # unnormalized_angles: [batch, N_res, num_angles, 2]
-
-        norm_denom = torch.sqrt(
-            torch.clamp(
-                torch.sum(s**2, dim=-1, keepdim=True),
-                min=self.eps,
-            )
-        )
-        angles = s / norm_denom
         # angles: [batch, N_res, num_angles, 2]
 
         return unnormalized_angles, angles
@@ -98,4 +93,56 @@ class AngleResnetBlock(nn.Module):
         self.linear_2 = Linear(c_hidden, c_hidden, bias=True, init="final")
 
     def forward(self, a: torch.Tensor) -> torch.Tensor:
-        return a + self.linear_2(torch.relu(self.linear_1(torch.relu(a))))
+        if inductor.is_enabled_on_hopper():
+            forward_angle_resnet_block_fn = _forward_angle_resnet_block_jit
+        elif inductor.is_enabled_on_ampere_and_autograd_on():
+            forward_angle_resnet_block_fn = _forward_angle_resnet_block_jit
+        else:
+            forward_angle_resnet_block_fn = _forward_angle_resnet_block_eager
+        return forward_angle_resnet_block_fn(
+            a,
+            self.linear_1.weight,
+            self.linear_1.bias,
+            self.linear_2.weight,
+            self.linear_2.bias,
+        )
+
+
+def _forward_angles_eager(
+    s: torch.Tensor,
+    num_angles: int,
+    eps: float,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    s = s.view(s.shape[:-1] + (num_angles, 2))
+    # s: [batch, N_res, num_angles, 2]
+    unnormalized_angles = s
+    # unnormalized_angles: [batch, N_res, num_angles, 2]
+    norm_denom = torch.sqrt(
+        torch.clamp(
+            torch.sum(s**2, dim=-1, keepdim=True),
+            min=eps,
+        )
+    )
+    angles = s / norm_denom
+    return unnormalized_angles, angles
+
+
+_forward_angles_jit = torch.compile(_forward_angles_eager)
+
+
+def _forward_angle_resnet_block_eager(
+    a: torch.Tensor,
+    w1: torch.Tensor,
+    b1: torch.Tensor,
+    w2: torch.Tensor,
+    b2: torch.Tensor,
+) -> torch.Tensor:
+    x = torch.relu(a)
+    x = F.linear(x, w1, b1)
+    x = torch.relu(x)
+    x = F.linear(x, w2, b2)
+    y = a + x
+    return y
+
+
+_forward_angle_resnet_block_jit = torch.compile(_forward_angle_resnet_block_eager)

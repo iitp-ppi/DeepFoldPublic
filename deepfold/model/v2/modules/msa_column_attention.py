@@ -29,7 +29,7 @@ class MSAColumnAttention(nn.Module):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(MSAColumnAttention, self).__init__()
+        super().__init__()
         self.layer_norm_m = LayerNorm(c_m)
         self.mha = SelfAttentionWithGate(
             c_qkv=c_m,

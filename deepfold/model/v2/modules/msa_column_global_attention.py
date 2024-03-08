@@ -32,7 +32,7 @@ class MSAColumnGlobalAttention(nn.Module):
         eps: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(MSAColumnGlobalAttention, self).__init__()
+        super().__init__()
         self.layer_norm_m = LayerNorm(c_e)
         self.global_attention = GlobalAttention(
             c_e=c_e,

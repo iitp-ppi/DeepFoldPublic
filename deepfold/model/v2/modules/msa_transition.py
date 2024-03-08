@@ -2,10 +2,12 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
-from deepfold.utils.chunk_utils import chunk_layer
+from deepfold.utils.iter_utils import slice_generator
 
 
 class MSATransition(nn.Module):
@@ -29,6 +31,7 @@ class MSATransition(nn.Module):
         self.linear_1 = Linear(c_m, n * c_m, bias=True, init="relu")
         self.linear_2 = Linear(n * c_m, c_m, bias=True, init="final")
 
+    # TODO: Chunk
     def forward(
         self,
         m: torch.Tensor,
@@ -42,39 +45,47 @@ class MSATransition(nn.Module):
             mask: [batch, N_seq, N_res] MSA mask
 
         Returns:
-            m_update: [batch, N_seq, N_res, c_m] MSA representation update
+            m: [batch, N_seq, N_res, c_m] updated MSA representation
 
         """
-        # DeepMind forgets to apply the MSA mask here.
+        # NOTE: DeepMind forgets to apply the MSA mask here.
         if mask is None:
-            mask = m.new_ones(m.shape[-1])
+            mask = m.new_ones(m.shape[:-1])
 
         mask = mask.unsqueeze(-1)
 
-        if chunk_size is not None:
-            m = self._chunk(m, mask, chunk_size)
+        if inductor.is_enabled():
+            forward_fn = _forward_jit
+        elif inductor.is_enabled_and_autograd_off():
+            forward_fn = _forward_jit
         else:
-            m = self._transition(m, mask)
-
-        return m
-
-    def _transition(self, m: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        m = self.layer_norm(m)
-        m = self.linear_1(m)
-        m = torch.relu(m)
-        m = self.linear_2(m) * mask
-        return m
-
-    @torch.jit.ignore
-    def _chunk(
-        self,
-        m: torch.Tensor,
-        mask: torch.Tensor,
-        chunk_size: int,
-    ) -> torch.Tensor:
-        return chunk_layer(
-            self._transition,
-            {"m": m, "mask": mask},
-            chunk_size=chunk_size,
-            num_batch_dims=len(m.shape[:-2]),
+            forward_fn = _forward_eager
+        return forward_fn(
+            self.layer_norm(m),
+            mask,
+            self.linear_1.weight,
+            self.linear_1.bias,
+            self.linear_2.weight,
+            self.linear_2.bias,
+            m,
         )
+
+
+def _forward_eager(
+    m: torch.Tensor,
+    mask: torch.Tensor,
+    w1: torch.Tensor,
+    b1: torch.Tensor,
+    w2: torch.Tensor,
+    b2: torch.Tensor,
+    out: torch.Tensor,
+) -> torch.Tensor:
+    m = F.linear(m, w1, b1)
+    m = torch.relu(m)
+    m = F.linear(m, w2, b2)
+    m = m * mask
+    m = out + m
+    return m
+
+
+_forward_jit = torch.compile(_forward_eager)

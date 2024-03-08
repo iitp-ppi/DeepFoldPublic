@@ -34,7 +34,7 @@ class MSARowAttentionWithPairBias(nn.Module):
         inf: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(MSARowAttentionWithPairBias, self).__init__()
+        super().__init__()
         self.layer_norm_m = LayerNorm(c_m)
         self.layer_norm_z = LayerNorm(c_z)
         self.linear_z = Linear(c_z, num_heads, bias=False, init="normal")
@@ -70,7 +70,7 @@ class MSARowAttentionWithPairBias(nn.Module):
         z = self.layer_norm_z(z)
         z = self.linear_z(z)
         if ps.is_enabled():
-            z = cc.gather_from_model_parallel_region(z, dim=-3, bwd="all_reduce_sum_split")
+            z = cc.gather(z, dim=1, bwd="all_reduce_sum_split")
         # z: [batch, N_res, N_res, num_heads]
 
         z = z.movedim(-1, -3).unsqueeze(-4)
@@ -85,6 +85,3 @@ class MSARowAttentionWithPairBias(nn.Module):
         # m: [batch, N_seq, N_res, c_m]
 
         return m
-
-
-# TODO: Chunk

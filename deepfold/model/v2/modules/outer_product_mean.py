@@ -6,9 +6,10 @@ import torch.nn.functional as F
 
 import deepfold.core.model_parallel.mappings as cc
 import deepfold.core.parallel_state as ps
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
-from deepfold.model.v2.utils.iter_utils import slice_generator
+from deepfold.utils.iter_utils import slice_generator
 from deepfold.utils.precision import is_fp16_enabled
 
 
@@ -34,7 +35,7 @@ class OuterProductMean(nn.Module):
         eps: float,
         chunk_size: Optional[int],
     ) -> None:
-        super(OuterProductMean, self).__init__()
+        super().__init__()
         assert eps == 1e-3
         self.c_m = c_m
         self.c_z = c_z
@@ -82,7 +83,7 @@ class OuterProductMean(nn.Module):
         # mask: [batch, N_seq, N_res, 1]
 
         if ps.is_enabled():
-            mask_s = cc.scatter_to_model_parallel_region(mask, dim=-2)
+            mask_s = cc.scatter(mask, dim=2)
             a, b = _forward_linear_a_b(
                 m,
                 self.linear_1.weight,
@@ -91,7 +92,7 @@ class OuterProductMean(nn.Module):
                 self.linear_2.bias,
                 mask_s,
             )
-            b = cc.gather_from_model_parallel_region(b, dim=-2, bwd="all_reduce_sum_split")
+            b = cc.gather(b, dim=2, bwd="all_reduce_sum_split")
         else:
             a, b = _forward_linear_a_b(
                 m,
@@ -104,6 +105,19 @@ class OuterProductMean(nn.Module):
             # a: [batch, N_seq, N_res, c_hidden]
             # b: [batch, N_seq, N_res, c_hidden]
 
+        if inductor.is_enabled():
+            # TODO: does it work with chunked forward?
+            outer = _forward_outer_jit(
+                a,
+                b,
+                self.linear_out.weight,
+                self.linear_out.bias,
+                a.shape[0],  # batch
+                a.shape[2],  # a_N_res
+                b.shape[2],  # b_N_res
+                a.shape[3],  # c_hidden
+            )
+        else:
             a = a.transpose(-2, -3)
             # a: [batch, N_res, N_seq, c_hidden]
             b = b.transpose(-2, -3)
@@ -115,7 +129,7 @@ class OuterProductMean(nn.Module):
         # norm: [batch, N_res, N_res, 1]
 
         if ps.is_enabled():
-            norm = cc.scatter_to_model_parallel_region(norm, dim=-2)
+            norm = cc.scatter(norm, dim=1)
 
         outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
         # outer: [batch, N_res, N_res, c_z]
@@ -147,7 +161,7 @@ class OuterProductMean(nn.Module):
         return torch.cat(outer_chunks, dim=1)
 
 
-def _forward_linear_a_b_native(
+def _forward_linear_a_b_eager(
     m: torch.Tensor,
     w1: torch.Tensor,
     b1: torch.Tensor,
@@ -160,7 +174,7 @@ def _forward_linear_a_b_native(
     return a, b
 
 
-# _forward_linear_a_b_jit = torch.compile(_forward_linear_a_b_native)
+_forward_linear_a_b_jit = torch.compile(_forward_linear_a_b_eager)
 
 
 def _forward_linear_a_b(
@@ -171,11 +185,16 @@ def _forward_linear_a_b(
     b2: torch.Tensor,
     mask: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    forward_linear_a_b_fn = _forward_linear_a_b_native
+    if inductor.is_enabled():
+        forward_linear_a_b_fn = _forward_linear_a_b_jit
+    elif inductor.is_enabled_and_autograd_off():
+        forward_linear_a_b_fn = _forward_linear_a_b_jit
+    else:
+        forward_linear_a_b_fn = _forward_linear_a_b_eager
     return forward_linear_a_b_fn(m, w1, b1, w2, b2, mask)
 
 
-def _forward_outer_native(
+def _forward_outer_eager(
     a: torch.Tensor,
     b: torch.Tensor,
     w_o: torch.Tensor,
@@ -213,10 +232,10 @@ def _forward_outer_native(
     return outer
 
 
-_forward_outer_jit = torch.compile(_forward_outer_native)
+_forward_outer_jit = torch.compile(_forward_outer_eager)
 
 
-def _forward_normalize_add_native(
+def _forward_normalize_add_eager(
     norm: torch.Tensor,
     outer: torch.Tensor,
     z: torch.Tensor,
@@ -226,7 +245,7 @@ def _forward_normalize_add_native(
     return z + outer
 
 
-# _forward_normalize_add_jit = torch.compile(_forward_normalize_add_native)
+_forward_normalize_add_jit = torch.compile(_forward_normalize_add_eager)
 
 
 def _forward_normalize_add(
@@ -235,5 +254,8 @@ def _forward_normalize_add(
     z: torch.Tensor,
     eps: float,
 ) -> torch.Tensor:
-    forward_normalize_add_fn = _forward_normalize_add_native
+    if inductor.is_enabled():
+        forward_normalize_add_fn = _forward_normalize_add_jit
+    else:
+        forward_normalize_add_fn = _forward_normalize_add_eager
     return forward_normalize_add_fn(norm, outer, z, eps)

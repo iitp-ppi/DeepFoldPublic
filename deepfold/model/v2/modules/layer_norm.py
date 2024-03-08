@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import deepfold.model.v2.modules.inductor as inductor
+
 
 class LayerNorm(nn.Module):
     """Layer Normalization module.
@@ -19,17 +21,18 @@ class LayerNorm(nn.Module):
         in_channels: int,
         eps: float = 1e-5,
     ) -> None:
-        super(LayerNorm, self).__init__()
+        super().__init__()
+
         self.normalized_shape = (in_channels,)
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(in_channels))
         self.bias = nn.Parameter(torch.zeros(in_channels))
 
+        self._ln_eager_func = F.layer_norm
+        self._ln_inductor_func = torch.compile(F.layer_norm)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return F.layer_norm(
-            input=x,
-            normalized_shape=self.normalized_shape,
-            weight=self.weight,
-            bias=self.bias,
-            eps=self.eps,
-        )
+        if self.training or inductor.enable():
+            return self._ln_inductor_func(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        else:
+            return self._ln_eager_func(x, self.normalized_shape, self.weight, self.bias, self.eps)

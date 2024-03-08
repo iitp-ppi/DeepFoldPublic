@@ -3,10 +3,25 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.core.ops import evoformer_attention
-from deepfold.model.v2.modules.linear import Linear
-from deepfold.model.v2.utils.iter_utils import slice_generator
+from deepfold.model.v2.modules.linear import Linear, gating_init_
+from deepfold.utils.iter_utils import slice_generator
+
+
+def _attention_gate_eager(
+    output: torch.Tensor,
+    gate: torch.Tensor,
+    linear_g_bias: torch.Tensor,
+) -> torch.Tensor:
+    gate = torch.sigmoid(gate + linear_g_bias)
+    output = output * gate
+    return output
+
+
+_attention_gate_jit = torch.compile(_attention_gate_eager)
 
 
 class SelfAttentionWithGate(nn.Module):
@@ -37,18 +52,25 @@ class SelfAttentionWithGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
-        self.linear_q = Linear(c_qkv, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_k = Linear(c_qkv, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_v = Linear(c_qkv, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_o = Linear(c_hidden * num_heads, c_qkv, bias=True, init="final")
-        self.linear_g = Linear(c_qkv, c_hidden * num_heads, bias=True, init="gating")
         self.impl = impl
+
+        self.linear_qkvg = Linear(c_qkv, 4 * c_hidden * num_heads, bias=False, init="glorot")
+        gating_init_(self.linear_qkvg.weight.data[3 * c_hidden * num_heads :])
+        self.qkvg_split_shape = (
+            c_hidden * num_heads,
+            c_hidden * num_heads,
+            c_hidden * num_heads,
+            c_hidden * num_heads,
+        )
+        self.linear_g_bias = nn.Parameter(torch.ones(c_hidden * num_heads))
+        self.linear_o = Linear(c_hidden * num_heads, c_qkv, bias=True, init="final")
 
     def forward(
         self,
         input_qkv: torch.Tensor,
         mask: torch.Tensor,
         bias: Optional[torch.Tensor],
+        add_transposed_output_to: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Attention forward pass.
 
@@ -56,15 +78,18 @@ class SelfAttentionWithGate(nn.Module):
             input_qkv: [*, QKV, c_qkv] query data (QKV == Q == K == V)
             mask: Logit mask tensor broadcastable to [*, num_heads, Q, K]
             bias: Optional logit bias tensor broadcastable to [*, num_heads, Q, K]
+            add_transposed_output_to:
+                Optional tensor to which transposed output will be added elementwisely.
 
         Returns:
             output: [*, Q, c_qkv] tensor
 
         """
-        query, key, value = self._prep_qkv(input_qkv)
+        query, key, value, gate = self._prep_qkvg(input_qkv)
         # query: [*, num_heads, Q, c_hidden]
         # key:   [*, num_heads, K, c_hidden]
         # value: [*, num_heads, V, c_hidden]
+        # gate:  [*, Q, num_heads * c_hidden]
 
         output = self._attention_forward(query, key, value, mask, bias)
         # output: [*, num_heads, Q, c_hidden]
@@ -73,35 +98,40 @@ class SelfAttentionWithGate(nn.Module):
         output = output.transpose(-2, -3)
         # output: [*, Q, num_heads, c_hidden]
 
-        gate = torch.sigmoid(self.linear_g(input_qkv))
-        # gate: [*, Q, num_heads * c_hidden]
-
-        gate = gate.view(gate.shape[:-1] + (self.num_heads, self.c_hidden))
-        # gate: [*, Q, num_heads, c_hidden]
-
-        output = output * gate
-        # output: [*, Q, num_heads, c_hidden]
-
         output = output.reshape(output.shape[:-2] + (self.num_heads * self.c_hidden,))
         # output: [*, Q, num_heads * c_hidden]
 
-        output = self.linear_o(output)
+        if self.training:
+            output = _attention_gate_jit(output, gate, self.linear_g_bias)
+        else:
+            output = _attention_gate_eager(output, gate, self.linear_g_bias)
+        # output: [*, Q, num_heads * c_hidden]
+
+        if add_transposed_output_to is None:
+            output = self.linear_o(output)
+        else:
+            output = _linear_transpose_add(
+                output,
+                self.linear_o.weight,
+                self.linear_o.bias,
+                add_transposed_output_to,
+            )
         # output: [*, Q, c_qkv]
 
         return output
 
-    def _prep_qkv(
+    def _prep_qkvg(
         self,
         input_qkv: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # input_qkv: [*, QKV, c_qkv]
 
-        q = self.linear_q(input_qkv)
-        k = self.linear_k(input_qkv)
-        v = self.linear_v(input_qkv)
+        qkvg = self.linear_qkvg(input_qkv)
+        q, k, v, g = torch.split(qkvg, self.qkvg_split_shape, dim=-1)
         # q: [*, Q, num_heads * c_hidden]
         # k: [*, K, num_heads * c_hidden]
         # v: [*, V, num_heads * c_hidden]
+        # g: [*, Q, num_heads * c_hidden]
 
         q = q.view(q.shape[:-1] + (self.num_heads, self.c_hidden))
         k = k.view(k.shape[:-1] + (self.num_heads, self.c_hidden))
@@ -117,9 +147,9 @@ class SelfAttentionWithGate(nn.Module):
         # k: [*, num_heads, K, c_hidden]
         # v: [*, num_heads, V, c_hidden]
 
-        q /= math.sqrt(self.c_hidden)
+        # q = q / math.sqrt(self.c_hidden) scaling moved to _attention function
 
-        return q, k, v
+        return q, k, v, g
 
     def _attention_forward(
         self,
@@ -131,11 +161,12 @@ class SelfAttentionWithGate(nn.Module):
     ) -> torch.Tensor:
         if self.impl == "torch":
             if self.chunk_size is None:
-                return _attention(query, key, value, mask, bias, self.inf)
+                if inductor.is_enabled():
+                    return _attention_eager(query, key, value, mask, bias, self.inf)
+                else:
+                    return _attention_jit(query, key, value, mask, bias, self.inf)
             else:
                 return _attention_chunked(query, key, value, mask, bias, self.inf, self.chunk_size)
-        elif self.impl == "evo":
-            return _evoformer_attention(query, key, value, mask, bias, self.inf)
         else:
             raise ValueError("Unknown attention implementation '{self.impl}'")
 
@@ -171,11 +202,15 @@ class CrossAttentionNoGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
-        self.linear_q = Linear(c_q, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_k = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_v = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_o = Linear(c_hidden * num_heads, c_q, bias=True, init="final")
         self.impl = impl
+
+        self.linear_q = Linear(c_q, c_hidden * num_heads, bias=False, init="glorot")
+        self.linear_kv = Linear(c_kv, 2 * c_hidden * num_heads, bias=False, init="glorot")
+        self.kv_split_shape = (
+            c_hidden * num_heads,
+            c_hidden * num_heads,
+        )
+        self.linear_o = Linear(c_hidden * num_heads, c_q, bias=True, init="final")
 
     def forward(
         self,
@@ -225,8 +260,8 @@ class CrossAttentionNoGate(nn.Module):
         # input_kv: [*, KV, c_kv]
 
         q = self.linear_q(input_q)
-        k = self.linear_k(input_kv)
-        v = self.linear_v(input_kv)
+        kv = self.linear_kv(input_kv)
+        k, v = torch.split(kv, self.kv_split_shape, dim=-1)
         # q: [*, Q, num_heads * c_hidden]
         # k: [*, K, num_heads * c_hidden]
         # v: [*, V, num_heads * c_hidden]
@@ -245,7 +280,7 @@ class CrossAttentionNoGate(nn.Module):
         # k: [*, num_heads, K, c_hidden]
         # v: [*, num_heads, V, c_hidden]
 
-        q /= math.sqrt(self.c_hidden)
+        # q = q / math.sqrt(self.c_hidden) scaling moved to _attention function
 
         return q, k, v
 
@@ -257,9 +292,13 @@ class CrossAttentionNoGate(nn.Module):
         mask: torch.Tensor,
         bias: Optional[torch.Tensor],
     ) -> torch.Tensor:
+
         if self.impl == "torch":
             if self.chunk_size is None:
-                return _attention(query, key, value, mask, bias, self.inf)
+                if inductor.is_enabled():
+                    return _attention_eager(query, key, value, mask, bias, self.inf)
+                else:
+                    return _attention_jit(query, key, value, mask, bias, self.inf)
             else:
                 return _attention_chunked(query, key, value, mask, bias, self.inf, self.chunk_size)
         elif self.impl == "evo":
@@ -268,7 +307,7 @@ class CrossAttentionNoGate(nn.Module):
             raise ValueError("Unknown attention implementation '{self.impl}'")
 
 
-def _attention(
+def _attention_eager(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
@@ -287,7 +326,8 @@ def _attention(
     key = torch.swapdims(key, -2, -1)
     # key: [*, num_heads, c_hidden, K]
 
-    a = torch.matmul(query, key)
+    scaling = 1.0 / math.sqrt(query.size(-1))
+    a = torch.matmul(query * scaling, key)
     # a: [*, num_heads, Q, K]
 
     a += (mask - 1.0) * inf
@@ -304,6 +344,67 @@ def _attention(
     # a: [*, num_heads, Q, c_hidden]
 
     return a
+
+
+_attention_jit = torch.compile(_attention_eager)
+
+
+def _attention_chunked(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    mask: torch.Tensor,
+    bias: Optional[torch.Tensor],
+    inf: float,
+    chunk_size: int,
+) -> torch.Tensor:
+    output_chunks = []
+    subbatch_size = query.size(1)
+    if inductor.is_enabled():
+        attention_fn = _attention_jit
+    else:
+        attention_fn = _attention_eager
+    for left, right in slice_generator(0, subbatch_size, chunk_size):
+        query_chunk = query[:, left:right]
+        key_chunk = key[:, left:right]
+        value_chunk = value[:, left:right]
+        mask_chunk = mask[:, left:right] if mask.size(1) == subbatch_size else mask
+        bias_chunk = bias[:, left:right] if bias is not None and bias.size(1) == subbatch_size else bias
+        output_chunk = attention_fn(
+            query=query_chunk,
+            key=key_chunk,
+            value=value_chunk,
+            mask=mask_chunk,
+            bias=bias_chunk,
+            inf=inf,
+        )
+        output_chunks.append(output_chunk)
+    return torch.cat(output_chunks, dim=1)
+
+
+def _linear_transpose_add_eager(
+    x: torch.Tensor,
+    w: torch.Tensor,
+    b: torch.Tensor,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    return y + F.linear(x, w, b).transpose(-2, -3)
+
+
+_linear_transpose_add_jit = torch.compile(_linear_transpose_add_eager)
+
+
+def _linear_transpose_add(
+    x: torch.Tensor,
+    w: torch.Tensor,
+    b: torch.Tensor,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    if inductor.is_enabled():
+        linear_transpose_add_fn = _linear_transpose_add_jit
+    else:
+        linear_transpose_add_fn = _linear_transpose_add_eager
+    return linear_transpose_add_fn(x, w, b, y)
 
 
 def _evoformer_attention(
@@ -324,32 +425,3 @@ def _evoformer_attention(
         biases.append(bias)
 
     return evoformer_attention(query, key, value, biases)
-
-
-def _attention_chunked(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    mask: torch.Tensor,
-    bias: Optional[torch.Tensor],
-    inf: float,
-    chunk_size: int,
-) -> torch.Tensor:
-    output_chunks = []
-    subbatch_size = query.size(1)
-    for left, right in slice_generator(0, subbatch_size, chunk_size):
-        query_chunk = query[:, left:right]
-        key_chunk = key[:, left:right]
-        value_chunk = value[:, left:right]
-        mask_chunk = mask[:, left:right] if mask.size(1) == subbatch_size else mask
-        bias_chunk = bias[:, left:right] if bias is not None and bias.size(1) == subbatch_size else bias
-        output_chunk = _attention(
-            query=query_chunk,
-            key=key_chunk,
-            value=value_chunk,
-            mask=mask_chunk,
-            bias=bias_chunk,
-            inf=inf,
-        )
-        output_chunks.append(output_chunk)
-    return torch.cat(output_chunks, dim=1)

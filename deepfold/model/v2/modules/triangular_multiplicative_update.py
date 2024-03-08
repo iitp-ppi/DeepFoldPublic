@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 import deepfold.core.model_parallel.mappings as cc
 import deepfold.core.parallel_state as ps
+import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
 from deepfold.utils.precision import is_fp16_enabled
@@ -63,7 +64,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_res, N_res, 1]
 
-        # TODO: a.float(), b.float()
+        # todo(jxin), fusion with a.float, b.float ??
         a, b = _compute_projections(
             z,
             mask,
@@ -76,12 +77,13 @@ class TriangleMultiplicativeUpdate(nn.Module):
             self.linear_b_p.weight,
             self.linear_b_p.bias,
         )
+        # todo(jxin), why elementwise here?
 
         if ps.is_enabled():
             if self._is_outgoing:
-                b = cc.gather_from_model_parallel_region(b, dim=-3, bwd="all_reduce_sum_split")
+                b = cc.gather(b, dim=1, bwd="all_reduce_sum_split")
             else:
-                a = cc.gather_from_model_parallel_region(a, dim=-2, bwd="all_reduce_sum_split")
+                a = cc.gather(a, dim=2, bwd="all_reduce_sum_split")
 
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
@@ -107,7 +109,6 @@ class TriangleMultiplicativeUpdate(nn.Module):
 
         return x
 
-    # TODO: Support fused v3 parameters
     def _combine_projections(
         self,
         a: torch.Tensor,
@@ -173,7 +174,7 @@ class TriangleMultiplicationIncoming(TriangleMultiplicativeUpdate):
         )
 
 
-def _compute_projections_native(
+def _compute_projections_eager(
     z: torch.Tensor,
     mask: torch.Tensor,
     w_a_g: torch.Tensor,
@@ -194,7 +195,7 @@ def _compute_projections_native(
     return a, b
 
 
-# _compute_projections_jit = torch.compile(_compute_projections_native)
+_compute_projections_jit = torch.compile(_compute_projections_eager)
 
 
 def _compute_projections(
@@ -209,11 +210,14 @@ def _compute_projections(
     w_b_p: torch.Tensor,
     b_b_p: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    compute_projections_fn = _compute_projections_native
+    if inductor.is_enabled():
+        compute_projections_fn = _compute_projections_jit
+    else:
+        compute_projections_fn = _compute_projections_eager
     return compute_projections_fn(z, mask, w_a_g, b_a_g, w_a_p, b_a_p, w_b_g, b_b_g, w_b_p, b_b_p)
 
 
-def _compute_output_native(
+def _compute_output_eager(
     x: torch.Tensor,
     z: torch.Tensor,
     w_z: torch.Tensor,
@@ -227,7 +231,7 @@ def _compute_output_native(
     return x
 
 
-# _compute_output_jit = torch.compile(_compute_output_native)
+_compute_output_jit = torch.compile(_compute_output_eager)
 
 
 def _compute_output(
@@ -238,8 +242,10 @@ def _compute_output(
     w_g: torch.Tensor,
     b_g: torch.Tensor,
 ) -> torch.Tensor:
-    compute_output_fn = _compute_output_native
+    if inductor.is_enabled():
+        compute_output_fn = _compute_output_jit
+    elif inductor.is_enabled_and_autograd_off():
+        compute_output_fn = _compute_output_jit
+    else:
+        compute_output_fn = _compute_output_eager
     return compute_output_fn(x, z, w_z, b_z, w_g, b_g)
-
-
-# TODO: Chunk
