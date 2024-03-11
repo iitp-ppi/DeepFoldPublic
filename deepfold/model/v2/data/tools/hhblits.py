@@ -20,8 +20,7 @@ import os
 import subprocess
 from typing import Any, List, Mapping, Optional, Sequence
 
-from openfold.data.tools import utils
-
+from deepfold.model.v2.data.tools import utils
 
 _HHBLITS_DEFAULT_P = 20
 _HHBLITS_DEFAULT_Z = 500
@@ -80,12 +79,8 @@ class HHBlits:
 
         for database_path in self.databases:
             if not glob.glob(database_path + "_*"):
-                logging.error(
-                    "Could not find HHBlits database %s", database_path
-                )
-                raise ValueError(
-                    f"Could not find HHBlits database {database_path}"
-                )
+                logging.error("Could not find HHBlits database %s", database_path)
+                raise ValueError(f"Could not find HHBlits database {database_path}")
 
         self.n_cpu = n_cpu
         self.n_iter = n_iter
@@ -142,9 +137,7 @@ class HHBlits:
             cmd += db_cmd
 
             logging.info('Launching subprocess "%s"', " ".join(cmd))
-            process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             with utils.timing("HHblits query"):
                 stdout, stderr = process.communicate()
