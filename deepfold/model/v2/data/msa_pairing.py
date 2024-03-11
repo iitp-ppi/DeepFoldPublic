@@ -15,9 +15,7 @@
 """Pairing logic for multimer data pipeline."""
 
 import collections
-import functools
-import string
-from typing import Any, Dict, Iterable, List, Mapping, Sequence
+from typing import Dict, Iterable, List, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
