@@ -11,12 +11,13 @@ dependencies:
   - scipy
   - pandas
   - matplotlib
-  - biopython=1.81
+  - biopython==1.81
+  - modelcif==0.7
   - hydra-core
-  - omegaconf=2.3.0
-  - networkx=3.2.1
+  - omegaconf==2.3.0
+  - networkx==3.2.1
   - ply
-  - pytorch=2.2.0
+  - pytorch==2.2.1
   - torchaudio
   - torchvision
   - pytorch-cuda=11.8
@@ -25,9 +26,9 @@ dependencies:
   - cuda-libraries=11.8
   - cuda-libraries-dev=11.8
   - tqdm
-  - hmmer=3.3.2
-  - hhsuite=3.3.0
-  - kalign2=2.04
+  - hmmer==3.3.2
+  - hhsuite==3.3.0
+  - kalign2==2.04
   - isort
   - black
   - pip:
