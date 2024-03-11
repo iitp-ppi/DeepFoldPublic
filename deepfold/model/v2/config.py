@@ -5,7 +5,12 @@
 
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
+
+NUM_RES = "num residues"
+NUM_MSA_SEQ = "msa"
+NUM_EXTRA_SEQ = "extra msa"
+NUM_TEMPLATES = "num templates"
 
 
 @dataclass
