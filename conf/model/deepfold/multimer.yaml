@@ -1,7 +1,0 @@
-include:
-  - base.yaml
-
-globals:
-  is_multimer: True
-  use_templates: True
-# TODO: Model config
