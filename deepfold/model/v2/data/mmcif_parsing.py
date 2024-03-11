@@ -23,13 +23,12 @@ import logging
 import os
 from typing import Any, Mapping, Optional, Sequence, Tuple
 
+import numpy as np
 from Bio import PDB
 from Bio.Data import SCOPData
-import numpy as np
 
-from openfold.data.errors import MultipleChainsError
-import openfold.np.residue_constants as residue_constants
-
+import deepfold.common.residue_constants as rc
+from deepfold.model.v2.data.errors import MultipleChainsError
 
 # Type aliases:
 ChainId = str
@@ -119,9 +118,7 @@ class ParseError(Exception):
     """An error indicating that an mmCIF file could not be parsed."""
 
 
-def mmcif_loop_to_list(
-    prefix: str, parsed_info: MmCIFDict
-) -> Sequence[Mapping[str, str]]:
+def mmcif_loop_to_list(prefix: str, parsed_info: MmCIFDict) -> Sequence[Mapping[str, str]]:
     """Extracts loop associated with a prefix from mmCIF data as a list.
 
     Reference for loop_ in mmCIF:
@@ -144,9 +141,7 @@ def mmcif_loop_to_list(
             cols.append(key)
             data.append(value)
 
-    assert all([len(xs) == len(data[0]) for xs in data]), (
-        "mmCIF error: Not all loops are the same length: %s" % cols
-    )
+    assert all([len(xs) == len(data[0]) for xs in data]), "mmCIF error: Not all loops are the same length: %s" % cols
 
     return [dict(zip(cols, xs)) for xs in zip(*data)]
 
@@ -175,9 +170,7 @@ def mmcif_loop_to_dict(
 
 
 @functools.lru_cache(16, typed=False)
-def parse(
-    *, file_id: str, mmcif_string: str, catch_all_errors: bool = True
-) -> ParsingResult:
+def parse(*, file_id: str, mmcif_string: str, catch_all_errors: bool = True) -> ParsingResult:
     """Entry point, parses an mmcif_string.
 
     Args:
@@ -212,13 +205,8 @@ def parse(
         # internal mmCIF numbering scheme (likely but not guaranteed to be 1).
         valid_chains = _get_protein_chains(parsed_info=parsed_info)
         if not valid_chains:
-            return ParsingResult(
-                None, {(file_id, ""): "No protein chains found in this file."}
-            )
-        seq_start_num = {
-            chain_id: min([monomer.num for monomer in seq])
-            for chain_id, seq in valid_chains.items()
-        }
+            return ParsingResult(None, {(file_id, ""): "No protein chains found in this file."})
+        seq_start_num = {chain_id: min([monomer.num for monomer in seq]) for chain_id, seq in valid_chains.items()}
 
         # Loop over the atoms for which we have coordinates. Populate two mappings:
         # -mmcif_to_author_chain_id (maps internal mmCIF chain ids to chain ids used
@@ -251,12 +239,8 @@ def parse(
                     residue_number=int(atom.author_seq_num),
                     insertion_code=insertion_code,
                 )
-                seq_idx = (
-                    int(atom.mmcif_seq_num) - seq_start_num[atom.mmcif_chain_id]
-                )
-                current = seq_to_structure_mappings.get(
-                    atom.author_chain_id, {}
-                )
+                seq_idx = int(atom.mmcif_seq_num) - seq_start_num[atom.mmcif_chain_id]
+                current = seq_to_structure_mappings.get(atom.author_chain_id, {})
                 current[seq_idx] = ResidueAtPosition(
                     position=position,
                     name=atom.residue_name,
@@ -324,18 +308,14 @@ def _get_header(parsed_info: MmCIFDict) -> PdbHeader:
     header = {}
 
     experiments = mmcif_loop_to_list("_exptl.", parsed_info)
-    header["structure_method"] = ",".join(
-        [experiment["_exptl.method"].lower() for experiment in experiments]
-    )
+    header["structure_method"] = ",".join([experiment["_exptl.method"].lower() for experiment in experiments])
 
     # Note: The release_date here corresponds to the oldest revision. We prefer to
     # use this for dataset filtering over the deposition_date.
     if "_pdbx_audit_revision_history.revision_date" in parsed_info:
         header["release_date"] = get_release_date(parsed_info)
     else:
-        logging.warning(
-            "Could not determine release_date: %s", parsed_info["_entry.id"]
-        )
+        logging.warning("Could not determine release_date: %s", parsed_info["_entry.id"])
 
     header["resolution"] = 0.00
     for res_key in (
@@ -348,9 +328,7 @@ def _get_header(parsed_info: MmCIFDict) -> PdbHeader:
                 raw_resolution = parsed_info[res_key][0]
                 header["resolution"] = float(raw_resolution)
             except ValueError:
-                logging.debug(
-                    "Invalid resolution format: %s", parsed_info[res_key]
-                )
+                logging.debug("Invalid resolution format: %s", parsed_info[res_key])
 
     return header
 
@@ -372,9 +350,7 @@ def _get_atom_site_list(parsed_info: MmCIFDict) -> Sequence[AtomSite]:
     ]
 
 
-def _get_protein_chains(
-    *, parsed_info: Mapping[str, Any]
-) -> Mapping[ChainId, Sequence[Monomer]]:
+def _get_protein_chains(*, parsed_info: Mapping[str, Any]) -> Mapping[ChainId, Sequence[Monomer]]:
     """Extracts polymer information for protein chains only.
 
     Args:
@@ -415,12 +391,7 @@ def _get_protein_chains(
         chain_ids = entity_to_mmcif_chains[entity_id]
 
         # Reject polymers without any peptide-like components, such as DNA/RNA.
-        if any(
-            [
-                "peptide" in chem_comps[monomer.id]["_chem_comp.type"]
-                for monomer in seq_info
-            ]
-        ):
+        if any(["peptide" in chem_comps[monomer.id]["_chem_comp.type"] for monomer in seq_info]):
             for chain_id in chain_ids:
                 valid_chains[chain_id] = seq_info
     return valid_chains
@@ -432,30 +403,22 @@ def _is_set(data: str) -> bool:
 
 
 def get_atom_coords(
-    mmcif_object: MmcifObject, 
-    chain_id: str, 
-    _zero_center_positions: bool = False
+    mmcif_object: MmcifObject, chain_id: str, _zero_center_positions: bool = False
 ) -> Tuple[np.ndarray, np.ndarray]:
     # Locate the right chain
     chains = list(mmcif_object.structure.get_chains())
     relevant_chains = [c for c in chains if c.id == chain_id]
     if len(relevant_chains) != 1:
-        raise MultipleChainsError(
-            f"Expected exactly one chain in structure with id {chain_id}."
-        )
+        raise MultipleChainsError(f"Expected exactly one chain in structure with id {chain_id}.")
     chain = relevant_chains[0]
 
     # Extract the coordinates
     num_res = len(mmcif_object.chain_to_seqres[chain_id])
-    all_atom_positions = np.zeros(
-        [num_res, residue_constants.atom_type_num, 3], dtype=np.float32
-    )
-    all_atom_mask = np.zeros(
-        [num_res, residue_constants.atom_type_num], dtype=np.float32
-    )
+    all_atom_positions = np.zeros([num_res, rc.atom_type_num, 3], dtype=np.float32)
+    all_atom_mask = np.zeros([num_res, rc.atom_type_num], dtype=np.float32)
     for res_index in range(num_res):
-        pos = np.zeros([residue_constants.atom_type_num, 3], dtype=np.float32)
-        mask = np.zeros([residue_constants.atom_type_num], dtype=np.float32)
+        pos = np.zeros([rc.atom_type_num, 3], dtype=np.float32)
+        mask = np.zeros([rc.atom_type_num], dtype=np.float32)
         res_at_position = mmcif_object.seqres_to_structure[chain_id][res_index]
         if not res_at_position.is_missing:
             res = chain[
@@ -468,24 +431,23 @@ def get_atom_coords(
             for atom in res.get_atoms():
                 atom_name = atom.get_name()
                 x, y, z = atom.get_coord()
-                if atom_name in residue_constants.atom_order.keys():
-                    pos[residue_constants.atom_order[atom_name]] = [x, y, z]
-                    mask[residue_constants.atom_order[atom_name]] = 1.0
+                if atom_name in rc.atom_order.keys():
+                    pos[rc.atom_order[atom_name]] = [x, y, z]
+                    mask[rc.atom_order[atom_name]] = 1.0
                 elif atom_name.upper() == "SE" and res.get_resname() == "MSE":
                     # Put the coords of the selenium atom in the sulphur column
-                    pos[residue_constants.atom_order["SD"]] = [x, y, z]
-                    mask[residue_constants.atom_order["SD"]] = 1.0
+                    pos[rc.atom_order["SD"]] = [x, y, z]
+                    mask[rc.atom_order["SD"]] = 1.0
 
             # Fix naming errors in arginine residues where NH2 is incorrectly
             # assigned to be closer to CD than NH1
-            cd = residue_constants.atom_order['CD']
-            nh1 = residue_constants.atom_order['NH1']
-            nh2 = residue_constants.atom_order['NH2']
-            if(
-                res.get_resname() == 'ARG' and
-                all(mask[atom_index] for atom_index in (cd, nh1, nh2)) and
-                (np.linalg.norm(pos[nh1] - pos[cd]) > 
-                 np.linalg.norm(pos[nh2] - pos[cd]))
+            cd = rc.atom_order["CD"]
+            nh1 = rc.atom_order["NH1"]
+            nh2 = rc.atom_order["NH2"]
+            if (
+                res.get_resname() == "ARG"
+                and all(mask[atom_index] for atom_index in (cd, nh1, nh2))
+                and (np.linalg.norm(pos[nh1] - pos[cd]) > np.linalg.norm(pos[nh2] - pos[cd]))
             ):
                 pos[nh1], pos[nh2] = pos[nh2].copy(), pos[nh1].copy()
                 mask[nh1], mask[nh2] = mask[nh2].copy(), mask[nh1].copy()
