@@ -292,7 +292,7 @@ class LossConfig:
 
 @dataclass
 class AlphaFoldConfig:
-    preset: str = "default"
+    is_multimer: bool = False
 
     # AlphaFold modules configuration:
     input_embedder_config: InputEmbedderConfig = field(
@@ -385,16 +385,22 @@ class AlphaFoldConfig:
     @classmethod
     def from_preset(
         cls,
+        is_multimer: bool = False,
         precision: str = "fp32",
         enable_ptm: bool = False,
+        enable_templates: bool = False,
         inference_chunk_size: Optional[int] = 128,
     ) -> "AlphaFoldConfig":
-        cfg = {}
+        cfg = {
+            "is_multimer": is_multimer,
+            "templates_enabled": enable_templates,
+            "embed_template_torsion_angles": enable_templates,
+        }
 
         if inference_chunk_size is not None:
             _update(cfg, _inference_stage(chunk_size=inference_chunk_size))
 
-        if enable_ptm:
+        if is_multimer or enable_ptm:
             _update(cfg, _ptm_preset())
 
         if precision in {"fp32", "tf32", "bf16"}:
