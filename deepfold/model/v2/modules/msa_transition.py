@@ -36,7 +36,6 @@ class MSATransition(nn.Module):
         self,
         m: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
-        chunk_size: Optional[int] = None,
     ) -> torch.Tensor:
         """MSA Transition forward pass.
 
@@ -51,7 +50,6 @@ class MSATransition(nn.Module):
         # NOTE: DeepMind forgets to apply the MSA mask here.
         if mask is None:
             mask = m.new_ones(m.shape[:-1])
-
         mask = mask.unsqueeze(-1)
 
         if inductor.is_enabled():
@@ -89,3 +87,6 @@ def _forward_eager(
 
 
 _forward_jit = torch.compile(_forward_eager)
+
+
+# TODO: Chunk

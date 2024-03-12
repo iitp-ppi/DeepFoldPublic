@@ -34,7 +34,7 @@ class PairTransition(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        mask: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Pair Transition forward pass.
 
@@ -46,9 +46,12 @@ class PairTransition(nn.Module):
             z: [batch, N_res, N_res, c_z] updated pair representation
 
         """
-        # DeepMind forgets to apply the pair mask here.
-        input_z = z
+        # NOTE: DeepMind forgets to apply the MSA mask here.
+        if mask is None:
+            mask = z.new_ones(z.shape[:-1])
+        mask = mask.unsqueeze(-1)
 
+        input_z = z
         z = self.layer_norm(z)
 
         # make inductor happy - but why? what is the problem with original shape?
@@ -65,7 +68,13 @@ class PairTransition(nn.Module):
             linear_view_add_fn = _linear_view_add_jit
         else:
             linear_view_add_fn = _linear_view_add_eager
-        z = linear_view_add_fn(z, self.linear_2.weight, self.linear_2.bias, input_z)
+        z = linear_view_add_fn(
+            z,
+            mask,
+            self.linear_2.weight,
+            self.linear_2.bias,
+            input_z,
+        )
 
         z = z.view(original_shape)
         return z
@@ -118,12 +127,14 @@ _linear_relu_jit = torch.compile(_linear_relu_eager)
 
 def _linear_view_add_eager(
     z: torch.Tensor,
+    mask: torch.Tensor,
     w: torch.Tensor,
     b: torch.Tensor,
     out: torch.Tensor,
 ) -> torch.Tensor:
     z = F.linear(z, w, b)
     z = z.view(out.shape)
+    z = z * mask
     z = out + z
     return z
 
@@ -146,3 +157,6 @@ _linear_view_add_jit = torch.compile(_linear_view_add_eager)
 #     z = out + z
 #     return z
 # _forward_jit = torch.compile(_forward_eager)
+
+
+# TODO: Chunk
