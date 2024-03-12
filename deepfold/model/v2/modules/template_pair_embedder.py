@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
 import deepfold.model.v2.modules.inductor as inductor
-from deepfold.model.v2.modules.geometry import Rigid
+from deepfold.model.v2.modules.geometry import Rigid, Vector
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
 
@@ -247,7 +247,7 @@ class TemplatePairEmbedderMultimer(nn.Module):
         pseudo_beta_mask: torch.Tensor,
         backbone_mask: torch.Tensor,
         multichain_mask_2d: torch.Tensor,
-        unit_vector: geometry.Vec3Array,
+        unit_vector: Vector,
     ) -> torch.Tensor:
         act = 0.0
 
