@@ -4,7 +4,7 @@ from typing import Dict
 import torch
 import torch.nn as nn
 
-from deepfold.model.v2.config import HeadsConfig
+from deepfold.model.v2.config import AuxiliaryHeadsConfig
 from deepfold.model.v2.loss import compute_plddt, compute_predicted_aligned_error, compute_tm
 from deepfold.model.v2.modules.layer_norm import LayerNorm
 from deepfold.model.v2.modules.linear import Linear
@@ -14,7 +14,7 @@ from deepfold.utils.precision import is_fp16_enabled
 class AuxiliaryHeads(nn.Module):
     """Auxiliary Heads module."""
 
-    def __init__(self, config: HeadsConfig) -> None:
+    def __init__(self, config: AuxiliaryHeadsConfig) -> None:
         super().__init__()
         self.plddt = PerResidueLDDTCaPredictor(
             **asdict(config.per_residue_lddt_ca_predictor_config),
