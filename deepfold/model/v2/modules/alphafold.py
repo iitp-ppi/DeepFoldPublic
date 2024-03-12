@@ -6,7 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
-import deepfold.core.model_parallel.mappings as cc
+
+# import deepfold.core.model_parallel.mappings as cc
 import deepfold.core.parallel_state as ps
 import deepfold.model.v2.modules.inductor as inductor
 from deepfold.model.v2.config import AlphaFoldConfig
@@ -57,9 +58,6 @@ class AlphaFold(nn.Module):
         )
         self.extra_msa_stack = ExtraMSAStack(
             **asdict(config.extra_msa_stack_config),
-        )
-        self.evoformer_stack = EvoformerStack(
-            **asdict(config.evoformer_stack_config),
         )
         self.evoformer_stack = EvoformerStack(
             **asdict(config.evoformer_stack_config),

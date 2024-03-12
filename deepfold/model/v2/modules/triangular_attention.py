@@ -77,7 +77,7 @@ class TriangleAttention(nn.Module):
         # triangle_bias: [batch, N_res, N_res, num_heads]
 
         if ps.is_enabled():
-            triangle_bias = cc.gather(triangle_bias, dim=1, bwd="all_reduce_sum_split")
+            triangle_bias = cc.gather(triangle_bias, dim=-3, bwd="all_reduce_sum_split")
 
         triangle_bias = triangle_bias.movedim(-1, -3).unsqueeze(-4).contiguous()
         # triangle_bias: [batch, 1, num_heads, N_res, N_res]

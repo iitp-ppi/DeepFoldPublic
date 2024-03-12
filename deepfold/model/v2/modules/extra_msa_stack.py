@@ -133,14 +133,14 @@ class ExtraMSAStack(nn.Module):
         pair_mask: torch.Tensor,
     ) -> torch.Tensor:
         if ps.is_enabled():
-            m = cc.scatter(m, dim=1)
-            z = cc.scatter(z, dim=1)
+            m = cc.scatter(m, dim=-3)
+            z = cc.scatter(z, dim=-3)
 
         for block in self.blocks:
             m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
 
         if ps.is_enabled():
-            z = cc.gather(z, dim=1)
+            z = cc.gather(z, dim=-3)
 
         return z
 
@@ -161,13 +161,13 @@ class ExtraMSAStack(nn.Module):
         ]
 
         if ps.is_enabled():
-            m = cc.scatter(m, dim=1)
-            z = cc.scatter(z, dim=1)
+            m = cc.scatter(m, dim=-3)
+            z = cc.scatter(z, dim=-3)
 
         for block in blocks:
             m, z = gradient_checkpointing_fn(block, m, z, use_reentrant=True)
 
         if ps.is_enabled():
-            z = cc.gather(z, dim=1)
+            z = cc.gather(z, dim=-3)
 
         return z

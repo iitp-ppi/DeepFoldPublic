@@ -92,7 +92,7 @@ class OuterProductMean(nn.Module):
                 self.linear_2.bias,
                 mask_s,
             )
-            b = cc.gather(b, dim=2, bwd="all_reduce_sum_split")
+            b = cc.gather(b, dim=-2, bwd="all_reduce_sum_split")
         else:
             a, b = _forward_linear_a_b(
                 m,
@@ -129,7 +129,7 @@ class OuterProductMean(nn.Module):
         # norm: [batch, N_res, N_res, 1]
 
         if ps.is_enabled():
-            norm = cc.scatter(norm, dim=1)
+            norm = cc.scatter(norm, dim=-3)
 
         outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
         # outer: [batch, N_res, N_res, c_z]

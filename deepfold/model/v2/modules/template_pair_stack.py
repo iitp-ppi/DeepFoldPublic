@@ -91,13 +91,13 @@ class TemplatePairStack(nn.Module):
         mask: torch.Tensor,
     ) -> torch.Tensor:
         if ps.is_enabled():
-            t = cc.scatter(t, dim=2)
+            t = cc.scatter(t, dim=-2)
 
         for block in self.blocks:
             t = block(t=t, mask=mask)
 
         if ps.is_enabled():
-            t = cc.gather(t, dim=2)
+            t = cc.gather(t, dim=-2)
 
         return t
 
@@ -115,12 +115,12 @@ class TemplatePairStack(nn.Module):
         ]
 
         if ps.is_enabled():
-            t = cc.scatter(t, dim=2)
+            t = cc.scatter(t, dim=-2)
 
         for block in blocks:
             t = gradient_checkpointing_fn(block, t, use_reentrant=True)
 
         if ps.is_enabled():
-            t = cc.gather(t, dim=2)
+            t = cc.gather(t, dim=-2)
 
         return t

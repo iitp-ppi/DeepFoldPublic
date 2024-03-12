@@ -107,8 +107,8 @@ class TemplatePairBlock(nn.Module):
             # t: [batch, N_res, N_res, c_t]
 
             if ps.is_enabled():
-                mask_row = cc.scatter(mask, dim=1)
-                mask_col = cc.scatter(mask, dim=2)
+                mask_row = cc.scatter(mask, dim=-3)
+                mask_col = cc.scatter(mask, dim=-2)
                 t = self.tasn_dropout_rowwise(
                     self.tri_att_start(z=t, mask=mask_row),
                     add_output_to=t,
