@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 import deepfold.model.v2.modules.inductor as inductor
 from deepfold.core.ops import evoformer_attention
-from deepfold.model.v2.modules.linear import Linear, gating_init_
+from deepfold.model.v2.modules.linear import Linear
 from deepfold.utils.iter_utils import slice_generator
 
 
@@ -54,15 +54,11 @@ class SelfAttentionWithGate(nn.Module):
         self.chunk_size = chunk_size
         self.impl = impl
 
-        self.linear_qkvg = Linear(c_qkv, 4 * c_hidden * num_heads, bias=False, init="glorot")
-        gating_init_(self.linear_qkvg.weight.data[3 * c_hidden * num_heads :])
-        self.qkvg_split_shape = (
-            c_hidden * num_heads,
-            c_hidden * num_heads,
-            c_hidden * num_heads,
-            c_hidden * num_heads,
-        )
-        self.linear_g_bias = nn.Parameter(torch.ones(c_hidden * num_heads))
+        total_dim = c_hidden * num_heads
+        self.linear_q = Linear(c_qkv, total_dim, bias=False, init="glorot")
+        self.linear_k = Linear(c_qkv, total_dim, bias=False, init="glorot")
+        self.linear_v = Linear(c_qkv, total_dim, bias=False, init="glorot")
+        self.linear_g = Linear(c_qkv, total_dim, init="gating")
         self.linear_o = Linear(c_hidden * num_heads, c_qkv, bias=True, init="final")
 
     def forward(
@@ -126,8 +122,10 @@ class SelfAttentionWithGate(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         # input_qkv: [*, QKV, c_qkv]
 
-        qkvg = self.linear_qkvg(input_qkv)
-        q, k, v, g = torch.split(qkvg, self.qkvg_split_shape, dim=-1)
+        q = self.linear_q(input_qkv)
+        k = self.linear_k(input_qkv)
+        v = self.linear_v(input_qkv)
+        g = self.linear_g(input_qkv)
         # q: [*, Q, num_heads * c_hidden]
         # k: [*, K, num_heads * c_hidden]
         # v: [*, V, num_heads * c_hidden]
@@ -167,6 +165,8 @@ class SelfAttentionWithGate(nn.Module):
                     return _attention_jit(query, key, value, mask, bias, self.inf)
             else:
                 return _attention_chunked(query, key, value, mask, bias, self.inf, self.chunk_size)
+        elif self.impl == "evo":
+            return _evoformer_attention(query, key, value, mask, bias, self.inf)
         else:
             raise ValueError("Unknown attention implementation '{self.impl}'")
 
@@ -205,11 +205,8 @@ class CrossAttentionNoGate(nn.Module):
         self.impl = impl
 
         self.linear_q = Linear(c_q, c_hidden * num_heads, bias=False, init="glorot")
-        self.linear_kv = Linear(c_kv, 2 * c_hidden * num_heads, bias=False, init="glorot")
-        self.kv_split_shape = (
-            c_hidden * num_heads,
-            c_hidden * num_heads,
-        )
+        self.linear_k = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
+        self.linear_v = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
         self.linear_o = Linear(c_hidden * num_heads, c_q, bias=True, init="final")
 
     def forward(
@@ -260,8 +257,8 @@ class CrossAttentionNoGate(nn.Module):
         # input_kv: [*, KV, c_kv]
 
         q = self.linear_q(input_q)
-        kv = self.linear_kv(input_kv)
-        k, v = torch.split(kv, self.kv_split_shape, dim=-1)
+        k = self.linear_k(input_kv)
+        v = self.linear_v(input_kv)
         # q: [*, Q, num_heads * c_hidden]
         # k: [*, K, num_heads * c_hidden]
         # v: [*, V, num_heads * c_hidden]
@@ -424,4 +421,6 @@ def _evoformer_attention(
     if bias is not None:
         biases.append(bias)
 
-    return evoformer_attention(query, key, value, biases)
+    scaling = 1.0 / math.sqrt(query.size(-1))
+
+    return evoformer_attention(scaling * query, key, value, biases)
