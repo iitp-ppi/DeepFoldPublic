@@ -34,10 +34,12 @@ class TriangleMultiplicativeUpdate(nn.Module):
         self.c_z = c_z
         self.c_hidden = c_hidden
         self._is_outgoing = {"outgoing": True, "incoming": False}[tmu_type]
-        self.linear_a_p = Linear(c_z, c_hidden, bias=True, init="default")
-        self.linear_a_g = Linear(c_z, c_hidden, bias=True, init="gating")
-        self.linear_b_p = Linear(c_z, c_hidden, bias=True, init="default")
-        self.linear_b_g = Linear(c_z, c_hidden, bias=True, init="gating")
+        self.linear_ab_p = Linear(c_z, c_hidden * 2, init="default")
+        self.linear_ab_g = Linear(c_z, c_hidden * 2, init="gating")
+        # self.linear_a_p = Linear(c_z, c_hidden, bias=True, init="default")
+        # self.linear_a_g = Linear(c_z, c_hidden, bias=True, init="gating")
+        # self.linear_b_p = Linear(c_z, c_hidden, bias=True, init="default")
+        # self.linear_b_g = Linear(c_z, c_hidden, bias=True, init="gating")
         self.linear_g = Linear(c_z, c_z, bias=True, init="gating")
         self.linear_z = Linear(c_hidden, c_z, bias=True, init="final")
         self.layer_norm_in = LayerNorm(c_z)
@@ -64,26 +66,21 @@ class TriangleMultiplicativeUpdate(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_res, N_res, 1]
 
-        # todo(jxin), fusion with a.float, b.float ??
+        # TODO: Fusion with a.float, b.float (?)
         a, b = _compute_projections(
             z,
             mask,
-            self.linear_a_g.weight,
-            self.linear_a_g.bias,
-            self.linear_a_p.weight,
-            self.linear_a_p.bias,
-            self.linear_b_g.weight,
-            self.linear_b_g.bias,
-            self.linear_b_p.weight,
-            self.linear_b_p.bias,
-        )
-        # todo(jxin), why elementwise here?
+            self.linear_ab_g.weight,
+            self.linear_ab_g.bias,
+            self.linear_ab_p.weight,
+            self.linear_ab_p.bias,
+        ).chunk(2, dim=-1)
 
         if ps.is_enabled():
             if self._is_outgoing:
-                b = cc.gather(b, dim=1, bwd="all_reduce_sum_split")
+                b = cc.gather(b, dim=-3, bwd="all_reduce_sum_split")
             else:
-                a = cc.gather(a, dim=2, bwd="all_reduce_sum_split")
+                a = cc.gather(a, dim=-2, bwd="all_reduce_sum_split")
 
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
@@ -177,22 +174,15 @@ class TriangleMultiplicationIncoming(TriangleMultiplicativeUpdate):
 def _compute_projections_eager(
     z: torch.Tensor,
     mask: torch.Tensor,
-    w_a_g: torch.Tensor,
-    b_a_g: torch.Tensor,
-    w_a_p: torch.Tensor,
-    b_a_p: torch.Tensor,
-    w_b_g: torch.Tensor,
-    b_b_g: torch.Tensor,
-    w_b_p: torch.Tensor,
-    b_b_p: torch.Tensor,
+    w_ab_g: torch.Tensor,
+    b_ab_g: torch.Tensor,
+    w_ab_p: torch.Tensor,
+    b_ab_p: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    a = F.linear(z, w_a_g, b_a_g)
-    a = torch.sigmoid(a) * mask
-    a = a * F.linear(z, w_a_p, b_a_p)
-    b = F.linear(z, w_b_g, b_b_g)
-    b = torch.sigmoid(b) * mask
-    b = b * F.linear(z, w_b_p, b_b_p)
-    return a, b
+    ab = F.linear(z, w_ab_g, b_ab_g)
+    ab = torch.sigmoid(ab) * mask
+    ab = ab * F.linear(z, w_ab_p, b_ab_p)
+    return ab
 
 
 _compute_projections_jit = torch.compile(_compute_projections_eager)
@@ -201,20 +191,16 @@ _compute_projections_jit = torch.compile(_compute_projections_eager)
 def _compute_projections(
     z: torch.Tensor,
     mask: torch.Tensor,
-    w_a_g: torch.Tensor,
-    b_a_g: torch.Tensor,
-    w_a_p: torch.Tensor,
-    b_a_p: torch.Tensor,
-    w_b_g: torch.Tensor,
-    b_b_g: torch.Tensor,
-    w_b_p: torch.Tensor,
-    b_b_p: torch.Tensor,
+    w_ab_g: torch.Tensor,
+    b_ab_g: torch.Tensor,
+    w_ab_p: torch.Tensor,
+    b_ab_p: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     if inductor.is_enabled():
         compute_projections_fn = _compute_projections_jit
     else:
         compute_projections_fn = _compute_projections_eager
-    return compute_projections_fn(z, mask, w_a_g, b_a_g, w_a_p, b_a_p, w_b_g, b_b_g, w_b_p, b_b_p)
+    return compute_projections_fn(z, mask, w_ab_g, b_ab_g, w_ab_p, b_ab_p)
 
 
 def _compute_output_eager(
