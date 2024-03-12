@@ -27,7 +27,7 @@ class TestImportWeights(unittest.TestCase):
             is_multimer=False,
             enable_ptm=True,
             enable_templates=True,
-            fuse_tri_mul=False,
+            fuse_projection_weights=False,
         )
 
         data = np.load(npz_path)

@@ -127,7 +127,7 @@ def import_jax_weights_(
     is_multimer: bool = False,
     enable_ptm: bool = False,
     enable_templates: bool = False,
-    fuse_tri_mul: bool = False,
+    fuse_projection_weights: bool = False,
 ) -> None:
     """Import AlphaFold JAX parameters.
 
@@ -137,7 +137,7 @@ def import_jax_weights_(
         is_multimer: Whether multimer model or not.
         enable_ptm: Enable predicted aligned error related modules.
         enable_templates: Enable template related modules.
-        fuse_tri_mul: Whether triangular multiplicative layers are fused or not.
+        fuse_projection_weights: Whether triangular multiplicative layers are fused or not.
     """
 
     data = np.load(npz_path, allow_pickle=True)
@@ -228,7 +228,7 @@ def import_jax_weights_(
         "attention": AttentionGatedParams(tri_att.mha),
     }
 
-    if fuse_tri_mul:
+    if fuse_projection_weights:
         TriMulOutParams = lambda tri_mul: {
             "left_norm_input": LayerNormParams(tri_mul.layer_norm_in),
             # "left_projection": LinearLeftParams(tri_mul.linear_ab_p, tri_mul.linear_ab_p.weight.shape[0]//2),
