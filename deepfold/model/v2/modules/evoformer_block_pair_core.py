@@ -6,8 +6,6 @@ import torch.nn as nn
 import deepfold.core.model_parallel.mappings as cc
 import deepfold.core.parallel_state as ps
 from deepfold.model.v2.modules.dropout import DropoutColumnwise, DropoutRowwise
-from deepfold.model.v2.modules.msa_transition import MSATransition
-from deepfold.model.v2.modules.outer_product_mean import OuterProductMean
 from deepfold.model.v2.modules.pair_transition import PairTransition
 from deepfold.model.v2.modules.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
 from deepfold.model.v2.modules.triangular_multiplicative_update import (
@@ -16,10 +14,10 @@ from deepfold.model.v2.modules.triangular_multiplicative_update import (
 )
 
 
-class EvoformerBlockCore(nn.Module):
-    """Evoformer Block Core module.
+class EvoformerBlockPairCore(nn.Module):
+    """Evoformer Block Pair Core module.
 
-    MSA Transition, Communication and Pair stack for:
+    Pair stack for:
     - Supplementary '1.6 Evoformer blocks': Algorithm 6
     - Supplementary '1.7.2 Unclustered MSA stack': Algorithm 18
 
@@ -36,9 +34,6 @@ class EvoformerBlockCore(nn.Module):
         msa_dropout: Dropout rate for MSA activations.
         pair_dropout: Dropout rate for pair activations.
         inf: Safe infinity value.
-        eps_opm: Epsilon to prevent division by zero in outer product mean.
-        chunk_size_opm: Optional chunk size for a batch-like dimension
-            in outer product mean.
         chunk_size_tri_att: Optional chunk size for a batch-like dimension
             in triangular attention.
 
@@ -48,29 +43,15 @@ class EvoformerBlockCore(nn.Module):
         self,
         c_m: int,
         c_z: int,
-        c_hidden_opm: int,
         c_hidden_tri_mul: int,
         c_hidden_tri_att: int,
         num_heads_tri: int,
         transition_n: int,
         pair_dropout: float,
         inf: float,
-        eps_opm: float,
-        chunk_size_opm: Optional[int],
         chunk_size_tri_att: Optional[int],
     ) -> None:
         super().__init__()
-        self.msa_transition = MSATransition(
-            c_m=c_m,
-            n=transition_n,
-        )
-        self.outer_product_mean = OuterProductMean(
-            c_m=c_m,
-            c_z=c_z,
-            c_hidden=c_hidden_opm,
-            eps=eps_opm,
-            chunk_size=chunk_size_opm,
-        )
         self.tri_mul_out = TriangleMultiplicationOutgoing(
             c_z=c_z,
             c_hidden=c_hidden_tri_mul,
@@ -131,9 +112,19 @@ class EvoformerBlockCore(nn.Module):
 
         """
         if ps.is_enabled():
-            m, z = self._forward_dap(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
+            m, z = self._forward_dap(
+                m=m,
+                z=z,
+                # msa_mask=msa_mask,
+                pair_mask=pair_mask,
+            )
         else:
-            m, z = self._forward(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
+            m, z = self._forward(
+                m=m,
+                z=z,
+                # msa_mask=msa_mask,
+                pair_mask=pair_mask,
+            )
         return m, z
 
     def _forward(
@@ -143,8 +134,6 @@ class EvoformerBlockCore(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        m = self.msa_transition(m=m, mask=msa_mask)
-        z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask),
             add_output_to=z,
@@ -171,11 +160,9 @@ class EvoformerBlockCore(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        m = self.msa_transition(m=m, mask=msa_mask)
-        z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
         m = cc.col_to_row(m)
-        pair_mask_row = cc.scatter(pair_mask, dim=1)
-        pair_mask_col = cc.scatter(pair_mask, dim=2)
+        pair_mask_row = cc.scatter(pair_mask, dim=-3)
+        pair_mask_col = cc.scatter(pair_mask, dim=-2)
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask_row),
             add_output_to=z,
@@ -183,7 +170,7 @@ class EvoformerBlockCore(nn.Module):
         z = cc.row_to_col(z)
         z = self.tmi_dropout_rowwise(
             self.tri_mul_in(z=z, mask=pair_mask_col),
-            dap_scattered_dim=2,
+            dap_scattered_dim=-2,
             add_output_to=z,
         )
         z = cc.col_to_row(z)

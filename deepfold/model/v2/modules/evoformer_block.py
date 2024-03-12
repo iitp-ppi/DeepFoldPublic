@@ -6,15 +6,18 @@ import torch.nn as nn
 import deepfold.core.model_parallel.mappings as cc
 import deepfold.core.parallel_state as ps
 from deepfold.model.v2.modules.dropout import DropoutRowwise
-from deepfold.model.v2.modules.evoformer_block_core import EvoformerBlockCore
+from deepfold.model.v2.modules.evoformer_block_pair_core import EvoformerBlockPairCore
 from deepfold.model.v2.modules.msa_column_attention import MSAColumnAttention
 from deepfold.model.v2.modules.msa_row_attention_with_pair_bias import MSARowAttentionWithPairBias
+from deepfold.model.v2.modules.msa_transition import MSATransition
+from deepfold.model.v2.modules.outer_product_mean import OuterProductMean
 
 
 class EvoformerBlock(nn.Module):
     """Evoformer Block module.
 
     Supplementary '1.6 Evoformer blocks': Algorithm 6.
+    MSA Transition and Communication are included.
 
     Args:
         c_m: MSA representation dimension (channels).
@@ -77,18 +80,26 @@ class EvoformerBlock(nn.Module):
         self.msa_dropout_rowwise = DropoutRowwise(
             p=msa_dropout,
         )
-        self.core = EvoformerBlockCore(
+        self.msa_transition = MSATransition(
+            c_m=c_m,
+            n=transition_n,
+        )
+        self.outer_product_mean = OuterProductMean(
             c_m=c_m,
             c_z=c_z,
-            c_hidden_opm=c_hidden_opm,
+            c_hidden=c_hidden_opm,
+            eps=eps_opm,
+            chunk_size=chunk_size_opm,
+        )
+        self.core = EvoformerBlockPairCore(
+            c_m=c_m,
+            c_z=c_z,
             c_hidden_tri_mul=c_hidden_tri_mul,
             c_hidden_tri_att=c_hidden_tri_att,
             num_heads_tri=num_heads_tri,
             transition_n=transition_n,
             pair_dropout=pair_dropout,
             inf=inf,
-            eps_opm=eps_opm,
-            chunk_size_opm=chunk_size_opm,
             chunk_size_tri_att=chunk_size_tri_att,
         )
 
@@ -113,20 +124,24 @@ class EvoformerBlock(nn.Module):
 
         """
         if ps.is_enabled():
-            msa_mask_row = cc.scatter(msa_mask, dim=1)
-            msa_mask_col = cc.scatter(msa_mask, dim=2)
+            msa_mask_row = cc.scatter(msa_mask, dim=-3)
+            msa_mask_col = cc.scatter(msa_mask, dim=-2)
             m = self.msa_dropout_rowwise(
                 self.msa_att_row(m=m, z=z, mask=msa_mask_row),
                 add_output_to=m,
             )
             m = cc.row_to_col(m)
             m = self.msa_att_col(m=m, mask=msa_mask_col)
+
         else:
             m = self.msa_dropout_rowwise(
                 self.msa_att_row(m=m, z=z, mask=msa_mask),
                 add_output_to=m,
             )
             m = self.msa_att_col(m=m, mask=msa_mask)
+
+        m = self.msa_transition(m=m, mask=msa_mask)
+        z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
 
         m, z = self.core(
             m=m,
