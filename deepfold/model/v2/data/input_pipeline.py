@@ -178,8 +178,8 @@ def process_tensors_from_config(tensors, common_cfg, mode_cfg):
 
     tensors = compose(nonensembled)(tensors)
 
-    if "no_recycling_iters" in tensors:
-        num_recycling = int(tensors["no_recycling_iters"])
+    if "num_recycling_iters" in tensors:
+        num_recycling = int(tensors["num_recycling_iters"])
     else:
         num_recycling = common_cfg.max_recycling_iters
 
