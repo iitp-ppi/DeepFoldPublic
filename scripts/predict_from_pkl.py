@@ -15,7 +15,7 @@ import torch.multiprocessing as mp
 from omegaconf import DictConfig, OmegaConf
 
 import deepfold.distributed.legacy as dist
-from deepfold.apps.config_utils import load as load_config
+from deepfold.launch.config_utils import load as load_config
 from deepfold.common import protein
 from deepfold.model.alphafold.data.pipeline import FeaturePipeline
 from deepfold.model.alphafold.data.types import FeatureDict

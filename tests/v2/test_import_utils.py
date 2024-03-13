@@ -4,9 +4,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from deepfold.model.v2.config import AlphaFoldConfig
-from deepfold.model.v2.import_utils import import_jax_weights_
-from deepfold.model.v2.modules.alphafold import AlphaFold
+from deepfold.config import AlphaFoldConfig
+from deepfold.import_utils import import_jax_weights_
+from deepfold.modules.alphafold import AlphaFold
 
 
 class TestImportWeights(unittest.TestCase):
