@@ -27,14 +27,7 @@ import torch
 
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.data import (
-    feature_processing_multimer,
-    mmcif_parsing,
-    msa_identifiers,
-    msa_pairing,
-    parsers,
-    templates,
-)
+from deepfold.data import feature_processing_multimer, mmcif_parsing, msa_identifiers, msa_pairing, parsers, templates
 from deepfold.data.templates import empty_template_feats, get_custom_template_features
 from deepfold.data.tools import hhblits, hhsearch, hmmsearch, jackhmmer
 
@@ -301,7 +294,7 @@ class AlignmentRunner:
         uniprot_database_path: Optional[str] = None,
         template_searcher: Optional[TemplateSearcher] = None,
         use_small_bfd: Optional[bool] = None,
-        no_cpus: Optional[int] = None,
+        num_cpus: Optional[int] = None,
         uniref_max_hits: int = 10000,
         mgnify_max_hits: int = 5000,
         uniprot_max_hits: int = 50000,
@@ -331,7 +324,7 @@ class AlignmentRunner:
             use_small_bfd:
                 Whether to search the BFD database alone with jackhmmer or
                 in conjunction with uniref30/uniclust30 with hhblits.
-            no_cpus:
+            num_cpus:
                 The number of CPUs available for alignment. By default, all
                 CPUs are used.
             uniref_max_hits:
@@ -369,15 +362,15 @@ class AlignmentRunner:
         self.uniprot_max_hits = uniprot_max_hits
         self.use_small_bfd = use_small_bfd
 
-        if no_cpus is None:
-            no_cpus = cpu_count()
+        if num_cpus is None:
+            num_cpus = cpu_count()
 
         self.jackhmmer_uniref90_runner = None
         if jackhmmer_binary_path is not None and uniref90_database_path is not None:
             self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=uniref90_database_path,
-                n_cpu=no_cpus,
+                n_cpu=num_cpus,
             )
 
         self.jackhmmer_small_bfd_runner = None
@@ -387,7 +380,7 @@ class AlignmentRunner:
                 self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
                     binary_path=jackhmmer_binary_path,
                     database_path=bfd_database_path,
-                    n_cpu=no_cpus,
+                    n_cpu=num_cpus,
                 )
             else:
                 dbs = [bfd_database_path]
@@ -398,7 +391,7 @@ class AlignmentRunner:
                 self.hhblits_bfd_unirefclust_runner = hhblits.HHBlits(
                     binary_path=hhblits_binary_path,
                     databases=dbs,
-                    n_cpu=no_cpus,
+                    n_cpu=num_cpus,
                 )
 
         self.jackhmmer_mgnify_runner = None
@@ -406,13 +399,13 @@ class AlignmentRunner:
             self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=mgnify_database_path,
-                n_cpu=no_cpus,
+                n_cpu=num_cpus,
             )
 
         self.jackhmmer_uniprot_runner = None
         if uniprot_database_path is not None:
             self.jackhmmer_uniprot_runner = jackhmmer.Jackhmmer(
-                binary_path=jackhmmer_binary_path, database_path=uniprot_database_path, n_cpu=no_cpus
+                binary_path=jackhmmer_binary_path, database_path=uniprot_database_path, n_cpu=num_cpus
             )
 
         if template_searcher is not None and self.jackhmmer_uniref90_runner is None:
@@ -899,46 +892,6 @@ class DataPipeline:
             msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
 
         return {**pdb_feats, **template_features, **msa_features, **sequence_embedding_features}
-
-    def process_core(
-        self,
-        core_path: str,
-        alignment_dir: str,
-        alignment_index: Optional[Any] = None,
-        seqemb_mode: bool = False,
-    ) -> FeatureDict:
-        """
-        Assembles features for a protein in a ProteinNet .core file.
-        """
-        with open(core_path, "r") as f:
-            core_str = f.read()
-
-        protein_object = protein.from_proteinnet_string(core_str)
-        input_sequence = _aatype_to_str_sequence(protein_object.aatype)
-        description = os.path.splitext(os.path.basename(core_path))[0].upper()
-        core_feats = make_protein_features(protein_object, description)
-
-        hits = self._parse_template_hit_files(
-            alignment_dir=alignment_dir,
-            input_sequence=input_sequence,
-            alignment_index=alignment_index,
-        )
-
-        template_features = make_template_features(
-            input_sequence,
-            hits,
-            self.template_featurizer,
-        )
-
-        sequence_embedding_features = {}
-        # If in sequence embedding mode, generate dummy MSA features using just the input sequence
-        if seqemb_mode:
-            msa_features = make_dummy_msa_feats(input_sequence)
-            sequence_embedding_features = self._process_seqemb_features(alignment_dir)
-        else:
-            msa_features = self._process_msa_feats(alignment_dir, input_sequence)
-
-        return {**core_feats, **template_features, **msa_features, **sequence_embedding_features}
 
     def process_multiseq_fasta(
         self,
