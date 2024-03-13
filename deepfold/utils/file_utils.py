@@ -1,9 +1,8 @@
 import gzip
+import logging
 import os
 import pickle
 from typing import Any
-import logging
-
 
 __all__ = ["read_text", "load_pickle", "dump_pickle"]
 
