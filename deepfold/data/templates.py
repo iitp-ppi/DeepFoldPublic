@@ -1,3 +1,4 @@
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -32,6 +33,7 @@ from deepfold.data import mmcif_parsing, parsers
 from deepfold.data.errors import Error
 from deepfold.data.tools import kalign
 from deepfold.data.tools.utils import to_date
+from deepfold.utils.file_utils import read_text
 
 
 class NoChainsError(Error):
@@ -868,11 +870,14 @@ def _process_single_hit(
 
 
 def get_custom_template_features(
-    mmcif_path: str, query_sequence: str, pdb_id: str, chain_id: str, kalign_binary_path: str
+    mmcif_path: str,
+    query_sequence: str,
+    pdb_id: str,
+    chain_id: str,
+    kalign_binary_path: str,
 ):
 
-    with open(mmcif_path, "r") as mmcif_path:
-        cif_string = mmcif_path.read()
+    cif_string = read_text(mmcif_path)
 
     mmcif_parse_result = mmcif_parsing.parse(file_id=pdb_id, mmcif_string=cif_string)
     template_sequence = mmcif_parse_result.mmcif_object.chain_to_seqres[chain_id]
@@ -1081,7 +1086,11 @@ class HhsearchHitFeaturizer(TemplateHitFeaturizer):
 
 
 class HmmsearchHitFeaturizer(TemplateHitFeaturizer):
-    def get_templates(self, query_sequence: str, hits: Sequence[parsers.TemplateHit]) -> TemplateSearchResult:
+    def get_templates(
+        self,
+        query_sequence: str,
+        hits: Sequence[parsers.TemplateHit],
+    ) -> TemplateSearchResult:
         logging.info("Searching for template for: %s", query_sequence)
 
         template_features = {}
