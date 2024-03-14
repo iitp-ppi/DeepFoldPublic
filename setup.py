@@ -78,7 +78,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
     ],
-    packages=["deepfold"],
+    packages=setuptools.find_packages(exclude=["tests"]),
     # install_requires=install_requires,
     include_package_data=True,
     ext_modules=ext_modules,
