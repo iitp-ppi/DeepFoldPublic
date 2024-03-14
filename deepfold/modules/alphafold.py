@@ -171,7 +171,7 @@ class AlphaFold(nn.Module):
             # z: [batch, N_res, N_res, c_z]
 
             if self.config.embed_template_torsion_angles:
-                m = torch.cat([m, template_embeds["template_angle_embedding"]], dim=1)
+                m = torch.cat([m, template_embeds["template_angle_embedding"]], dim=-3)
                 # m: [batch, N_seq, N_res, c_m]
 
                 msa_mask = torch.cat(
