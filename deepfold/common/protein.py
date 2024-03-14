@@ -559,7 +559,7 @@ def ideal_atom_mask(prot: Protein) -> np.ndarray:
 
 
 def from_prediction(
-    features: FeatureDict,
+    processed_features: FeatureDict,
     result: ModelOutput,
     b_factors: Optional[np.ndarray] = None,
     remove_leading_feature_dimension: bool = True,
@@ -570,12 +570,10 @@ def from_prediction(
     """Assembles a protein from a prediction.
 
     Args:
-      features: Dictionary holding model inputs.
+      processed_features: Dictionary holding model inputs.
       result: Dictionary holding model outputs.
       b_factors: (Optional) B-factors to use for the protein.
-      remove_leading_feature_dimension: Whether to remove the leading dimension
-        of the `features` values
-      chain_index: (Optional) Chain indices for multi-chain predictions
+      remove_leading_feature_dimension: Whether to remove the leading dimension of the feature values.
       remark: (Optional) Remark about the prediction
       parents: (Optional) List of template names
     Returns:
@@ -585,19 +583,21 @@ def from_prediction(
     def _maybe_remove_leading_dim(arr: np.ndarray) -> np.ndarray:
         return arr[0] if remove_leading_feature_dimension else arr
 
-    if "asym_id" in features:
-        chain_index = _maybe_remove_leading_dim(features["asym_id"]) - 1
+    if "asym_id" in processed_features:
+        chain_index = _maybe_remove_leading_dim(processed_features["asym_id"]) - 1
     else:
-        chain_index = np.zeros_like(_maybe_remove_leading_dim(features["aatype"]))
+        chain_index = np.zeros_like(_maybe_remove_leading_dim(processed_features["aatype"]))
 
     if b_factors is None:
         b_factors = np.zeros_like(result["final_atom_mask"])
+    if b_factors.ndim == 1:
+        b_factors = np.repeat(b_factors[..., None], rc.atom_type_num, axis=-1)
 
     return Protein(
-        aatype=_maybe_remove_leading_dim(features["aatype"]),
+        aatype=_maybe_remove_leading_dim(processed_features["aatype"]),
         atom_positions=result["final_atom_positions"],
         atom_mask=result["final_atom_mask"],
-        residue_index=_maybe_remove_leading_dim(features["residue_index"]) + 1,
+        residue_index=_maybe_remove_leading_dim(processed_features["residue_index"]) + 1,
         b_factors=b_factors,
         chain_index=chain_index,
         remark=remark,
