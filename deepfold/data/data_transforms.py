@@ -236,7 +236,12 @@ def delete_extra_msa(protein):
 
 # Not used in inference
 @curry1
-def block_delete_msa(protein, config):
+def block_delete_msa(
+    protein: TensorDict,
+    msa_fraction_per_block: float,
+    randomize_num_blocks: bool,
+    num_blocks: int,
+) -> TensorDict:
     num_seq = protein["msa"].shape[0]
     block_num_seq = torch.floor(
         torch.tensor(
@@ -244,23 +249,23 @@ def block_delete_msa(protein, config):
             dtype=torch.float32,
             device=protein["msa"].device,
         )
-        * config.msa_fraction_per_block
+        * msa_fraction_per_block
     ).to(torch.int32)
 
     if int(block_num_seq) == 0:
         return protein
 
-    if config.randomize_num_blocks:
+    if randomize_num_blocks:
         nb = int(
             torch.randint(
                 low=0,
-                high=config.num_blocks + 1,
+                high=(num_blocks + 1),
                 size=(1,),
                 device=protein["msa"].device,
             )[0]
         )
     else:
-        nb = config.num_blocks
+        nb = num_blocks
 
     del_block_starts = torch.randint(low=1, high=num_seq, size=(nb,), device=protein["msa"].device)
     del_blocks = del_block_starts[:, None] + torch.arange(start=0, end=block_num_seq)

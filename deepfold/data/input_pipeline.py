@@ -81,7 +81,13 @@ def ensembled_transform_fns(
     transforms = []
 
     if config.block_delete_msa_enabled:
-        transforms.append(data_transforms.block_delete_msa(common_cfg.block_delete_msa))
+        transforms.append(
+            data_transforms.block_delete_msa(
+                msa_fraction_per_block=config.msa_fraction_per_deletion_block,
+                randomize_num_blocks=config.randomize_num_msa_deletion_blocks,
+                num_blocks=config.num_msa_deletion_blocks,
+            )
+        )
 
     if config.sample_msa_distillation_enabled:
         transforms.append(data_transforms.sample_msa_distillation(config.max_distillation_msa_clusters))
