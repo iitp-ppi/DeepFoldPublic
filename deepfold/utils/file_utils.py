@@ -1,3 +1,4 @@
+import functools
 import gzip
 import logging
 import os
@@ -9,6 +10,7 @@ __all__ = ["read_text", "load_pickle", "dump_pickle"]
 logger = logging.getLogger(__name__)
 
 
+@functools.lru_cache(16, typed=False)
 def read_text(path: os.PathLike) -> str:
     try:
         with open(path, "r") as fp:
@@ -30,5 +32,5 @@ def load_pickle(path: os.PathLike) -> Any:
 
 
 def dump_pickle(obj: Any, path: os.PathLike) -> None:
-    with gzip.open(f"{path}.gz", "rb") as fp:
+    with gzip.open(f"{path}.gz", "wb") as fp:
         pickle.dump(obj, fp)
