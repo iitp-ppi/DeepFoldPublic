@@ -179,6 +179,7 @@ class Config:
     strict: bool = False
     strict_unions_match: bool = False
 
+    @property
     def hashable_forward_references(self) -> Optional[FrozenDict]:
         return FrozenDict(self.forward_references) if self.forward_references else None
 

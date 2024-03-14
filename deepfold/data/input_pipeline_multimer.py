@@ -1,3 +1,4 @@
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -13,12 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import random
+from typing import Dict
 
 import torch
 
+from deepfold.config import FEATURE_SHAPES, MULTIMER_FEATURE_SHAPES, FeaturePipelineConfig
 from deepfold.data import data_transforms, data_transforms_multimer
+
+TensorDict = Dict[str, torch.Tensor]
 
 
 def groundtruth_transforms_fns():
@@ -46,16 +50,19 @@ def nonensembled_transform_fns():
     return transforms
 
 
-def ensembled_transform_fns(common_cfg, mode_cfg, ensemble_seed):
+def ensembled_transform_fns(
+    config: FeaturePipelineConfig,
+    ensemble_seed: int,
+):
     """Input pipeline data transformers that can be ensembled and averaged."""
     transforms = []
 
-    pad_msa_clusters = mode_cfg.max_msa_clusters
+    pad_msa_clusters = config.max_msa_clusters
     max_msa_clusters = pad_msa_clusters
-    max_extra_msa = mode_cfg.max_extra_msa
+    max_extra_msa = config.max_extra_msa
 
     msa_seed = None
-    if not common_cfg.resample_msa_in_recycling:
+    if not config.resample_msa_in_recycling:
         msa_seed = ensemble_seed
 
     transforms.append(
@@ -66,14 +73,16 @@ def ensembled_transform_fns(common_cfg, mode_cfg, ensemble_seed):
         )
     )
 
-    if "masked_msa" in common_cfg:
+    if config.masked_msa_enabled:
         # Masked MSA should come *before* MSA clustering so that
         # the clustering and full MSA profile do not leak information about
         # the masked locations and secret corrupted locations.
         transforms.append(
             data_transforms_multimer.make_masked_msa(
-                common_cfg.masked_msa,
-                mode_cfg.masked_msa_replace_fraction,
+                profile_prob=config.masked_msa_profile_prob,
+                same_prob=config.masked_msa_same_prob,
+                uniform_prob=config.masked_msa_uniform_prob,
+                replace_fraction=config.masked_msa_replace_fraction,
                 seed=(msa_seed + 1) if msa_seed else None,
             )
         )
@@ -81,20 +90,23 @@ def ensembled_transform_fns(common_cfg, mode_cfg, ensemble_seed):
     transforms.append(data_transforms_multimer.nearest_neighbor_clusters())
     transforms.append(data_transforms_multimer.create_msa_feat)
 
-    crop_feats = dict(common_cfg.feat)
+    if not config.is_multimer:
+        crop_feats = dict(FEATURE_SHAPES)
+    else:
+        crop_feats = dict(MULTIMER_FEATURE_SHAPES)
 
-    if mode_cfg.fixed_size:
+    if config.fixed_size:
         transforms.append(data_transforms.select_feat(list(crop_feats)))
 
-        if mode_cfg.crop:
+        if config.residue_cropping_enabled:
             transforms.append(
                 data_transforms_multimer.random_crop_to_size(
-                    crop_size=mode_cfg.crop_size,
-                    max_templates=mode_cfg.max_templates,
+                    crop_size=config.crop_size,
+                    max_templates=config.max_templates,
                     shape_schema=crop_feats,
-                    spatial_crop_prob=mode_cfg.spatial_crop_prob,
-                    interface_threshold=mode_cfg.interface_threshold,
-                    subsample_templates=mode_cfg.subsample_templates,
+                    spatial_crop_prob=config.spatial_crop_prob,
+                    interface_threshold=config.interface_threshold,
+                    subsample_templates=config.subsample_templates,
                     seed=ensemble_seed + 1,
                 )
             )
@@ -102,18 +114,18 @@ def ensembled_transform_fns(common_cfg, mode_cfg, ensemble_seed):
             data_transforms.make_fixed_size(
                 shape_schema=crop_feats,
                 msa_cluster_size=pad_msa_clusters,
-                extra_msa_size=mode_cfg.max_extra_msa,
-                num_res=mode_cfg.crop_size,
-                num_templates=mode_cfg.max_templates,
+                extra_msa_size=config.max_extra_msa,
+                num_res=config.crop_size,
+                num_templates=config.max_templates,
             )
         )
     else:
-        transforms.append(data_transforms.crop_templates(mode_cfg.max_templates))
+        transforms.append(data_transforms.crop_templates(max_templates=config.max_templates))
 
     return transforms
 
 
-def prepare_ground_truth_features(tensors):
+def prepare_ground_truth_features(tensors: TensorDict):
     """Prepare ground truth features that are only needed for loss calculation during training"""
 
     gt_features = ["all_atom_mask", "all_atom_positions", "asym_id", "sym_id", "entity_id"]
@@ -123,10 +135,13 @@ def prepare_ground_truth_features(tensors):
     return gt_tensors
 
 
-def process_tensors_from_config(tensors, common_cfg, mode_cfg):
+def process_tensors_from_config(
+    tensors: TensorDict,
+    config: FeaturePipelineConfig,
+):
     """Based on the config, apply filters and transformations to the data."""
 
-    process_gt_feats = mode_cfg.supervised
+    process_gt_feats = config.supervised_raw_features_names
     gt_tensors = {}
     if process_gt_feats:
         gt_tensors = prepare_ground_truth_features(tensors)
@@ -138,16 +153,12 @@ def process_tensors_from_config(tensors, common_cfg, mode_cfg):
     if "num_recycling_iters" in tensors:
         num_recycling = int(tensors["num_recycling_iters"])
     else:
-        num_recycling = common_cfg.max_recycling_iters
+        num_recycling = config.max_recycling_iters
 
     def wrap_ensemble_fn(data, i):
         """Function to be mapped over the ensemble dimension."""
         d = data.copy()
-        fns = ensembled_transform_fns(
-            common_cfg,
-            mode_cfg,
-            ensemble_seed,
-        )
+        fns = ensembled_transform_fns(config=config, ensemble_seed=ensemble_seed)
         fn = compose(fns)
         d["ensemble_index"] = i
         return fn(d)

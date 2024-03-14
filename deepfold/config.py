@@ -3,12 +3,14 @@
 
 """DeepFold2 model configuration."""
 
+from __future__ import annotations
+
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
 from omegaconf import DictConfig
 
-import deepfold.utils.config_utils as config_utils
+from deepfold.utils import config_utils
 
 NUM_RES = "NUM_RES"
 NUM_MSA_SEQ = "NUM_MSA_SEQ"
@@ -379,8 +381,8 @@ class AlphaFoldConfig:
         ]
     )
 
-    # CUDAGraphs configuration:
-    cuda_graphs: bool = True
+    # CUDA Graphs configuration:
+    cuda_graphs: bool = False
 
     @classmethod
     def from_preset(
@@ -408,7 +410,7 @@ class AlphaFoldConfig:
         elif precision in {"amp", "fp16"}:
             _update(cfg, _half_precision_settings())
         else:
-            raise ValueError(f"unknown precision={repr(precision)}")
+            raise ValueError(f"Unknown precision={repr(precision)}")
 
         return cls.from_dict(cfg)
 
@@ -416,7 +418,7 @@ class AlphaFoldConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, cfg: DictConfig) -> "AlphaFoldConfig":
+    def from_dict(cls, cfg: dict) -> "AlphaFoldConfig":
         return config_utils.from_dict(
             data_class=AlphaFoldConfig,
             data=cfg,
@@ -471,15 +473,228 @@ def _half_precision_settings() -> dict:
     }
 
 
-def _update(left: dict, right: dict) -> dict:
-    assert isinstance(left, dict)
-    assert isinstance(right, dict)
-    for k, v in right.items():
-        if isinstance(v, dict):
-            left[k] = _update(left.get(k, {}), v)
+@dataclass
+class FeaturePipelineConfig:
+    preset: str = ""
+    is_multimer: bool = False
+
+    # Fix input sizes:
+    fixed_size: bool = True
+
+    # MSA features configuration:
+    max_msa_clusters: int = 128  # Number of clustered MSA sequences (N_clust)
+    max_extra_msa: int = 1024  # Number of unclustered extra sequences (N_extra_seq)
+    sample_msa_distillation_enabled: bool = False
+    max_distillation_msa_clusters: int = 1000
+
+    # Supplementary '1.2.6 MSA block deletion'
+    # MSA block deletion configurations:
+    block_delete_msa_enabled: bool = True
+    msa_fraction_per_deletion_block: float = 0.3
+    randomize_num_msa_deletion_blocks: bool = False
+    num_msa_deletion_blocks: int = 5
+
+    # Supplementary '1.2.7 MSA clustering':
+    # Masked MSA configurations:
+    masked_msa_enabled: bool = True
+    masked_msa_profile_prob: float = 0.1
+    masked_msa_same_prob: float = 0.1
+    masked_msa_uniform_prob: float = 0.1
+    masked_msa_replace_fraction: float = 0.15
+
+    # Recycling (last dimension in the batch dict):
+    max_recycling_iters: int = 3
+    uniform_recycling: bool = False
+
+    # Resample MSA in recycling:
+    resample_msa_in_recycling: bool = True
+
+    # Concatenate template sequences to MSA clusters:
+    reduce_msa_clusters_by_max_templates: bool = True
+
+    # Sequence crop & pad size (for "train" mode only):
+    residue_cropping_enabled: bool = False
+    crop_size: int = 256  # N_res
+    spatial_crop_prob: float = 0.5
+    interface_threshold: float = 10.0
+
+    # Primary sequence and MSA related features names:
+    primary_raw_feature_names: List[str] = field(
+        default_factory=lambda: [
+            "aatype",
+            "residue_index",
+            "msa",
+            "num_alignments",
+            "seq_length",
+            "between_segment_residues",
+            "deletion_matrix",
+            "num_recycling_iters",
+        ]
+    )
+
+    msa_cluster_features_enabled: bool = True
+
+    # Template features configuration:
+    templates_enabled: bool = True
+    embed_template_torsion_angles: bool = True
+    max_templates: int = 4  # Number of templates (N_templ)
+    max_template_hits: int = 4
+    shuffle_top_k_prefiltered: int = 20
+    subsample_templates: bool = False
+
+    # Template related raw features names:
+    template_raw_feature_names: List[str] = field(
+        default_factory=lambda: [
+            "template_all_atom_positions",
+            "template_sum_probs",
+            "template_aatype",
+            "template_all_atom_mask",
+        ]
+    )
+
+    # Generate supervised features:
+    supervised_features_enabled: bool = False
+    clamp_fape_prob: float = 0.9
+
+    # Distillation
+    distillation_prob: float = 0.75
+
+    # Target and related to supervised training feature names:
+    supervised_raw_features_names: List[str] = field(
+        default_factory=lambda: [
+            "all_atom_mask",
+            "all_atom_positions",
+            "resolution",
+            "is_distillation",
+            "use_clamped_fape",
+        ]
+    )
+
+    def feature_names(self) -> List[str]:
+        names = self.primary_raw_feature_names.copy()
+
+        if self.templates_enabled:
+            names += self.template_raw_feature_names
+
+        if self.supervised_features_enabled:
+            names += self.supervised_raw_features_names
+
+        return names
+
+    @classmethod
+    def from_preset(
+        cls,
+        preset: str,
+        is_multimer: bool = False,
+    ) -> FeaturePipelineConfig:
+        cfg = {}
+        if preset == "predict":
+            cfg = _predict_mode(is_multimer)
+        elif preset == "eval":
+            cfg = _eval_mode(is_multimer)
+        elif preset == "train":
+            cfg = _train_mode(is_multimer)
         else:
-            left[k] = v
-    return left
+            raise ValueError(f"Unknown preset: '{preset}'")
+
+        return cls.from_dict(cfg)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, cfg: DictConfig) -> FeaturePipelineConfig:
+        return config_utils.from_dict(
+            data_class=FeaturePipelineConfig,
+            data=cfg,
+            config=config_utils.Config(check_types=True, strict=True),
+        )
+
+
+def _predict_mode(is_multimer: bool = False) -> dict:
+    dic = {
+        "preset": "predict",
+        "fixed_size": True,
+        "subsample_templates": False,
+        "block_delete_msa_enabled": False,
+        "max_msa_clusters": 512,
+        "max_extra_msa": 1024,
+        "max_template_hits": 4,
+        "max_templates": 4,
+        "residue_cropping_enabled": False,
+        "supervised_features_enabled": False,
+        "uniform_recycling": False,
+    }
+    if is_multimer:
+        dic.update(
+            {
+                "max_msa_clusters": 512,
+                "max_extra_msa": 2048,
+            }
+        )
+
+    return dic
+
+
+def _eval_mode(is_multimer: bool = False) -> dict:
+    dic = {
+        "preset": "eval",
+        "fixed_size": True,
+        "subsample_templates": False,
+        "block_delete_msa_enabled": False,
+        "max_msa_clusters": 128,
+        "max_extra_msa": 1024,
+        "max_template_hits": 4,
+        "max_templates": 4,
+        "residue_cropping_enabled": False,
+        "supervised_features_enabled": True,
+        "uniform_recycling": False,
+    }
+    if is_multimer:
+        dic.update(
+            {
+                "max_msa_clusters": 512,
+                "max_extra_msa": 2048,
+            }
+        )
+
+    return dic
+
+
+def _train_mode(is_multimer: bool = False) -> dict:
+    dic = {
+        "preset": "train",
+        "fixed_size": True,
+        "subsample_templates": True,
+        "block_delete_msa_enabled": True,
+        "max_msa_clusters": 128,
+        "max_extra_msa": 1024,
+        "max_template_hits": 4,
+        "max_templates": 4,
+        "shuffle_top_k_prefiltered": 20,
+        "residue_cropping_enabled": True,
+        "crop_size": 256,
+        "supervised_features_enabled": True,
+        "uniform_recycling": True,
+        "clamp_fape_prob": 0.9,
+        "sample_msa_distillation_enabled": True,
+        "max_distillation_msa_clusters": 1000,
+        "distillation_prob": 0.75,
+    }
+    if is_multimer:
+        dic.update(
+            {
+                "max_msa_clusters": 512,
+                "max_extra_msa": 2048,
+                "block_delete_msa_enabled": False,
+                "crop_size": 640,
+                "spatial_crop_prob": 0.5,
+                "interface_threshold": 10.0,
+                "clamp_fape_prob": 1.0,
+            }
+        )
+
+    return dic
 
 
 FEATURE_SHAPES = {
@@ -604,3 +819,14 @@ MULTIMER_FEATURE_SHAPES = {
     "template_sum_probs": (NUM_TEMPLATES, 1),
     "true_msa": (NUM_MSA_SEQ, NUM_RES),
 }
+
+
+def _update(left: dict, right: dict) -> dict:
+    assert isinstance(left, dict)
+    assert isinstance(right, dict)
+    for k, v in right.items():
+        if isinstance(v, dict):
+            left[k] = _update(left.get(k, {}), v)
+        else:
+            left[k] = v
+    return left

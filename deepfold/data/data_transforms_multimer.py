@@ -1,4 +1,20 @@
-from typing import Sequence
+# Copyright 2024 DeepFold Team
+# Copyright 2021 AlQuraishi Laboratory
+# Copyright 2021 DeepMind Technologies Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from typing import Dict, Optional, Sequence
 
 import torch
 
@@ -7,12 +23,14 @@ from deepfold.config import NUM_RES
 from deepfold.data.data_transforms import curry1
 from deepfold.utils.tensor_utils import masked_mean
 
+TensorDict = Dict[str, torch.Tensor]
+
 
 def gumbel_noise(
     shape: Sequence[int],
     device: torch.device,
-    eps=1e-6,
-    generator=None,
+    eps: float = 1e-6,
+    generator: Optional[torch.Generator] = None,
 ) -> torch.Tensor:
     """Generate Gumbel Noise of given Shape.
 
@@ -29,7 +47,10 @@ def gumbel_noise(
     return gumbel
 
 
-def gumbel_max_sample(logits: torch.Tensor, generator=None) -> torch.Tensor:
+def gumbel_max_sample(
+    logits: torch.Tensor,
+    generator: Optional[torch.Generator] = None,
+) -> torch.Tensor:
     """Samples from a probability distribution given by 'logits'.
 
     This uses Gumbel-max trick to implement the sampling in an efficient manner.
@@ -48,7 +69,10 @@ def gumbel_max_sample(logits: torch.Tensor, generator=None) -> torch.Tensor:
     )
 
 
-def gumbel_argsort_sample_idx(logits: torch.Tensor, generator=None) -> torch.Tensor:
+def gumbel_argsort_sample_idx(
+    logits: torch.Tensor,
+    generator: Optional[torch.Generator] = None,
+) -> torch.Tensor:
     """Samples with replacement from a distribution given by 'logits'.
 
     This uses Gumbel trick to implement the sampling an efficient manner. For a
@@ -68,19 +92,27 @@ def gumbel_argsort_sample_idx(logits: torch.Tensor, generator=None) -> torch.Ten
 
 
 @curry1
-def make_masked_msa(batch, config, replace_fraction, seed, eps=1e-6):
+def make_masked_msa(
+    batch: TensorDict,
+    profile_prob: float,
+    same_prob: float,
+    uniform_prob: float,
+    replace_fraction: float,
+    seed: Optional[int] = None,
+    eps: float = 1e-6,
+) -> TensorDict:
     """Create data for BERT on raw MSA."""
     # Add a random amino acid uniformly.
     random_aa = torch.Tensor([0.05] * 20 + [0.0, 0.0], device=batch["msa"].device)
 
     categorical_probs = (
-        config.uniform_prob * random_aa
-        + config.profile_prob * batch["msa_profile"]
-        + config.same_prob * torch.nn.functional.one_hot(batch["msa"], 22)
+        uniform_prob * random_aa
+        + profile_prob * batch["msa_profile"]
+        + same_prob * torch.nn.functional.one_hot(batch["msa"], 22)
     )
 
     # Put all remaining probability on [MASK] which is a new column.
-    mask_prob = 1.0 - config.profile_prob - config.same_prob - config.uniform_prob
+    mask_prob = 1.0 - profile_prob - same_prob - uniform_prob
 
     categorical_probs = torch.nn.functional.pad(categorical_probs, [0, 1], value=mask_prob)
 
@@ -112,7 +144,10 @@ def make_masked_msa(batch, config, replace_fraction, seed, eps=1e-6):
 
 
 @curry1
-def nearest_neighbor_clusters(batch, gap_agreement_weight=0.0):
+def nearest_neighbor_clusters(
+    batch: TensorDict,
+    gap_agreement_weight: float = 0.0,
+):
     """Assign each extra MSA sequence to its nearest neighbor in sampled MSA."""
     device = batch["msa_mask"].device
 
@@ -161,13 +196,13 @@ def nearest_neighbor_clusters(batch, gap_agreement_weight=0.0):
     return batch
 
 
-def create_target_feat(batch):
+def create_target_feat(batch: TensorDict) -> TensorDict:
     """Create the target features"""
     batch["target_feat"] = torch.nn.functional.one_hot(batch["aatype"], 21).to(torch.float32)
     return batch
 
 
-def create_msa_feat(batch):
+def create_msa_feat(batch: TensorDict) -> TensorDict:
     """Create and concatenate MSA features."""
     device = batch["msa"]
     msa_1hot = torch.nn.functional.one_hot(batch["msa"], 23)
@@ -188,7 +223,7 @@ def create_msa_feat(batch):
     return batch
 
 
-def build_extra_msa_feat(batch):
+def build_extra_msa_feat(batch: TensorDict) -> TensorDict:
     """Expand extra_msa into 1hot and concat with other extra msa features.
 
     We do this as late as possible as the one_hot extra msa can be very large.
@@ -218,7 +253,13 @@ def build_extra_msa_feat(batch):
 
 
 @curry1
-def sample_msa(batch, max_seq, max_extra_msa_seq, seed, inf=1e6):
+def sample_msa(
+    batch: TensorDict,
+    max_seq: int,
+    max_extra_msa_seq: int,
+    seed: int,
+    inf: float = 1e6,
+) -> TensorDict:
     """Sample MSA randomly, remaining sequences are stored as `extra_*`.
 
     Args:
@@ -256,7 +297,7 @@ def sample_msa(batch, max_seq, max_extra_msa_seq, seed, inf=1e6):
     return batch
 
 
-def make_msa_profile(batch):
+def make_msa_profile(batch: TensorDict) -> TensorDict:
     """Compute the MSA profile."""
 
     # Compute the profile for every residue (over all MSA sequences).
@@ -269,7 +310,12 @@ def make_msa_profile(batch):
     return batch
 
 
-def randint(lower, upper, generator, device):
+def randint(
+    lower: int,
+    upper: int,
+    generator: torch.Generator,
+    device: torch.device,
+) -> int:
     return int(
         torch.randint(
             lower,
@@ -366,15 +412,15 @@ def get_contiguous_crop_idx(protein, crop_size, generator):
 
 @curry1
 def random_crop_to_size(
-    protein,
-    crop_size,
-    max_templates,
-    shape_schema,
-    spatial_crop_prob,
-    interface_threshold,
-    subsample_templates=False,
-    seed=None,
-):
+    protein: TensorDict,
+    crop_size: int,
+    max_templates: int,
+    shape_schema: Dict[str, tuple],
+    spatial_crop_prob: float,
+    interface_threshold: float,
+    subsample_templates: bool = False,
+    seed: Optional[int] = None,
+) -> TensorDict:
     """Crop randomly to `crop_size`, or keep as is if shorter than that."""
     # We want each ensemble to be cropped the same way
     g = None

@@ -1,3 +1,4 @@
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -16,6 +17,7 @@
 import itertools
 from functools import reduce, wraps
 from operator import add
+from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -24,6 +26,9 @@ import deepfold.common.residue_constants as rc
 from deepfold.config import NUM_EXTRA_SEQ, NUM_MSA_SEQ, NUM_RES, NUM_TEMPLATES
 from deepfold.utils.geometry import Rigid, Rigid3Array, Rot3Array, Rotation, Vec3Array
 from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map, tree_map
+
+TensorDict = Dict[str, torch.Tensor]
+
 
 MSA_FEATURE_NAMES = [
     "msa",
@@ -47,16 +52,19 @@ def cast_to_64bit_ints(protein):
 def make_one_hot(x, num_classes):
     x_one_hot = torch.zeros(*x.shape, num_classes, device=x.device)
     x_one_hot.scatter_(-1, x.unsqueeze(-1), 1)
+
     return x_one_hot
 
 
 def make_seq_mask(protein):
     protein["seq_mask"] = torch.ones(protein["aatype"].shape, dtype=torch.float32)
+
     return protein
 
 
 def make_template_mask(protein):
     protein["template_mask"] = torch.ones(protein["template_aatype"].shape[0], dtype=torch.float32)
+
     return protein
 
 
@@ -72,6 +80,7 @@ def curry1(f):
 
 def make_all_atom_aatype(protein):
     protein["all_atom_aatype"] = protein["aatype"]
+
     return protein
 
 
@@ -162,6 +171,7 @@ def randomly_replace_msa_with_unknown(protein, replace_proportion):
         torch.ones_like(protein["aatype"]) * x_idx,
         protein["aatype"],
     )
+
     return protein
 
 
@@ -192,6 +202,7 @@ def sample_msa(protein, max_seq, keep_extra, seed=None):
 @curry1
 def add_distillation_flag(protein, distillation):
     protein["is_distillation"] = distillation
+
     return protein
 
 
@@ -199,6 +210,7 @@ def add_distillation_flag(protein, distillation):
 def sample_msa_distillation(protein, max_seq):
     if protein["is_distillation"] == 1:
         protein = sample_msa(max_seq, keep_extra=False)(protein)
+
     return protein
 
 
@@ -218,6 +230,7 @@ def delete_extra_msa(protein):
     for k in MSA_FEATURE_NAMES:
         if "extra_" + k in protein:
             del protein["extra_" + k]
+
     return protein
 
 
@@ -226,7 +239,12 @@ def delete_extra_msa(protein):
 def block_delete_msa(protein, config):
     num_seq = protein["msa"].shape[0]
     block_num_seq = torch.floor(
-        torch.tensor(num_seq, dtype=torch.float32, device=protein["msa"].device) * config.msa_fraction_per_block
+        torch.tensor(
+            num_seq,
+            dtype=torch.float32,
+            device=protein["msa"].device,
+        )
+        * config.msa_fraction_per_block
     ).to(torch.int32)
 
     if int(block_num_seq) == 0:
@@ -311,6 +329,7 @@ def unsorted_segment_sum(data, segment_ids, num_segments):
     shape = [num_segments] + list(data.shape[1:])
     tensor = torch.zeros(*shape, device=segment_ids.device).scatter_add_(0, segment_ids, data.float())
     tensor = tensor.type(data.dtype)
+
     return tensor
 
 
@@ -375,12 +394,14 @@ def make_pseudo_beta(protein, prefix=""):
         protein[prefix + "all_atom_positions"],
         protein["template_all_atom_mask" if prefix else "all_atom_mask"],
     )
+
     return protein
 
 
 @curry1
 def add_constant_field(protein, key, value):
     protein[key] = torch.tensor(value, device=protein["msa"].device)
+
     return protein
 
 
@@ -389,6 +410,7 @@ def shaped_categorical(probs, epsilon=1e-10):
     num_classes = ds[-1]
     distribution = torch.distributions.categorical.Categorical(torch.reshape(probs + epsilon, [-1, num_classes]))
     counts = distribution.sample()
+
     return torch.reshape(counts, ds[:-1])
 
 
@@ -401,11 +423,19 @@ def make_hhblits_profile(protein):
     msa_one_hot = make_one_hot(protein["msa"], 22)
 
     protein["hhblits_profile"] = torch.mean(msa_one_hot, dim=0)
+
     return protein
 
 
 @curry1
-def make_masked_msa(protein, config, replace_fraction, seed):
+def make_masked_msa(
+    protein: TensorDict,
+    profile_prob: float,
+    same_prob: float,
+    uniform_prob: float,
+    replace_fraction: float,
+    seed: Optional[int] = None,
+) -> TensorDict:
     """Create data for BERT on raw MSA."""
     device = protein["msa"].device
 
@@ -413,15 +443,15 @@ def make_masked_msa(protein, config, replace_fraction, seed):
     random_aa = torch.tensor([0.05] * 20 + [0.0, 0.0], dtype=torch.float32, device=device)
 
     categorical_probs = (
-        config.uniform_prob * random_aa
-        + config.profile_prob * protein["hhblits_profile"]
-        + config.same_prob * make_one_hot(protein["msa"], 22)
+        uniform_prob * random_aa
+        + profile_prob * protein["hhblits_profile"]
+        + same_prob * make_one_hot(protein["msa"], 22)
     )
 
     # Put all remaining probability on [MASK] which is a new column
     pad_shapes = list(reduce(add, [(0, 0) for _ in range(len(categorical_probs.shape))]))
     pad_shapes[1] = 1
-    mask_prob = 1.0 - config.profile_prob - config.same_prob - config.uniform_prob
+    mask_prob = 1.0 - profile_prob - same_prob - uniform_prob
     assert mask_prob >= 0.0
 
     categorical_probs = torch.nn.functional.pad(
@@ -526,6 +556,7 @@ def make_msa_feat(protein):
 
     protein["msa_feat"] = torch.cat(msa_feat, dim=-1)
     protein["target_feat"] = torch.cat(target_feat, dim=-1)
+
     return protein
 
 
@@ -539,6 +570,7 @@ def crop_templates(protein, max_templates):
     for k, v in protein.items():
         if k.startswith("template_"):
             protein[k] = v[:max_templates]
+
     return protein
 
 
@@ -611,6 +643,7 @@ def make_atom14_masks_np(batch):
     batch = tree_map(lambda n: torch.tensor(n, device="cpu"), batch, np.ndarray)
     out = make_atom14_masks(batch)
     out = tensor_tree_map(lambda t: np.array(t), out)
+
     return out
 
 
@@ -624,7 +657,7 @@ def make_atom14_positions(protein):
         protein["all_atom_mask"],
         residx_atom14_to_atom37,
         dim=-1,
-        no_batch_dims=len(protein["all_atom_mask"].shape[:-1]),
+        num_batch_dims=len(protein["all_atom_mask"].shape[:-1]),
     )
 
     # Gather the ground truth positions.
@@ -633,7 +666,7 @@ def make_atom14_positions(protein):
             protein["all_atom_positions"],
             residx_atom14_to_atom37,
             dim=-2,
-            no_batch_dims=len(protein["all_atom_positions"].shape[:-2]),
+            num_batch_dims=len(protein["all_atom_positions"].shape[:-2]),
         )
     )
 
@@ -745,7 +778,7 @@ def atom37_to_frames(protein, eps=1e-8):
         restype_rigidgroup_base_atom37_idx,
         aatype,
         dim=-3,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     if is_multimer:
@@ -754,7 +787,7 @@ def atom37_to_frames(protein, eps=1e-8):
                 pos,
                 residx_rigidgroup_base_atom37_idx,
                 dim=-1,
-                no_batch_dims=len(all_atom_positions.shape[:-1]),
+                num_batch_dims=len(all_atom_positions.shape[:-1]),
             )
             for pos in all_atom_positions
         ]
@@ -764,7 +797,7 @@ def atom37_to_frames(protein, eps=1e-8):
             all_atom_positions,
             residx_rigidgroup_base_atom37_idx,
             dim=-2,
-            no_batch_dims=len(all_atom_positions.shape[:-2]),
+            num_batch_dims=len(all_atom_positions.shape[:-2]),
         )
 
     if is_multimer:
@@ -786,14 +819,14 @@ def atom37_to_frames(protein, eps=1e-8):
         restype_rigidgroup_mask,
         aatype,
         dim=-2,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     gt_atoms_exist = batched_gather(
         all_atom_mask,
         residx_rigidgroup_base_atom37_idx,
         dim=-1,
-        no_batch_dims=len(all_atom_mask.shape[:-1]),
+        num_batch_dims=len(all_atom_mask.shape[:-1]),
     )
     gt_exists = torch.min(gt_atoms_exist, dim=-1)[0] * group_exists
 
@@ -826,14 +859,14 @@ def atom37_to_frames(protein, eps=1e-8):
         restype_rigidgroup_is_ambiguous,
         aatype,
         dim=-2,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     residx_rigidgroup_ambiguity_rot = batched_gather(
         restype_rigidgroup_rots,
         aatype,
         dim=-4,
-        no_batch_dims=batch_dims,
+        num_batch_dims=batch_dims,
     )
 
     if is_multimer:
@@ -956,7 +989,7 @@ def atom37_to_torsion_angles(
         all_atom_mask,
         atom_indices,
         dim=-1,
-        no_batch_dims=len(atom_indices.shape[:-2]),
+        num_batch_dims=len(atom_indices.shape[:-2]),
     )
     chi_angle_atoms_mask = torch.prod(chi_angle_atoms_mask, dim=-1, dtype=chi_angle_atoms_mask.dtype)
     chis_mask = chis_mask * chi_angle_atoms_mask
