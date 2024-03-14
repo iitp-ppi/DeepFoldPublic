@@ -1,5 +1,4 @@
-# DeepFold Team
-
+"""Vec3Array Class."""
 
 from __future__ import annotations
 
@@ -161,14 +160,24 @@ class Vec3Array:
         )
 
 
-def square_euclidean_distance(vec1: Vec3Array, vec2: Vec3Array, eps: float = 1e-6) -> Float:
-    """Computes square of Euclidean distance between `vec1` and `vec2`."""
-    diff = vec1 - vec2
-    dist = diff.dot(diff)
-    if eps:
-        dist = torch.clamp(dist, min=eps)
+def square_euclidean_distance(vec1: Vec3Array, vec2: Vec3Array, epsilon: float = 1e-6) -> Float:
+    """Computes square of euclidean distance between 'vec1' and 'vec2'.
 
-    return dist
+    Args:
+        vec1: Vec3Array to compute    distance to
+        vec2: Vec3Array to compute    distance from, should be
+                    broadcast compatible with 'vec1'
+        epsilon: distance is clipped from below to be at least epsilon
+
+    Returns:
+        Array of square euclidean distances;
+        shape will be result of broadcasting 'vec1' and 'vec2'
+    """
+    difference = vec1 - vec2
+    distance = difference.dot(difference)
+    if epsilon:
+        distance = torch.clamp(distance, min=epsilon)
+    return distance
 
 
 def dot(vector1: Vec3Array, vector2: Vec3Array) -> Float:
@@ -188,7 +197,18 @@ def normalized(vector: Vec3Array, epsilon: float = 1e-6) -> Vec3Array:
 
 
 def euclidean_distance(vec1: Vec3Array, vec2: Vec3Array, epsilon: float = 1e-6) -> Float:
-    """Computes Euclidean distance between `vec1` and `vec2`."""
+    """Computes euclidean distance between 'vec1' and 'vec2'.
+
+    Args:
+        vec1: Vec3Array to compute euclidean distance to
+        vec2: Vec3Array to compute euclidean distance from, should be
+                    broadcast compatible with 'vec1'
+        epsilon: distance is clipped from below to be at least epsilon
+
+    Returns:
+        Array of euclidean distances;
+        shape will be result of broadcasting 'vec1' and 'vec2'
+    """
     distance_sq = square_euclidean_distance(vec1, vec2, epsilon**2)
     distance = torch.sqrt(distance_sq)
     return distance

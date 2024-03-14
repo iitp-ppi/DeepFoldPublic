@@ -1,5 +1,4 @@
-# DeepFold Team
-
+"""Rigid3Array Transformations represented by a Matrix and a Vector."""
 
 from __future__ import annotations
 
@@ -8,16 +7,17 @@ from typing import List, Union
 
 import torch
 
-from deepfold.utils.geometry.rotation_matrix import Rot3Array
-from deepfold.utils.geometry.vector import Vec3Array
+from deepfold.utils.geometry import rotation_matrix, vector
 
 Float = Union[float, torch.Tensor]
 
 
 @dataclasses.dataclass(frozen=True)
 class Rigid3Array:
-    rotation: Rot3Array
-    translation: Vec3Array
+    """Rigid Transformation, i.e. element of special euclidean group."""
+
+    rotation: rotation_matrix.Rot3Array
+    translation: vector.Vec3Array
 
     def __matmul__(self, other: Rigid3Array) -> Rigid3Array:
         new_rotation = self.rotation @ other.rotation  # __matmul__
@@ -48,20 +48,20 @@ class Rigid3Array:
         inv_translation = inv_rotation.apply_to_point(-self.translation)
         return Rigid3Array(inv_rotation, inv_translation)
 
-    def apply_to_point(self, point: Vec3Array) -> Vec3Array:
+    def apply_to_point(self, point: vector.Vec3Array) -> vector.Vec3Array:
         """Apply Rigid3Array transform to point."""
         return self.rotation.apply_to_point(point) + self.translation
 
     def apply(self, point: torch.Tensor) -> torch.Tensor:
-        return self.apply_to_point(Vec3Array.from_array(point)).to_tensor()
+        return self.apply_to_point(vector.Vec3Array.from_array(point)).to_tensor()
 
-    def apply_inverse_to_point(self, point: Vec3Array) -> Vec3Array:
+    def apply_inverse_to_point(self, point: vector.Vec3Array) -> vector.Vec3Array:
         """Apply inverse Rigid3Array transform to point."""
         new_point = point - self.translation
         return self.rotation.apply_inverse_to_point(new_point)
 
     def invert_apply(self, point: torch.Tensor) -> torch.Tensor:
-        return self.apply_inverse_to_point(Vec3Array.from_array(point)).to_tensor()
+        return self.apply_inverse_to_point(vector.Vec3Array.from_array(point)).to_tensor()
 
     def compose_rotation(self, other_rotation):
         rot = self.rotation @ other_rotation
@@ -91,13 +91,13 @@ class Rigid3Array:
     @classmethod
     def identity(cls, shape, device) -> Rigid3Array:
         """Return identity Rigid3Array of given shape."""
-        return cls(Rot3Array.identity(shape, device), Vec3Array.zeros(shape, device))
+        return cls(rotation_matrix.Rot3Array.identity(shape, device), vector.Vec3Array.zeros(shape, device))
 
     @classmethod
     def cat(cls, rigids: List[Rigid3Array], dim: int) -> Rigid3Array:
         return cls(
-            Rot3Array.cat([r.rotation for r in rigids], dim=dim),
-            Vec3Array.cat([r.translation for r in rigids], dim=dim),
+            rotation_matrix.Rot3Array.cat([r.rotation for r in rigids], dim=dim),
+            vector.Vec3Array.cat([r.translation for r in rigids], dim=dim),
         )
 
     def scale_translation(self, factor: Float) -> Rigid3Array:
@@ -129,10 +129,10 @@ class Rigid3Array:
 
     @classmethod
     def from_array(cls, array):
-        rot = Rot3Array.from_array(
+        rot = rotation_matrix.Rot3Array.from_array(
             array[..., :3, :3],
         )
-        vec = Vec3Array.from_array(array[..., :3, 3])
+        vec = vector.Vec3Array.from_array(array[..., :3, 3])
         return cls(rot, vec)
 
     @classmethod
@@ -140,9 +140,9 @@ class Rigid3Array:
         return cls.from_array(array)
 
     @classmethod
-    def from_array4x4(cls, array: torch.Tensor) -> Rigid3Array:
+    def from_array4x4(cls, array: torch.tensor) -> Rigid3Array:
         """Construct Rigid3Array from homogeneous 4x4 array."""
-        rotation = Rot3Array(
+        rotation = rotation_matrix.Rot3Array(
             array[..., 0, 0],
             array[..., 0, 1],
             array[..., 0, 2],
@@ -153,8 +153,7 @@ class Rigid3Array:
             array[..., 2, 1],
             array[..., 2, 2],
         )
-        translation = Vec3Array(array[..., 0, 3], array[..., 1, 3], array[..., 2, 3])
-
+        translation = vector.Vec3Array(array[..., 0, 3], array[..., 1, 3], array[..., 2, 3])
         return cls(rotation, translation)
 
     def cuda(self) -> Rigid3Array:
