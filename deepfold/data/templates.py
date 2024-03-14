@@ -790,7 +790,7 @@ def _process_single_hit(
     # remove gaps (which regardless have a missing confidence score).
     template_sequence = hit.hit_sequence.replace("-", "")
 
-    cif_path = os.path.join(mmcif_dir, hit_pdb_code + ".cif")
+    cif_path = os.path.join(mmcif_dir, hit_pdb_code[1:3], hit_pdb_code + ".cif")
     logging.info(
         "Reading PDB entry from %s. Query: %s, template: %s",
         cif_path,
@@ -799,7 +799,7 @@ def _process_single_hit(
     )
 
     # Fail if we can't find the mmCIF file.
-    cif_string = _read_file(cif_path)
+    cif_string = read_text(cif_path)
 
     parsing_result = mmcif_parsing.parse(file_id=hit_pdb_code, mmcif_string=cif_string)
 
@@ -956,9 +956,6 @@ class TemplateHitFeaturizer(abc.ABC):
                 * Any feature computation errors.
         """
         self._mmcif_dir = mmcif_dir
-        if not glob.glob(os.path.join(self._mmcif_dir, "*.cif")):
-            logging.error("Could not find CIFs in %s", self._mmcif_dir)
-            raise ValueError(f"Could not find CIFs in {self._mmcif_dir}")
 
         try:
             self._max_template_date = datetime.datetime.strptime(max_template_date, "%Y-%m-%d")
