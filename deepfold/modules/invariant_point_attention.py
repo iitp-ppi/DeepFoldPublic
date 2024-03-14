@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.modules.inductor as inductor
-from deepfold.modules.geometry import Rigid
 from deepfold.modules.linear import Linear
 from deepfold.utils.precision import is_fp16_enabled
+from deepfold.utils.rigid_utils import Rigid
 
 
 class InvariantPointAttention(nn.Module):

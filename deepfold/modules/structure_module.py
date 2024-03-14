@@ -7,11 +7,11 @@ import torch.nn.functional as F
 import deepfold.common.residue_constants as rc
 from deepfold.modules.angle_resnet import AngleResnet
 from deepfold.modules.backbone_update import BackboneUpdate
-from deepfold.modules.geometry import Rigid, Rotation
 from deepfold.modules.invariant_point_attention import InvariantPointAttention
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
 from deepfold.modules.single_transition import SingleTransition
+from deepfold.utils.rigid_utils import Rigid, Rotation
 
 
 class StructureModule(nn.Module):
@@ -221,7 +221,7 @@ class StructureModule(nn.Module):
             self.register_buffer(
                 "default_frames",
                 torch.tensor(
-                    rc.RESTYPE_RIGID_GROUP_DEFAULT_FRAME,
+                    rc.restype_rigid_group_default_frame,
                     dtype=dtype,
                     device=device,
                     requires_grad=False,
@@ -232,7 +232,7 @@ class StructureModule(nn.Module):
             self.register_buffer(
                 "group_idx",
                 torch.tensor(
-                    rc.RESTYPE_ATOM14_TO_RIGID_GROUP,
+                    rc.restype_atom14_to_rigid_group,
                     device=device,
                     requires_grad=False,
                 ),
@@ -242,7 +242,7 @@ class StructureModule(nn.Module):
             self.register_buffer(
                 "atom_mask",
                 torch.tensor(
-                    rc.RESTYPE_ATOM14_MASK,
+                    rc.restype_atom14_mask,
                     dtype=dtype,
                     device=device,
                     requires_grad=False,
@@ -253,7 +253,7 @@ class StructureModule(nn.Module):
             self.register_buffer(
                 "lit_positions",
                 torch.tensor(
-                    rc.RESTYPE_ATOM14_RIGID_GROUP_POSITIONS,
+                    rc.restype_atom14_rigid_group_positions,
                     dtype=dtype,
                     device=device,
                     requires_grad=False,

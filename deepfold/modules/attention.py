@@ -98,9 +98,9 @@ class SelfAttentionWithGate(nn.Module):
         # output: [*, Q, num_heads * c_hidden]
 
         if self.training:
-            output = _attention_gate_jit(output, gate, self.linear_g_bias)
+            output = _attention_gate_jit(output, gate, self.linear_g.bias)
         else:
-            output = _attention_gate_eager(output, gate, self.linear_g_bias)
+            output = _attention_gate_eager(output, gate, self.linear_g.bias)
         # output: [*, Q, num_heads * c_hidden]
 
         if add_transposed_output_to is None:

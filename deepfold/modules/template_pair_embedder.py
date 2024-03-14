@@ -6,8 +6,8 @@ import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
 import deepfold.modules.inductor as inductor
-from deepfold.modules.geometry import Rigid
 from deepfold.modules.linear import Linear
+from deepfold.utils.rigid_utils import Rigid
 
 
 class TemplatePairEmbedder(nn.Module):
@@ -82,7 +82,7 @@ class TemplatePairEmbedder(nn.Module):
             template_aatype,
             self.lower,
             self.upper,
-            rc.RESTYPE_NUM + 2,
+            rc.restype_num + 2,
         )
 
         N_res = template_aatype.shape[-1]
@@ -91,7 +91,7 @@ class TemplatePairEmbedder(nn.Module):
 
         to_concat.append(aatype_one_hot.unsqueeze(-2).expand(*aatype_one_hot.shape[:-2], -1, N_res, -1))
 
-        n, ca, c = [rc.ATOM_ORDER[a] for a in ["N", "CA", "C"]]
+        n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
 
         if inductor.is_enabled():
             make_transform_from_reference = Rigid.make_transform_from_reference_jit

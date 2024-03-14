@@ -21,7 +21,7 @@ class BackboneUpdate(nn.Module):
         self.linear = Linear(c_s, 6, bias=True, init="final")
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
-        if inductor.is_enabled_on_hopper() and dap.size() in {2, 8}:
+        if inductor.is_enabled():
             forward_fn = _forward_jit
         else:
             forward_fn = _forward_eager

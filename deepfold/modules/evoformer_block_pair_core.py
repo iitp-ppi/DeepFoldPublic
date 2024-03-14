@@ -115,14 +115,14 @@ class EvoformerBlockPairCore(nn.Module):
             m, z = self._forward_dap(
                 m=m,
                 z=z,
-                # msa_mask=msa_mask,
+                msa_mask=msa_mask,
                 pair_mask=pair_mask,
             )
         else:
             m, z = self._forward(
                 m=m,
                 z=z,
-                # msa_mask=msa_mask,
+                msa_mask=msa_mask,
                 pair_mask=pair_mask,
             )
         return m, z

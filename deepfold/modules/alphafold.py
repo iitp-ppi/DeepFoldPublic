@@ -263,7 +263,7 @@ class AlphaFold(nn.Module):
             dtype=dtype,
         )
         prevs["x_prev"] = torch.zeros(
-            size=[batch_size, N_res, rc.ATOM_TYPE_NUM, 3],
+            size=[batch_size, N_res, rc.atom_type_num, 3],
             device=device,
             dtype=torch.float32,
         )
@@ -334,9 +334,9 @@ def _pseudo_beta_eager(
     all_atom_positions: torch.Tensor,
     dtype: torch.dtype,
 ) -> torch.Tensor:
-    is_gly = torch.eq(aatype, rc.RESTYPE_ORDER["G"])
-    ca_idx = rc.ATOM_ORDER["CA"]
-    cb_idx = rc.ATOM_ORDER["CB"]
+    is_gly = torch.eq(aatype, rc.restype_order["G"])
+    ca_idx = rc.atom_order["CA"]
+    cb_idx = rc.atom_order["CB"]
     pseudo_beta = torch.where(
         torch.tile(is_gly.unsqueeze(-1), [1] * is_gly.ndim + [3]),
         all_atom_positions[..., ca_idx, :],

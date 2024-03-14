@@ -93,9 +93,7 @@ class AngleResnetBlock(nn.Module):
         self.linear_2 = Linear(c_hidden, c_hidden, bias=True, init="final")
 
     def forward(self, a: torch.Tensor) -> torch.Tensor:
-        if inductor.is_enabled_on_hopper():
-            forward_angle_resnet_block_fn = _forward_angle_resnet_block_jit
-        elif inductor.is_enabled_on_ampere_and_autograd_on():
+        if inductor.is_enabled():
             forward_angle_resnet_block_fn = _forward_angle_resnet_block_jit
         else:
             forward_angle_resnet_block_fn = _forward_angle_resnet_block_eager
