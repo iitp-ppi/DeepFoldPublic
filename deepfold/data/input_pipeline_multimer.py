@@ -19,7 +19,7 @@ from typing import Dict
 
 import torch
 
-from deepfold.config import FEATURE_SHAPES, MULTIMER_FEATURE_SHAPES, FeaturePipelineConfig
+from deepfold.config import MULTIMER_FEATURE_SHAPES, FeaturePipelineConfig
 from deepfold.data import data_transforms, data_transforms_multimer
 
 TensorDict = Dict[str, torch.Tensor]
@@ -90,10 +90,7 @@ def ensembled_transform_fns(
     transforms.append(data_transforms_multimer.nearest_neighbor_clusters())
     transforms.append(data_transforms_multimer.create_msa_feat)
 
-    if not config.is_multimer:
-        crop_feats = dict(FEATURE_SHAPES)
-    else:
-        crop_feats = dict(MULTIMER_FEATURE_SHAPES)
+    crop_feats = dict(MULTIMER_FEATURE_SHAPES)
 
     if config.fixed_size:
         transforms.append(data_transforms.select_feat(list(crop_feats)))
@@ -141,12 +138,12 @@ def process_tensors_from_config(
 ):
     """Based on the config, apply filters and transformations to the data."""
 
-    process_gt_feats = config.supervised_raw_features_names
+    process_gt_feats = config.supervised_features_enabled
     gt_tensors = {}
     if process_gt_feats:
         gt_tensors = prepare_ground_truth_features(tensors)
 
-    ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)
+    ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)  # TODO: Move to config
     tensors["aatype"] = tensors["aatype"].to(torch.long)
     nonensembled = nonensembled_transform_fns()
     tensors = compose(nonensembled)(tensors)
