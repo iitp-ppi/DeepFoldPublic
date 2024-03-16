@@ -1,8 +1,15 @@
+import logging
 from math import prod
 from typing import List, Optional, Tuple
 
 import torch
-from deepfold_kernel import evoformer_attention_bwd, evoformer_attention_fwd
+
+logger = logging.getLogger(__name__)
+
+try:
+    from deepfold_kernel import evoformer_attention_bwd, evoformer_attention_fwd
+except ModuleNotFoundError:
+    logger.debug("Cannot import module 'deepfold_kernel'")
 
 
 def _attention_fwd(

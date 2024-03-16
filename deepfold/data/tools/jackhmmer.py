@@ -22,9 +22,13 @@ import subprocess
 from concurrent import futures
 from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
+import logging
 
 from deepfold.data import parsers
 from deepfold.data.tools import utils
+
+
+logger = logging.getLogger(__name__)
 
 
 class Jackhmmer:
@@ -198,7 +202,7 @@ class Jackhmmer:
             try:
                 os.remove(f)
             except OSError:
-                print(f"OSError while deleting {f}")
+                logger.error(f"OSError while deleting '{f}'")
 
         # Download the (i+1)-th chunk while Jackhmmer is running on the i-th chunk
         with futures.ThreadPoolExecutor(max_workers=2) as executor:
