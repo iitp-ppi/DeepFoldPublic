@@ -22,11 +22,9 @@ import subprocess
 from concurrent import futures
 from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
-import logging
 
 from deepfold.data import parsers
 from deepfold.data.tools import utils
-
 
 logger = logging.getLogger(__name__)
 
