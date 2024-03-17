@@ -22,6 +22,7 @@ class InvariantPointAttention(nn.Module):
         num_heads: Number of attention heads.
         num_qk_points: Number of query/key points.
         num_v_points: Number of value points.
+        separate_kv: Separate key/value projection.
         inf: Safe infinity value.
         eps: Epsilon to prevent division by zero.
 
@@ -35,6 +36,7 @@ class InvariantPointAttention(nn.Module):
         num_heads: int,
         num_qk_points: int,
         num_v_points: int,
+        separate_kv: bool,
         inf: float,
         eps: float,
     ) -> None:
@@ -45,21 +47,32 @@ class InvariantPointAttention(nn.Module):
         self.num_heads = num_heads
         self.num_qk_points = num_qk_points
         self.num_v_points = num_v_points
+        self.separate_kv = separate_kv
         self.inf = inf
         self.eps = eps
+
         # These linear layers differ from their specifications in the supplement.
         # There, they lack bias and use Glorot initialization.
         # Here as in the official source, they have bias
         # and use the default Lecun initialization.
         hc = c_hidden * num_heads
         self.linear_q = Linear(c_s, hc, bias=True, init="default")
-        self.linear_kv = Linear(c_s, 2 * hc, bias=True, init="default")
+        if self.separate_kv:
+            self.linear_k = Linear(c_s, hc, bias=True, init="default")
+            self.linear_v = Linear(c_s, hc, bias=True, init="default")
+        else:
+            self.linear_kv = Linear(c_s, 2 * hc, bias=True, init="default")
 
         hpq = num_heads * num_qk_points * 3
         self.linear_q_points = Linear(c_s, hpq, bias=True, init="default")
-
-        hpkv = num_heads * (num_qk_points + num_v_points) * 3
-        self.linear_kv_points = Linear(c_s, hpkv, bias=True, init="default")
+        hpk = self.num_heads * self.num_qk_points * 3
+        hpv = self.num_heads * self.num_v_points * 3
+        if self.separate_kv:
+            self.linear_k_points = Linear(c_s, hpk, bias=True, init="default")
+            self.linear_v_points = Linear(c_s, hpv, bias=True, init="default")
+        else:
+            hpkv = hpk + hpv
+            self.linear_kv_points = Linear(c_s, hpkv, bias=True, init="default")
 
         self.linear_b = Linear(c_z, num_heads, bias=True, init="default")
 
@@ -91,55 +104,78 @@ class InvariantPointAttention(nn.Module):
         #######################################
         # Generate scalar and point activations
         #######################################
-        q, b, kv, q_pts, kv_pts = _forward_linears_on_inputs_eager(
-            s,
-            z,
-            self.linear_q.weight,
-            self.linear_q.bias,
-            self.linear_b.weight,
-            self.linear_b.bias,
-            self.linear_kv.weight,
-            self.linear_kv.bias,
-            self.linear_q_points.weight,
-            self.linear_q_points.bias,
-            self.linear_kv_points.weight,
-            self.linear_kv_points.bias,
-        )
+        if self.separate_kv:
+            q = self.linear_q(s)
+            bias = self.linear_b(z)
+            k = self.linear_k(s)
+            v = self.linear_v(s)
+            q_pts = self.linear_q_points(s)
+            k_pts = self.linear_k_points(s)
+            v_pts = self.linear_v_points(s)
+        else:
+            q, bias, kv, q_pts, kv_pts = _forward_linears_on_inputs_eager(
+                s,
+                z,
+                self.linear_q.weight,
+                self.linear_q.bias,
+                self.linear_b.weight,
+                self.linear_b.bias,
+                self.linear_kv.weight,
+                self.linear_kv.bias,
+                self.linear_q_points.weight,
+                self.linear_q_points.bias,
+                self.linear_kv_points.weight,
+                self.linear_kv_points.bias,
+            )
         # q: [batch, N_res, num_heads * c_hidden]
         # b: [batch, N_res, N_res, num_heads]
         # kv: [batch, N_res, num_heads * 2 * c_hidden]
+        # k/v: [batch, N_res, num_heads * c_hidden]
         # q_pts: [batch, N_res, num_heads * num_qk_points * 3]
         # kv_pts: [batch, N_res, num_heads * (num_qk_points + num_v_points) * 3]
 
         q = q.view(q.shape[:-1] + (self.num_heads, self.c_hidden))
         # q: [batch, N_res, num_heads, c_hidden]
 
-        kv = kv.view(kv.shape[:-1] + (self.num_heads, -1))
-        # kv: [batch, N_res, num_heads, 2 * c_hidden]
-
-        k, v = torch.split(kv, self.c_hidden, dim=-1)
+        if self.separate_kv:
+            k = k.view(k.shape[:-1] + (self.num_heads, -1))
+            v = v.view(v.shape[:-1] + (self.num_heads, -1))
+        else:
+            kv = kv.view(kv.shape[:-1] + (self.num_heads, -1))
+            # kv: [batch, N_res, num_heads, 2 * c_hidden]
+            k, v = torch.split(kv, self.c_hidden, dim=-1)
         # k: [batch, N_res, num_heads, c_hidden]
         # v: [batch, N_res, num_heads, c_hidden]
 
-        q_pts = torch.split(q_pts, q_pts.shape[-1] // 3, dim=-1)
-        q_pts = torch.stack(q_pts, dim=-1)
-        q_pts = r.unsqueeze(-1).apply(q_pts)
-        # q_pts: [batch, N_res, num_heads * num_qk_points, 3]
+        def process_points(pts: torch.Tensor, num_points: int) -> torch.Tensor:
+            shape = pts.shape[:-1] + (pts.shape[-1] // 3, 3)
+            if self.separate_kv:
+                pts = pts.view(pts.shape[:-1] + (self.num_heads, num_points * 3))
+            pts = torch.split(pts, pts.shape[-1] // 3, dim=-1)
+            pts = torch.stack(pts, dim=-1).view(*shape)
+            pts = r[..., None].apply(pts)
+            return pts.view(pts.shape[:-2] + (self.num_heads, num_points, 3))
 
-        q_pts = q_pts.view(q_pts.shape[:-2] + (self.num_heads, self.num_qk_points, 3))
+        q_pts = process_points(q_pts, self.num_qk_points)
         # q_pts: [batch, N_res, num_heads, num_qk_points, 3]
 
-        kv_pts = torch.split(kv_pts, kv_pts.shape[-1] // 3, dim=-1)
-        kv_pts = torch.stack(kv_pts, dim=-1)
-        kv_pts = r[..., None].apply(kv_pts)
-        # kv_pts: [batch, N_res, num_heads * (num_qk_points + num_v_points), 3]
+        if self.separate_kv:
+            k_pts = process_points(k_pts, self.num_qk_points)
+            v_pts = process_points(v_pts, self.num_v_points)
+            # k_pts: [batch, N_res, num_heads, num_qk_points, 3]
+            # v_pts: [batch, N_res, num_heads, num_v_points, 3]
+        else:
+            kv_pts = torch.split(kv_pts, kv_pts.shape[-1] // 3, dim=-1)
+            kv_pts = torch.stack(kv_pts, dim=-1)
+            kv_pts = r[..., None].apply(kv_pts)
+            # kv_pts: [batch, N_res, num_heads * (num_qk_points + num_v_points), 3]
 
-        kv_pts = kv_pts.view(kv_pts.shape[:-2] + (self.num_heads, self.num_qk_points + self.num_v_points, 3))
-        # kv_pts: [batch, N_res, num_heads, (num_qk_points + num_v_points), 3]
+            kv_pts = kv_pts.view(kv_pts.shape[:-2] + (self.num_heads, self.num_qk_points + self.num_v_points, 3))
+            # kv_pts: [batch, N_res, num_heads, (num_qk_points + num_v_points), 3]
 
-        k_pts, v_pts = torch.split(kv_pts, (self.num_qk_points, self.num_v_points), dim=-2)
-        # k_pts: [batch, N_res, num_heads, num_qk_points, 3]
-        # v_pts: [batch, N_res, num_heads, num_v_points, 3]
+            k_pts, v_pts = torch.split(kv_pts, (self.num_qk_points, self.num_v_points), dim=-2)
+            # k_pts: [batch, N_res, num_heads, num_qk_points, 3]
+            # v_pts: [batch, N_res, num_heads, num_v_points, 3]
 
         ##########################
         # Compute attention scores
@@ -164,7 +200,7 @@ class InvariantPointAttention(nn.Module):
             forward_a_fn = _forward_a_eager
         a = forward_a_fn(
             a,
-            b,
+            bias,
             q_pts,
             k_pts,
             mask,

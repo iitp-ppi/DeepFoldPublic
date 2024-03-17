@@ -223,7 +223,7 @@ def create_msa_feat(batch: TensorDict) -> TensorDict:
     return batch
 
 
-def build_extra_msa_feat(batch: TensorDict) -> TensorDict:
+def build_extra_msa_feat(batch: TensorDict) -> torch.Tensor:
     """Expand extra_msa into 1hot and concat with other extra msa features.
 
     We do this as late as possible as the one_hot extra msa can be very large.
@@ -246,7 +246,7 @@ def build_extra_msa_feat(batch: TensorDict) -> TensorDict:
     has_deletion = torch.clamp(deletion_matrix, min=0.0, max=1.0)[..., None]
     pi = torch.acos(torch.zeros(1, device=deletion_matrix.device)) * 2
     deletion_value = (torch.atan(deletion_matrix / 3.0) * (2.0 / pi))[..., None]
-    extra_msa_mask = batch["extra_msa_mask"]
+    # extra_msa_mask = batch["extra_msa_mask"]
     catted = torch.cat([msa_1hot, has_deletion, deletion_value], dim=-1)
 
     return catted

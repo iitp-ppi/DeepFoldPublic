@@ -42,8 +42,11 @@ class TemplatePairBlock(nn.Module):
         dropout_rate: float,
         inf: float,
         chunk_size_tri_att: Optional[int],
+        tri_att_first: bool = True,
     ) -> None:
         super().__init__()
+        self.tri_att_first = tri_att_first
+
         self.tri_att_start = TriangleAttentionStartingNode(
             c_z=c_t,
             c_hidden=c_hidden_tri_att,
@@ -109,46 +112,69 @@ class TemplatePairBlock(nn.Module):
             if ps.is_enabled():
                 mask_row = cc.scatter(mask, dim=-3)
                 mask_col = cc.scatter(mask, dim=-2)
-                t = self.tasn_dropout_rowwise(
-                    self.tri_att_start(z=t, mask=mask_row),
-                    add_output_to=t,
-                )
-                t = cc.row_to_col(t)
-                t = self.taen_dropout_columnwise(
-                    self.tri_att_end(z=t, mask=mask_col),
-                    add_output_to=t,
-                )
-                t = cc.col_to_row(t)
-                t = self.tmo_dropout_rowwise(
-                    self.tri_mul_out(z=t, mask=mask_row),
-                    add_output_to=t,
-                )
-                t = cc.row_to_col(t)
-                t = self.tmi_dropout_rowwise(
-                    self.tri_mul_in(z=t, mask=mask_col),
-                    dap_scattered_dim=2,
-                    add_output_to=t,
-                )
-                t = self.pair_transition(z=t, mask=mask_col)
-                t = cc.col_to_row(t)
+                if self.tri_att_first:
+                    t = self.tasn_dropout_rowwise(
+                        self.tri_att_start(z=t, mask=mask_row),
+                        add_output_to=t,
+                    )
+                    t = cc.row_to_col(t)
+                    t = self.taen_dropout_columnwise(
+                        self.tri_att_end(z=t, mask=mask_col),
+                        add_output_to=t,
+                    )
+                    t = cc.col_to_row(t)
+                    t = self.tmo_dropout_rowwise(
+                        self.tri_mul_out(z=t, mask=mask_row),
+                        add_output_to=t,
+                    )
+                    t = cc.row_to_col(t)
+                    t = self.tmi_dropout_rowwise(
+                        self.tri_mul_in(z=t, mask=mask_col),
+                        dap_scattered_dim=2,
+                        add_output_to=t,
+                    )
+                    t = self.pair_transition(z=t, mask=mask_col)
+                    t = cc.col_to_row(t)
+                else:
+                    # TODO: Implement DAP
+                    raise NotImplementedError("Template pair block with DAP is not implemented yet")
             else:
-                t = self.tasn_dropout_rowwise(
-                    self.tri_att_start(z=t, mask=mask),
-                    add_output_to=t,
-                )
-                t = self.taen_dropout_columnwise(
-                    self.tri_att_end(z=t, mask=mask),
-                    add_output_to=t,
-                )
-                t = self.tmo_dropout_rowwise(
-                    self.tri_mul_out(z=t, mask=mask),
-                    add_output_to=t,
-                )
-                t = self.tmi_dropout_rowwise(
-                    self.tri_mul_in(z=t, mask=mask),
-                    add_output_to=t,
-                )
-                t = self.pair_transition(z=t, mask=mask)
+                if self.tri_att_first:
+                    t = self.tasn_dropout_rowwise(
+                        self.tri_att_start(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.taen_dropout_columnwise(
+                        self.tri_att_end(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.tmo_dropout_rowwise(
+                        self.tri_mul_out(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.tmi_dropout_rowwise(
+                        self.tri_mul_in(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.pair_transition(z=t, mask=mask)
+                else:
+                    t = self.tmo_dropout_rowwise(
+                        self.tri_mul_out(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.tmi_dropout_rowwise(
+                        self.tri_mul_in(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.tasn_dropout_rowwise(
+                        self.tri_att_start(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.taen_dropout_columnwise(
+                        self.tri_att_end(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.pair_transition(z=t, mask=mask)
 
             t_list[i] = t
 

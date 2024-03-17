@@ -61,6 +61,7 @@ class EvoformerStack(nn.Module):
         chunk_size_msa_att: Optional[int],
         chunk_size_opm: Optional[int],
         chunk_size_tri_att: Optional[int],
+        outer_product_mean_first: bool = False,
     ) -> None:
         super().__init__()
         self.blocks = nn.ModuleList(
@@ -82,6 +83,7 @@ class EvoformerStack(nn.Module):
                     chunk_size_msa_att=chunk_size_msa_att,
                     chunk_size_opm=chunk_size_opm,
                     chunk_size_tri_att=chunk_size_tri_att,
+                    outer_product_mean_first=outer_product_mean_first,
                 )
                 for _ in range(num_blocks)
             ]

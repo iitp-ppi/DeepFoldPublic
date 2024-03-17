@@ -263,3 +263,8 @@ def disable() -> None:
             Disable.apply()
         else:
             _disable()
+
+
+# Shortcuts
+rank = get_model_parallel_rank
+size = get_model_parallel_world_size

@@ -46,6 +46,7 @@ class StructureModule(nn.Module):
         num_heads_ipa: int,
         num_qk_points: int,
         num_v_points: int,
+        separate_kv: bool,
         dropout_rate: float,
         num_blocks: int,
         num_ang_res_blocks: int,
@@ -79,6 +80,7 @@ class StructureModule(nn.Module):
             num_heads=num_heads_ipa,
             num_qk_points=num_qk_points,
             num_v_points=num_v_points,
+            separate_kv=separate_kv,
             inf=inf,
             eps=eps,
         )
@@ -154,7 +156,7 @@ class StructureModule(nn.Module):
 
         outputs = []
 
-        for i in range(self.num_blocks):
+        for _ in range(self.num_blocks):
             s = s + self.ipa(s=s, z=z, r=rigids, mask=mask)
             s = self.ipa_dropout(s)
             s = self.layer_norm_ipa(s)

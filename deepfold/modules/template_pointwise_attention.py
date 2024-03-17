@@ -38,6 +38,7 @@ class TemplatePointwiseAttention(nn.Module):
             num_heads=num_heads,
             inf=inf,
             chunk_size=chunk_size,
+            impl="torch",
         )
 
     def forward(

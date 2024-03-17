@@ -41,6 +41,7 @@ class TemplatePairStack(nn.Module):
         dropout_rate: float,
         inf: float,
         chunk_size_tri_att: Optional[int],
+        tri_att_first: bool = True,
     ) -> None:
         super().__init__()
         self.blocks = nn.ModuleList(
@@ -54,6 +55,7 @@ class TemplatePairStack(nn.Module):
                     dropout_rate=dropout_rate,
                     inf=inf,
                     chunk_size_tri_att=chunk_size_tri_att,
+                    tri_att_first=tri_att_first,
                 )
                 for _ in range(num_blocks)
             ]

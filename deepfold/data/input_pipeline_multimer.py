@@ -143,9 +143,15 @@ def process_tensors_from_config(
     if process_gt_feats:
         gt_tensors = prepare_ground_truth_features(tensors)
 
-    ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)  # TODO: Move to config
+    # ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)
+    ensemble_seed = config.ensemble_seed
     tensors["aatype"] = tensors["aatype"].to(torch.long)
     nonensembled = nonensembled_transform_fns()
+    nonensembled.extend(
+        [
+            data_transforms.make_pseudo_beta(prefix="template_"),  # template_pseudo_beta
+        ]
+    )
     tensors = compose(nonensembled)(tensors)
     if "num_recycling_iters" in tensors:
         num_recycling = int(tensors["num_recycling_iters"])

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
 import deepfold.modules.inductor as inductor
+from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
 from deepfold.utils.rigid_utils import Rigid
 
@@ -27,6 +28,7 @@ class TemplatePairEmbedder(nn.Module):
         self,
         tp_dim: int,
         c_t: int,
+        **kwargs,
     ) -> None:
         super().__init__()
         self.tp_dim = tp_dim
@@ -85,11 +87,11 @@ class TemplatePairEmbedder(nn.Module):
             rc.restype_num + 2,
         )
 
-        N_res = template_aatype.shape[-1]
+        num_res = template_aatype.shape[-1]
 
-        to_concat.append(aatype_one_hot.unsqueeze(-3).expand(*aatype_one_hot.shape[:-2], N_res, -1, -1))
+        to_concat.append(aatype_one_hot.unsqueeze(-3).expand(*aatype_one_hot.shape[:-2], num_res, -1, -1))
 
-        to_concat.append(aatype_one_hot.unsqueeze(-2).expand(*aatype_one_hot.shape[:-2], -1, N_res, -1))
+        to_concat.append(aatype_one_hot.unsqueeze(-2).expand(*aatype_one_hot.shape[:-2], -1, num_res, -1))
 
         n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
 
@@ -199,3 +201,181 @@ def _compute_part2_eager(
 
 
 _compute_part2_jit = torch.compile(_compute_part2_eager)
+
+
+class TemplatePairEmbedderMultimer(nn.Module):
+
+    def __init__(
+        self,
+        c_z: int,
+        c_t: int,
+        c_dgram: int,
+        c_aatype: int,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        self.c_dgram = c_dgram
+        self.c_aatype = c_aatype
+
+        self.dgram_linear = Linear(c_dgram, c_t, init="relu")
+        self.aatype_linear_1 = Linear(c_aatype, c_t, init="relu")
+        self.aatype_linear_2 = Linear(c_aatype, c_t, init="relu")
+        self.query_embedding_layer_norm = LayerNorm(c_z)
+        self.query_embedding_linear = Linear(c_z, c_t, init="relu")
+        self.pseudo_beta_mask_linear = Linear(1, c_t, init="relu")
+        self.x_linear = Linear(1, c_t, init="relu")
+        self.y_linear = Linear(1, c_t, init="relu")
+        self.z_linear = Linear(1, c_t, init="relu")
+        self.backbone_mask_linear = Linear(1, c_t, init="relu")
+
+    _initialize_buffers = TemplatePairEmbedder._initialize_buffers
+
+    def forward(
+        self,
+        query_embedding: torch.Tensor,
+        multichain_mask_2d: torch.Tensor,
+        template_dgram: torch.Tensor,
+        aatype_one_hot: torch.Tensor,
+        pseudo_beta_mask: torch.Tensor,
+        backbone_mask: torch.Tensor,  # [..., N_res]
+        unit_vector: torch.Tensor,  # [..., N_res, N_res, 3]
+    ) -> torch.Tensor:
+        # Build 2D pseudo beta mask
+        pseudo_beta_mask_2d = pseudo_beta_mask[..., :, None] * pseudo_beta_mask[..., None, :]
+        pseudo_beta_mask_2d *= multichain_mask_2d
+        template_dgram *= pseudo_beta_mask_2d[..., None]
+
+        act = self.dgram_linear(template_dgram)
+        act += self.pseudo_beta_mask_linear(pseudo_beta_mask_2d[..., None])
+
+        aatype_one_hot = aatype_one_hot.to(template_dgram.dtype)
+        act += self.aatype_linear_1(aatype_one_hot[..., None, :, :])
+        act += self.aatype_linear_2(aatype_one_hot[..., :, None, :])
+
+        backbone_mask_2d = backbone_mask[..., None] * backbone_mask[..., None, :]
+        backbone_mask_2d *= multichain_mask_2d
+        # backbone_mask_2d: [1, N_res, N_res]
+
+        x, y, z = [(coord * backbone_mask_2d).to(dtype=query_embedding.dtype) for coord in unit_vector.unbind(dim=-1)]
+        act += self.x_linear(x[..., None])
+        act += self.y_linear(y[..., None])
+        act += self.z_linear(z[..., None])
+
+        act += self.backbone_mask_linear(backbone_mask_2d[..., None].to(dtype=query_embedding.dtype))
+
+        query_embedding = self.query_embedding_layer_norm(query_embedding)
+        act += self.query_embedding_linear(query_embedding)
+
+        return act
+
+    def build_template_pair_feat(
+        self,
+        feats: Dict[str, torch.Tensor],
+        min_bin: int,
+        max_bin: int,
+        num_bins: int,
+        inf: float,
+        eps: float,
+        dtype: torch.dtype,
+    ) -> Dict[str, torch.Tensor]:
+        template_pseudo_beta = feats["template_pseudo_beta"]
+        template_pseudo_beta_mask = feats["template_pseudo_beta_mask"]
+        template_aatype = feats["template_aatype"]
+        template_all_atom_mask = feats["template_all_atom_mask"]
+
+        self._initialize_buffers(
+            min_bin=min_bin,
+            max_bin=max_bin,
+            num_bins=num_bins,
+            inf=inf,
+            device=template_pseudo_beta.device,
+        )
+
+        if inductor.is_enabled():
+            compute_part1_fn = _compute_multimer_part1_jit
+        else:
+            compute_part1_fn = _compute_multimer_part1_eager
+
+        dgram, aatype_one_hot = compute_part1_fn(
+            template_pseudo_beta,
+            template_aatype,
+            self.lower,
+            self.upper,
+            self.c_aatype,
+        )  # dgram, aa_one_hot
+
+        if inductor.is_enabled():
+            make_transform_from_reference = Rigid.make_transform_from_reference_jit
+        else:
+            make_transform_from_reference = Rigid.make_transform_from_reference
+
+        n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
+        rigids = make_transform_from_reference(
+            n_xyz=feats["template_all_atom_positions"][..., n, :],
+            ca_xyz=feats["template_all_atom_positions"][..., ca, :],
+            c_xyz=feats["template_all_atom_positions"][..., c, :],
+            eps=eps,
+        )
+        backbone_mask = (
+            template_all_atom_mask[..., n] * template_all_atom_mask[..., ca] * template_all_atom_mask[..., c]
+        )
+
+        if inductor.is_enabled():
+            compute_unit_vector = _compute_multimer_part2_jit
+        else:
+            compute_unit_vector = _compute_multimer_part2_eager
+
+        points = rigids.get_trans().unsqueeze(-3)
+        rigid_vec = rigids.unsqueeze(-1).invert_apply_jit(points)
+        unit_vector = compute_unit_vector(rigid_vec, eps, template_all_atom_mask, n, ca, c)
+
+        return {
+            "template_dgram": dgram,
+            "aatype_one_hot": aatype_one_hot,
+            "pseudo_beta_mask": template_pseudo_beta_mask,
+            "backbone_mask": backbone_mask,
+            "unit_vector": unit_vector,
+        }
+
+
+def _compute_multimer_part1_eager(
+    template_pseudo_beta: torch.Tensor,
+    template_aatype: torch.Tensor,
+    lower: torch.Tensor,
+    upper: torch.Tensor,
+    num_classes: int,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    dgram = torch.sum(
+        input=(template_pseudo_beta.unsqueeze(-2) - template_pseudo_beta.unsqueeze(-3)) ** 2,
+        dim=-1,
+        keepdim=True,
+    )
+    dgram = ((dgram > lower) * (dgram < upper)).to(dtype=dgram.dtype)
+    aatype_one_hot = F.one_hot(
+        input=template_aatype,
+        num_classes=num_classes,
+    )
+    return dgram, aatype_one_hot
+
+
+_compute_multimer_part1_jit = torch.compile(_compute_multimer_part1_eager)
+
+
+def _compute_multimer_part2_eager(
+    rigid_vec: torch.Tensor,
+    eps: float,
+    t_aa_masks: torch.Tensor,
+    n: int,
+    ca: int,
+    c: int,
+) -> torch.Tensor:
+    inv_distance_scalar = torch.rsqrt(eps + torch.sum(rigid_vec**2, dim=-1))
+    template_mask = t_aa_masks[..., n] * t_aa_masks[..., ca] * t_aa_masks[..., c]
+    template_mask_2d = template_mask.unsqueeze(-1) * template_mask.unsqueeze(-2)
+    inv_distance_scalar = inv_distance_scalar * template_mask_2d
+    unit_vector = rigid_vec * inv_distance_scalar.unsqueeze(-1)
+
+    return unit_vector
+
+
+_compute_multimer_part2_jit = torch.compile(_compute_multimer_part2_eager)

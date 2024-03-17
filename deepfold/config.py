@@ -20,11 +20,14 @@ NUM_TEMPLATES = "NUM_TEMPLATES"
 
 @dataclass
 class InputEmbedderConfig:
-    tf_dim: int = 22
+    tf_dim: int = 22  # 21
     msa_dim: int = 49
     c_z: int = 128
     c_m: int = 256
     relpos_k: int = 32
+    max_relative_chain: int = 2
+    max_relative_index: int = 32
+    use_chain_relative: bool = True
 
 
 @dataclass
@@ -39,7 +42,7 @@ class RecyclingEmbedderConfig:
 
 @dataclass
 class TemplateAngleEmbedderConfig:
-    ta_dim: int = 57
+    ta_dim: int = 57  # 34
     c_m: int = 256
 
 
@@ -47,6 +50,9 @@ class TemplateAngleEmbedderConfig:
 class TemplatePairEmbedderConfig:
     tp_dim: int = 88
     c_t: int = 64
+    c_z: int = 128
+    c_dgram: int = 39
+    c_aatype: int = 22
 
 
 @dataclass
@@ -60,6 +66,7 @@ class TemplatePairStackConfig:
     dropout_rate: float = 0.25
     inf: float = 1e9
     chunk_size_tri_att: Optional[int] = None
+    tri_att_first: bool = True  # False
 
 
 @dataclass
@@ -70,6 +77,12 @@ class TemplatePointwiseAttentionConfig:
     num_heads: int = 4
     inf: float = 1e5
     chunk_size: Optional[int] = None
+
+
+@dataclass
+class TemplateProjectionConfig:
+    c_t: int = 64
+    c_z: int = 128
 
 
 @dataclass
@@ -98,6 +111,7 @@ class ExtraMSAStackConfig:
     chunk_size_msa_att: Optional[int] = None
     chunk_size_opm: Optional[int] = None
     chunk_size_tri_att: Optional[int] = None
+    outer_product_mean_first: bool = False  # True
 
 
 @dataclass
@@ -120,6 +134,7 @@ class EvoformerStackConfig:
     chunk_size_msa_att: Optional[int] = None
     chunk_size_opm: Optional[int] = None
     chunk_size_tri_att: Optional[int] = None
+    outer_product_mean_first: bool = False  # True
 
 
 @dataclass
@@ -131,11 +146,12 @@ class StructureModuleConfig:
     num_heads_ipa: int = 12
     num_qk_points: int = 4
     num_v_points: int = 8
+    separate_kv: bool = False
     dropout_rate: float = 0.1
     num_blocks: int = 8
     num_ang_res_blocks: int = 2
     num_angles: int = 7
-    scale_factor: float = 10.0
+    scale_factor: float = 10.0  # 20.0
     inf: float = 1e5
     eps: float = 1e-8
 
@@ -156,7 +172,7 @@ class DistogramHeadConfig:
 @dataclass
 class MaskedMSAHeadConfig:
     c_m: int = 256
-    c_out: int = 23
+    c_out: int = 23  # 22
 
 
 @dataclass
@@ -315,6 +331,9 @@ class AlphaFoldConfig:
     template_pointwise_attention_config: TemplatePointwiseAttentionConfig = field(
         default=TemplatePointwiseAttentionConfig(),
     )
+    template_projection_config: TemplateProjectionConfig = field(
+        default=TemplateProjectionConfig(),
+    )
     extra_msa_embedder_config: ExtraMSAEmbedderConfig = field(
         default=ExtraMSAEmbedderConfig(),
     )
@@ -335,20 +354,8 @@ class AlphaFoldConfig:
     loss_config: LossConfig = field(default=LossConfig())
 
     # Recycling (last dimension in the batch dict):
-    num_recycling_iters: int = 3
-
-    # Primary sequence and MSA related features names:
-    primary_raw_feature_names: List[str] = field(
-        default_factory=lambda: [
-            "aatype",
-            "residue_index",
-            "msa",
-            "num_alignments",
-            "seq_length",
-            "between_segment_residues",
-            "deletion_matrix",
-        ]
-    )
+    recycle_early_stop_enabled: bool = False
+    recycle_early_stop_tolerance: float = 0.5
 
     # Template features configuration:
     templates_enabled: bool = True
@@ -358,28 +365,10 @@ class AlphaFoldConfig:
     # Template pair features embedder configuration:
     template_pair_feat_distogram_min_bin: float = 3.25
     template_pair_feat_distogram_max_bin: float = 50.75
-    template_pair_feat_distogram_num_bins: int = 39
-    template_pair_feat_use_unit_vector: bool = False
+    template_pair_feat_distogram_num_bins: int = 39  #
+    template_pair_feat_use_unit_vector: bool = False  # True
     template_pair_feat_inf: float = 1e5
     template_pair_feat_eps: float = 1e-6
-    template_raw_feature_names: List[str] = field(
-        default_factory=lambda: [
-            "template_all_atom_positions",
-            "template_sum_probs",
-            "template_aatype",
-            "template_all_atom_mask",
-        ]
-    )
-
-    # Target and related to supervised training feature names:
-    supervised_raw_features_names: List[str] = field(
-        default_factory=lambda: [
-            "all_atom_mask",
-            "all_atom_positions",
-            "resolution",
-            "is_distillation",
-        ]
-    )
 
     # CUDA Graphs configuration:
     cuda_graphs: bool = False
@@ -399,10 +388,48 @@ class AlphaFoldConfig:
             "embed_template_torsion_angles": enable_templates,
         }
 
+        if is_multimer:
+            _update(
+                cfg,
+                {
+                    "input_embedder_config": {
+                        "tf_dim": 21,
+                        "max_relative_chain": 2,
+                        "max_relative_index": 32,
+                        "use_chain_relative": True,
+                    },
+                    "template_angle_embedder_config": {
+                        "ta_dim": 34,
+                    },
+                    "template_pair_embedder_config": {
+                        "c_dgram": 39,
+                        "c_aatype": 22,
+                    },
+                    "template_pair_stack_config": {
+                        "tri_att_first": False,
+                    },
+                    "evoformer_stack_config": {
+                        "outer_product_mean_first": True,
+                    },
+                    "extra_msa_stack_config": {
+                        "outer_product_mean_first": True,
+                    },
+                    "structure_module_config": {"scale_factor": 20.0, "separate_kv": True},
+                    "auxiliary_heads_config": {
+                        "masked_msa_head_config": {
+                            "c_out": 22,
+                        },
+                    },
+                    "loss_config": {
+                        # TODO: Multimer losses
+                    },
+                },
+            )
+
         if inference_chunk_size is not None:
             _update(cfg, _inference_stage(chunk_size=inference_chunk_size))
 
-        if is_multimer or enable_ptm:
+        if enable_ptm:
             _update(cfg, _ptm_preset())
 
         if precision in {"fp32", "tf32", "bf16"}:
@@ -477,6 +504,7 @@ def _half_precision_settings() -> dict:
 class FeaturePipelineConfig:
     preset: str = ""
     is_multimer: bool = False
+    ensemble_seed: int = 0
 
     # Fix input sizes:
     fixed_size: bool = True
@@ -526,7 +554,6 @@ class FeaturePipelineConfig:
             "msa",
             "num_alignments",
             "seq_length",
-            "between_segment_residues",
             "deletion_matrix",
             "num_recycling_iters",
         ]
@@ -554,13 +581,9 @@ class FeaturePipelineConfig:
 
     # Generate supervised features:
     supervised_features_enabled: bool = False
-    clamp_fape_prob: float = 0.9
-
-    # Distillation
-    distillation_prob: float = 0.75
 
     # Target and related to supervised training feature names:
-    supervised_raw_features_names: List[str] = field(
+    supervised_raw_feature_names: List[str] = field(
         default_factory=lambda: [
             "all_atom_mask",
             "all_atom_positions",
@@ -570,6 +593,12 @@ class FeaturePipelineConfig:
         ]
     )
 
+    # FAPE loss clamp probability
+    clamp_fape_prob: float = 0.9
+
+    # Distillation
+    distillation_prob: float = 0.75
+
     def feature_names(self) -> List[str]:
         names = self.primary_raw_feature_names.copy()
 
@@ -577,14 +606,29 @@ class FeaturePipelineConfig:
             names += self.template_raw_feature_names
 
         if self.supervised_features_enabled:
-            names += self.supervised_raw_features_names
+            names += self.supervised_raw_feature_names
 
         return names
+
+    def __post_init__(self):
+        if self.is_multimer:
+            self.primary_raw_feature_names.extend(
+                [
+                    "msa_mask",
+                    "seq_mask",
+                    "asym_id",
+                    "entity_id",
+                    "sym_id",
+                ]
+            )
+        else:
+            self.primary_raw_feature_names.append("between_segment_residues")
 
     @classmethod
     def from_preset(
         cls,
         preset: str,
+        ensemble_seed: int = 0,
         is_multimer: bool = False,
     ) -> FeaturePipelineConfig:
         cfg = {}
@@ -596,6 +640,15 @@ class FeaturePipelineConfig:
             cfg = _train_mode(is_multimer)
         else:
             raise ValueError(f"Unknown preset: '{preset}'")
+
+        if is_multimer:
+            cfg.update(
+                {
+                    "is_multimer": True,
+                    "ensemble_seed": ensemble_seed,
+                    "max_recycling_iters": 20,
+                }
+            )
 
         return cls.from_dict(cfg)
 

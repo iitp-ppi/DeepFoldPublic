@@ -505,18 +505,26 @@ def import_jax_weights_(
 
     # fmt: off
     if is_multimer:
-        translations["predicted_aligned_error_head"] = {"logits": LinearParams(model.auxiliary_heads.tm.linear)}
-        # fix rel-pos embedding
         del translations["evoformer"]["pair_activiations"]
+        del translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_stack"]  
+
+        translations["predicted_aligned_error_head"] = {"logits": LinearParams(model.auxiliary_heads.tm.linear)}
+
         translations["evoformer"]["~_relative_encoding"] = {}
         translations["evoformer"]["~_relative_encoding"]["position_activations"] = LinearParams(model.input_embedder.linear_relpos)
-        for i in range(8):
-            translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_{}".format(i)] = LinearParams(model.template_pair_embedder.linear[i])
-        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_8"] = LinearParams(model.template_pair_embedder.z_linear)
-        translations["evoformer"]["template_embedding"]["single_template_embedding"]["query_embedding_norm"] = LayerNormParams(model.template_pair_embedder.z_layer_norm)
-        del translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_stack"]
-        translations["evoformer"]["template_embedding"]["output_linear"] = LinearParams(model.template_proj.output_linear)
+
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["query_embedding_norm"] = LayerNormParams(model.template_pair_embedder.query_embedding_layer_norm)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_0"] = LinearParams(model.template_pair_embedder.dgram_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_1"] = LinearParams(model.template_pair_embedder.pseudo_beta_mask_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_2"] = LinearParams(model.template_pair_embedder.aatype_linear_1)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_3"] = LinearParams(model.template_pair_embedder.aatype_linear_2)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_4"] = LinearParams(model.template_pair_embedder.x_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_5"] = LinearParams(model.template_pair_embedder.y_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_6"] = LinearParams(model.template_pair_embedder.z_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_7"] = LinearParams(model.template_pair_embedder.backbone_mask_linear)
+        translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_pair_embedding_8"] = LinearParams(model.template_pair_embedder.query_embedding_linear)
         translations["evoformer"]["template_embedding"]["single_template_embedding"]["template_embedding_iteration"] = tps_blocks_params
+        translations["evoformer"]["template_embedding"]["output_linear"] = LinearParams(model.template_projection.linear_t)
     else:
         if enable_templates:
             translations["evoformer"]["template_embedding"]["single_template_embedding"]["embedding2d"] = LinearParams(model.template_pair_embedder.linear)
