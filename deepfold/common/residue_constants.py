@@ -717,10 +717,9 @@ ID_TO_HHBLITS_AA = {
     21: "-",
 }
 
+# fmt: off
 restypes_with_x_and_gap = restypes + ["X", "-"]
-MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(
-    restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap))
-)
+MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap)))
 
 
 def _make_standard_atom_mask() -> np.ndarray:
@@ -769,9 +768,7 @@ chi_atom_2_one_hot = chi_angle_atom(2)
 # An array like chi_angles_atoms but using indices rather than names.
 chi_angles_atom_indices_list: List[List[List[str]]] = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
 chi_angles_atom_indices_ours: list = map_structure_with_atom_order(chi_angles_atom_indices_list)
-chi_angles_atom_indices = [
-    chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices_list
-]
+chi_angles_atom_indices = [chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices_list] 
 chi_angles_atom_indices = np.array(chi_angles_atom_indices)
 
 # Mapping from (res_name, atom_name) pairs to the atom's chi group index

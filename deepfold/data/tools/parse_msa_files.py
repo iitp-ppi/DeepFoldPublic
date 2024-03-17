@@ -1,11 +1,14 @@
 import argparse
 import concurrent
+import logging
 import os
 import pickle
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 from deepfold.data import parsers
+
+logger = logging.getLogger(__name__)
 
 
 def parse_stockholm_file(alignment_dir: str, stockholm_file: str):
@@ -40,7 +43,7 @@ def run_parse_all_msa_files_multiprocessing(stockholm_files: list, a3m_files: li
                 result = future.result()
                 msa_results.update(result)
             except Exception as exc:
-                print(f"Task generated an exception: {exc}")
+                logger.error(f"Task generated an exception: {exc}")
         return msa_results
 
 
@@ -56,9 +59,8 @@ def main():
     ]
     a3m_files = [i for i in os.listdir(alignment_dir) if i.endswith(".a3m")]
     msa_data = run_parse_all_msa_files_multiprocessing(stockholm_files, a3m_files, alignment_dir)
-    with tempfile.NamedTemporaryFile("wb", suffix=".pkl", delete=False) as outfile:
-        pickle.dump(msa_data, outfile)
-        print(outfile.name)
+
+    logging.info(f"MSA parsed from '{alignment_dir}'")
 
 
 if __name__ == "__main__":

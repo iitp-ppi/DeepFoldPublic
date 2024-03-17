@@ -262,7 +262,7 @@ class Broadcast(torch.autograd.Function):
         return _broadcast(tensor, root_rank)
 
     def backward(ctx: Any, grad_output):
-        grad_reduced = _reduce(grad_output, op="sum")  # TODO: Isn't it 'mean'?
+        grad_reduced = _reduce(grad_output, op="sum")
         if get_tensor_model_parallel_rank() != ctx._root_rank:
             grad_reduced *= 0
         return grad_reduced, None

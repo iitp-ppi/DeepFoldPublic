@@ -245,7 +245,7 @@ class _BroadcastOnModelParallelRegion(torch.autograd.Function):
         return _broadcast(tensor, src_rank)
 
     def backward(ctx, grad_output):
-        grad_reduced = _reduce(grad_output)  # TODO: Isn't it 'mean'?
+        grad_reduced = _reduce(grad_output)
         if get_model_parallel_rank() != ctx._src_rank:
             grad_reduced *= 0.0
         return grad_reduced, None

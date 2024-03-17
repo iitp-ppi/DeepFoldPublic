@@ -31,7 +31,7 @@ def precompute_alignments(
         local_alignment_dir = os.path.join(alignment_dir, tag)
 
         if args.use_precomputed_alignments is None:
-            logger.info(f"Generating alignments for {tag}...")
+            logger.info(f"Generating alignments for '{tag}'")
 
             os.makedirs(local_alignment_dir, exist_ok=True)
 
@@ -58,12 +58,12 @@ def precompute_alignments(
                 uniprot_database_path=args.uniprot_database_path,
                 template_searcher=template_searcher,
                 use_small_bfd=args.bfd_database_path is None,
-                no_cpus=args.cpus,
+                num_cpus=args.cpus,
             )
 
             alignment_runner.run(tmp_fasta_path, local_alignment_dir)
         else:
-            logger.info(f"Using precomputed alignments for {tag} at {alignment_dir}...")
+            logger.info(f"Using precomputed alignments for '{tag}' at '{alignment_dir}'")
 
         # Remove temporary FASTA file
         os.remove(tmp_fasta_path)
@@ -173,6 +173,7 @@ def main(args: argparse.Namespace):
     feature_dict = generate_feature_dict(tags, seqs, alignment_dir, data_processor, args)
 
     pkl_output_path = os.path.join(output_dir_base, "features.pkl")
+    logger.info(f"Write features on '{output_dir_base}'")
     dump_pickle(feature_dict, pkl_output_path)
 
 
