@@ -453,7 +453,7 @@ class AlphaFoldConfig:
         )
 
 
-def _inference_stage(chunk_size: int) -> dict:
+def _inference_stage(chunk_size: Optional[int] = None) -> dict:
     return {
         "template_pair_stack_config": {
             "chunk_size_tri_att": chunk_size,
