@@ -13,6 +13,10 @@ function run_jackhmmer {
     local DB_PATH=$3
     local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
 
+    echo "TOOL=JackHMMER"
+    echo "IN=$INPUT_FASTA_PATH"
+    echo "DB=$DB_PATH"
+
     jackhmmer \
         -o /dev/null \
         -A $STO_PATH --noali \
@@ -27,6 +31,10 @@ function run_hhblits {
     local INPUT_FASTA_PATH=$2
     local DB_PATH=$3
     local A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
+
+    echo "TOOL=HHBlits"
+    echo "IN=$INPUT_FASTA_PATH"
+    echo "DB=$DB_PATH"
 
     hhblits \
         -i $INPUT_FASTA_PATH \
