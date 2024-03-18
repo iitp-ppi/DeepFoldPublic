@@ -19,7 +19,7 @@ echo "DATABASE_BASE=$DATABASE_BASE"
 echo "HOSTNAME=$(hostname)"
 echo
 
-NUM_CPUS=${NUM_CPUS:-$SLURM_CPUS_PER_TASK}
+NUM_CPUS=$SLURM_CPUS_PER_TASK
 OMP_NUM_THREADS=$NUM_CPUS
 
 function run_jackhmmer() {
