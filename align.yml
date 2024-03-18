@@ -1,0 +1,19 @@
+name: align
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - biopython=1.81
+  - modelcif=0.7
+  - networkx=3.2.1
+  - ply
+  - tqdm
+  - hmmer=3.3.2
+  - hhsuite=3.3.0
+  - kalign2=2.04
