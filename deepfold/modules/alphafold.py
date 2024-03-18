@@ -322,6 +322,7 @@ class AlphaFold(nn.Module):
         pair_mask: torch.Tensor,
         gradient_checkpointing: bool,
         asym_id: Optional[torch.Tensor] = None,
+        multichain_mask_2d: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         # Embed the templates one at a time:
         pair_embeds = []
@@ -344,7 +345,8 @@ class AlphaFold(nn.Module):
                 t = self.template_pair_embedder(t)
                 # t: [batch, N_res, N_res, c_t]
             else:
-                multichain_mask_2d = asym_id[..., :, None] == asym_id[..., None, :]
+                if multichain_mask_2d is None:
+                    multichain_mask_2d = asym_id[..., :, None] == asym_id[..., None, :]
                 # multichain_mask_2d: [batch, N_res, N_res]
 
                 t = self.template_pair_embedder.build_template_pair_feat(
