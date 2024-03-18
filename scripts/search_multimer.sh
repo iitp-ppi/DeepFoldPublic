@@ -9,9 +9,9 @@ OMP_NUM_THREADS=$NUM_CPUS
 
 function run_jackhmmer {
     local NAME=$1
-    lcoal INPUT_FASTA_PATH=$2
+    local INPUT_FASTA_PATH=$2
     local DB_PATH=$3
-    lcoal STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
+    local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
 
     jackhmmer \
         -o /dev/null \
@@ -24,9 +24,9 @@ function run_jackhmmer {
 
 function run_hhblits {
     local NAME=$1
-    lcoal INPUT_FASTA_PATH=$2
+    local INPUT_FASTA_PATH=$2
     local DB_PATH=$3
-    lcoal A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
+    local A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
 
     hhblits \
         -i $INPUT_FASTA_PATH \
