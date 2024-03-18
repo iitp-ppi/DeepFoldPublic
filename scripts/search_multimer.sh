@@ -37,8 +37,8 @@ function run_hhblits {
         -realign_max 100000 \
         -maxfilt 100000 \
         -min_prefilter_hits 1000 \
-        -maxseq 1000000 -d \
-        $DB_PATH 2>&1 >"$NAME.log"
+        -maxseq 1000000 \
+        -d $DB_PATH 2>&1 >"$NAME.log"
 }
 
 if ! command -v hhblits &>/dev/null; then
