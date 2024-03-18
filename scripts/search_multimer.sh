@@ -19,7 +19,7 @@ function run_jackhmmer {
         --incE 0.0001 --F1 0.0005 --F2 0.00005 --F3 0.0000005 \
         -N 1 -E 0.0001 \
         --cpu $NUM_CPUS \
-        $INPUT_FASTA_PATH $DB_PATH 2>&1 >"$NAME.log"
+        $INPUT_FASTA_PATH $DB_PATH 2>&1 >"$OUTPUT_DIR/$NAME.log"
 }
 
 function run_hhblits {
@@ -38,7 +38,7 @@ function run_hhblits {
         -maxfilt 100000 \
         -min_prefilter_hits 1000 \
         -maxseq 1000000 \
-        -d $DB_PATH 2>&1 >"$NAME.log"
+        -d $DB_PATH 2>&1 >"$OUTPUT_DIR/$NAME.log"
 }
 
 if ! command -v hhblits &>/dev/null; then
