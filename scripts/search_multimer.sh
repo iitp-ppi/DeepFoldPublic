@@ -2,6 +2,7 @@
 ##SBATCH --job-name=msa
 ##SBATCH --nodes=1
 ##SBATCH --ntask-per-node=1
+##SBATCH --cpus-per-task=16
 ##SBATCH --time=1-00:00:00
 ##SBATCH --partition=normal
 ##SBATCH --error=slurm.%J.out
@@ -18,7 +19,8 @@ echo "DATABASE_BASE=$DATABASE_BASE"
 echo "HOSTNAME=$(hostname)"
 echo
 
-NUM_CPUS=$SLURM_CPUS_ON_NODE
+NUM_CPUS=16
+NUM_CPUS=${SLURM_CPUS_PER_TASK:-$NUM_CPUS}
 OMP_NUM_THREADS=$NUM_CPUS
 
 function run_jackhmmer() {
@@ -36,7 +38,7 @@ function run_jackhmmer() {
         -A $STO_PATH --noali \
         --incE 0.0001 --F1 0.0005 --F2 0.00005 --F3 0.0000005 \
         -N 1 -E 0.0001 \
-        $INPUT_FASTA_PATH $DB_PATH 2>&1 | tee "$OUTPUT_DIR/$NAME.log"
+        $INPUT_FASTA_PATH $DB_PATH
 
     echo
 }
@@ -61,7 +63,7 @@ function run_hhblits() {
         -min_prefilter_hits 1000 \
         -maxseq 1000000 \
         -cpu $NUM_CPUS \
-        -d $DB_PATH 2>&1 | tee "$OUTPUT_DIR/$NAME.log"
+        -d $DB_PATH
 
     echo
 }
