@@ -1,4 +1,4 @@
-#!/bin/bash -l
+#!/bin/bash
 ##SBATCH --job-name=msa
 ##SBATCH --nodes=1
 ##SBATCH --ntask-per-node=1
