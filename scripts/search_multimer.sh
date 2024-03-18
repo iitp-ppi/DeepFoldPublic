@@ -1,9 +1,18 @@
-#!/bin/bash
+#!/bin/bash -l
+##SBATCH --job-name=msa
+##SBATCH --nodes=1
+##SBATCH --ntask-per-node=1
+##SBATCH --cpus-per-task=32
+##SBATCH --time=1-00:00:00
+##SBATCH --partition=normal
+##SBATCH --error=slurm.%J.out
+##SBATCH --output=slurm.%J.out
 
 FASTA_PATH=$1
 OUTPUT_DIR=$2
 DATABASE_BASE=${DATABASE_BASE:-"/scratch/database/casp16"}
 
+date
 echo "IN=$FASTA_PATH"
 echo "OUT=$OUTPUT_DIR"
 echo "DATABASE_BASE=$DATABASE_BASE"
