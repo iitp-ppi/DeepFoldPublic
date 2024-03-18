@@ -2,7 +2,6 @@
 ##SBATCH --job-name=msa
 ##SBATCH --nodes=1
 ##SBATCH --ntask-per-node=1
-##SBATCH --cpus-per-task=32
 ##SBATCH --time=1-00:00:00
 ##SBATCH --partition=normal
 ##SBATCH --error=slurm.%J.out
@@ -19,7 +18,7 @@ echo "DATABASE_BASE=$DATABASE_BASE"
 echo "HOSTNAME=$(hostname)"
 echo
 
-NUM_CPUS=$SLURM_CPUS_PER_TASK
+NUM_CPUS=$SLURM_CPUS_ON_NODE
 OMP_NUM_THREADS=$NUM_CPUS
 
 function run_jackhmmer() {
