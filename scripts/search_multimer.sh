@@ -4,6 +4,10 @@ FASTA_PATH=$1
 OUTPUT_DIR=$2
 DB_BASE=${DATABASE_BASE:-"/scratch/database/casp16"}
 
+echo "IN=$FASTA_PATH"
+echo "OUT=$OUTPUT_DIR"
+echo "DB_BASE=$DB_BASE"
+
 NUM_CPUS=${NUM_CPUS:-SLURM_CPUS_PER_TASK}
 OMP_NUM_THREADS=$NUM_CPUS
 
@@ -14,7 +18,6 @@ function run_jackhmmer {
     local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
 
     echo "TOOL=JackHMMER"
-    echo "IN=$INPUT_FASTA_PATH"
     echo "DB=$DB_PATH"
 
     jackhmmer \
@@ -33,7 +36,6 @@ function run_hhblits {
     local A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
 
     echo "TOOL=HHBlits"
-    echo "IN=$INPUT_FASTA_PATH"
     echo "DB=$DB_PATH"
 
     hhblits \
