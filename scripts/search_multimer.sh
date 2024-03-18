@@ -1,4 +1,5 @@
 #!/bin/bash
+
 ##SBATCH --job-name=msa
 ##SBATCH -N 1
 ##SBATCH -n 1
