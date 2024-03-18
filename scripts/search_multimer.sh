@@ -1,8 +1,8 @@
 #!/bin/bash
 ##SBATCH --job-name=msa
-##SBATCH --nodes=1
-##SBATCH --ntask-per-node=1
-##SBATCH --cpus-per-task=16
+##SBATCH -N 1
+##SBATCH -n 1
+##SBATCH -c 16
 ##SBATCH --time=1-00:00:00
 ##SBATCH --partition=normal
 ##SBATCH --error=slurm.%J.out
