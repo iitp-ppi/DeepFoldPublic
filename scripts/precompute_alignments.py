@@ -173,7 +173,7 @@ def main(args: argparse.Namespace):
     feature_dict = generate_feature_dict(tags, seqs, alignment_dir, data_processor, args)
 
     pkl_output_path = os.path.join(output_dir_base, "features.pkl")
-    logger.info(f"Write features on '{output_dir_base}'")
+    logger.info(f"Write features on '{pkl_output_path}.gz'")
     dump_pickle(feature_dict, pkl_output_path)
 
 
