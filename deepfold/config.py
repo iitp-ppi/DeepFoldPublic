@@ -281,6 +281,12 @@ class TMLossConfig:
 
 
 @dataclass
+class CenterOfMassConfig:
+    enabled: bool = False
+    weight: float = 1e-8
+
+
+@dataclass
 class LossConfig:
     fape_loss_config: FAPELossConfig = field(
         default=FAPELossConfig(),
@@ -305,6 +311,9 @@ class LossConfig:
     )
     tm_loss_config: TMLossConfig = field(
         default=TMLossConfig(),
+    )
+    chain_center_of_mass_config: CenterOfMassConfig = field(
+        default=CenterOfMassConfig(),
     )
 
 
@@ -421,7 +430,9 @@ class AlphaFoldConfig:
                         },
                     },
                     "loss_config": {
-                        # TODO: Multimer losses
+                        "chain_center_of_mass_config": {
+                            "enabled": True,
+                        },
                     },
                 },
             )
