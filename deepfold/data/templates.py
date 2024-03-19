@@ -896,7 +896,7 @@ def get_custom_template_features(
     )
     features["template_sum_probs"] = [1.0]
 
-    # TODO: clean up this logic
+    # TODO: Clean up this logic
     template_features = {}
     for template_feature_name in TEMPLATE_FEATURES:
         template_features[template_feature_name] = []

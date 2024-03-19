@@ -1,7 +1,7 @@
 """Utilities related to tensor operations."""
 
 from functools import partial
-from typing import Any, Callable, Dict, List, Type, TypeVar, Union, overload
+from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union, overload
 
 import torch
 
@@ -25,7 +25,12 @@ def flatten_final_dims(t: torch.Tensor, num_dims: int) -> torch.Tensor:
     return t.reshape(t.shape[:-num_dims] + (-1,))
 
 
-def masked_mean(mask: torch.Tensor, value: torch.Tensor, dim: int, eps=1e-4) -> torch.Tensor:
+def masked_mean(
+    mask: torch.Tensor,
+    value: torch.Tensor,
+    dim: Union[int, Tuple[int, ...]],
+    eps: float = 1e-4,
+) -> torch.Tensor:
     mask = mask.expand(*value.shape)
     return torch.sum(mask * value, dim=dim) / (eps + torch.sum(mask, dim=dim))
 
