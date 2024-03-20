@@ -90,9 +90,7 @@ class ParameterWrapper:
     def _pack(self, node, tensors, numbers, modules):
         if node.type == "tensor":
             self.tensor_idx = self.tensor_idx + 1
-            assert len(tensors) >= self.tensor_idx, (
-                "error in " + str(self.tensor_idx) + " want to access " + str(len(tensors))
-            )
+            assert len(tensors) >= self.tensor_idx, "error in " + str(self.tensor_idx) + " want to access " + str(len(tensors))
             return (tensors[self.tensor_idx - 1], node.name)
         elif node.type == "literature":
             self.number_idx = self.number_idx + 1
@@ -342,9 +340,7 @@ class CudaGraphFunctionWrapper:
             # will not bring the cpu overhead after graph is captured.
 
             # `pack` will pack the args into original datatype.
-            out_args, out_kwargs = self.context.inp_wrapper.pack(
-                args, self.context.inp_wrapper.literature, self.context.inp_wrapper.nnModule
-            )
+            out_args, out_kwargs = self.context.inp_wrapper.pack(args, self.context.inp_wrapper.literature, self.context.inp_wrapper.nnModule)
             if len(out_args) == 0 and len(out_kwargs) == 0:
                 out = self.inner_fn()
             elif len(out_kwargs.keys()) == 0:
@@ -365,24 +361,22 @@ class CudaGraphFunctionWrapper:
         self._init_static_buffer()
         self._copy_to_static_args()
         self.inner_fn(*self.inp_wrapper.tensors)
-        (out_args, _) = self.out_wrapper.pack(
-            self.out_wrapper.tensors, self.out_wrapper.literature, self.out_wrapper.nnModule
-        )
+        (out_args, _) = self.out_wrapper.pack(self.out_wrapper.tensors, self.out_wrapper.literature, self.out_wrapper.nnModule)
         return out_args
 
     # cudagraph need more one warmup iterations.
     def _warmup_run(self):
         if self.grad_guard and any(self.grads):
             self.inner_fn(*self.inp_wrapper.tensors)
-            (out_args, _) = self.out_wrapper.pack(
-                self.out_wrapper.tensors, self.out_wrapper.literature, self.out_wrapper.nnModule
-            )
+            (out_args, _) = self.out_wrapper.pack(self.out_wrapper.tensors, self.out_wrapper.literature, self.out_wrapper.nnModule)
             return out_args
         else:
             self._copy_to_static_args()
             self.static_outputs_pool[self.cached_idx] = self.inner_fn(*self.static_args_pool[self.cached_idx])
             (out_args, _) = self.out_wrapper.pack(
-                self.static_outputs_pool[self.cached_idx], self.out_wrapper.literature, self.out_wrapper.nnModule
+                self.static_outputs_pool[self.cached_idx],
+                self.out_wrapper.literature,
+                self.out_wrapper.nnModule,
             )
             return out_args
 
@@ -391,7 +385,9 @@ class CudaGraphFunctionWrapper:
             self._copy_to_static_args()
             graph.replay()
             (out_args, _) = self.out_wrapper.pack(
-                self.static_outputs_pool[self.cached_idx], self.out_wrapper.literature, self.out_wrapper.nnModule
+                self.static_outputs_pool[self.cached_idx],
+                self.out_wrapper.literature,
+                self.out_wrapper.nnModule,
             )
             return out_args
         else:

@@ -76,15 +76,11 @@ def assert_rigid_close_to_rigid(rigid1: rigid_matrix_vector.Rigid3Array, rigid2:
     assert_rot_trans_close_to_rigid(rigid1.rotation, rigid1.translation, rigid2)
 
 
-def assert_rot_trans_equal_to_rigid(
-    rot: rotation_matrix.Rot3Array, trans: vector.Vec3Array, rigid: rigid_matrix_vector.Rigid3Array
-):
+def assert_rot_trans_equal_to_rigid(rot: rotation_matrix.Rot3Array, trans: vector.Vec3Array, rigid: rigid_matrix_vector.Rigid3Array):
     assert_rotation_matrix_equal(rot, rigid.rotation)
     assert_vectors_equal(trans, rigid.translation)
 
 
-def assert_rot_trans_close_to_rigid(
-    rot: rotation_matrix.Rot3Array, trans: vector.Vec3Array, rigid: rigid_matrix_vector.Rigid3Array
-):
+def assert_rot_trans_close_to_rigid(rot: rotation_matrix.Rot3Array, trans: vector.Vec3Array, rigid: rigid_matrix_vector.Rigid3Array):
     assert_rotation_matrix_close(rot, rigid.rotation)
     assert_vectors_close(trans, rigid.translation)

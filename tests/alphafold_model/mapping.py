@@ -110,10 +110,7 @@ def sharded_apply(
     Returns:
       function with smap applied.
     """
-    docstr = (
-        "Mapped version of {fun}. Takes similar arguments to {fun} "
-        "but with additional array axes over which {fun} is mapped."
-    )
+    docstr = "Mapped version of {fun}. Takes similar arguments to {fun} " "but with additional array axes over which {fun} is mapped."
     if new_out_axes:
         raise NotImplementedError("New output axes not yet implemented.")
 
@@ -139,7 +136,9 @@ def sharded_apply(
 
         def apply_fun_to_slice(slice_start, slice_size):
             input_slice = jax.tree_map(
-                lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis), args, in_axes_
+                lambda array, axis: _maybe_slice(array, slice_start, slice_size, axis),
+                args,
+                in_axes_,
             )
             return fun(*input_slice)
 
@@ -153,11 +152,7 @@ def sharded_apply(
             shard_shapes = jax.tree_map(lambda x: x.shape, regular_shard_shape_dtype)
 
             def make_output_shape(axis, shard_shape, remainder_shape):
-                return (
-                    shard_shape[:axis]
-                    + (shard_shape[axis] * num_extra_shards + remainder_shape[axis],)
-                    + shard_shape[axis + 1 :]
-                )
+                return shard_shape[:axis] + (shard_shape[axis] * num_extra_shards + remainder_shape[axis],) + shard_shape[axis + 1 :]
 
             out_shapes = jax.tree_map(make_output_shape, out_axes_, shard_shapes, out_shapes)
 
@@ -218,6 +213,9 @@ def inference_subbatch(
         return module(*args)
 
     sharded_module = sharded_apply(
-        run_module, shard_size=subbatch_size, in_axes=input_subbatch_dim, out_axes=output_subbatch_dim
+        run_module,
+        shard_size=subbatch_size,
+        in_axes=input_subbatch_dim,
+        out_axes=output_subbatch_dim,
     )
     return sharded_module(*batched_args)

@@ -40,9 +40,7 @@ def np_to_tensor_dict(
     )
     to_tensor = lambda a: torch.tensor(a) if type(a) != torch.Tensor else a.clone().detach()
     tensor_dict = {
-        k: to_tensor(v)
-        for k, v in np_example.items()
-        if (feature_names is not None) and (k in feature_names) and (v.dtype in allow_types)
+        k: to_tensor(v) for k, v in np_example.items() if (feature_names is not None) and (k in feature_names) and (v.dtype in allow_types)
     }
 
     return tensor_dict

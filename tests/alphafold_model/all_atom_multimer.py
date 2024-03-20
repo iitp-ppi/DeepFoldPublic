@@ -107,9 +107,7 @@ def _make_restype_atom37_to_atom14():
     for rt in residue_constants.restypes:
         atom_names = residue_constants.restype_name_to_atom14_names[residue_constants.restype_1to3[rt]]
         atom_name_to_idx14 = {name: i for i, name in enumerate(atom_names)}
-        restype_atom37_to_atom14.append(
-            [(atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0) for name in residue_constants.atom_types]
-        )
+        restype_atom37_to_atom14.append([(atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0) for name in residue_constants.atom_types])
 
     restype_atom37_to_atom14.append([0] * 37)
     restype_atom37_to_atom14 = np.array(restype_atom37_to_atom14, dtype=np.int32)
@@ -226,9 +224,7 @@ def atom37_to_atom14(aatype, all_atom_pos, all_atom_mask):
     # create a mask for known groundtruth positions
     atom14_mask *= utils.batched_gather(jnp.asarray(RESTYPE_ATOM14_MASK), aatype)
     # gather the groundtruth positions
-    atom14_positions = jax.tree_map(
-        lambda x: utils.batched_gather(x, residx_atom14_to_atom37, batch_dims=1), all_atom_pos
-    )
+    atom14_positions = jax.tree_map(lambda x: utils.batched_gather(x, residx_atom14_to_atom37, batch_dims=1), all_atom_pos)
     atom14_positions = atom14_mask * atom14_positions
     return atom14_positions, atom14_mask
 
@@ -274,9 +270,7 @@ def atom37_to_frames(
 
     # Gather the base atom positions for each rigid group.
     base_atom_pos = jax.tree_map(
-        lambda x: utils.batched_gather(  # pylint: disable=g-long-lambda
-            x, residx_rigidgroup_base_atom37_idx, batch_dims=1
-        ),
+        lambda x: utils.batched_gather(x, residx_rigidgroup_base_atom37_idx, batch_dims=1),  # pylint: disable=g-long-lambda
         all_atom_positions,
     )
 
@@ -293,9 +287,7 @@ def atom37_to_frames(
     group_exists = utils.batched_gather(RESTYPE_RIGIDGROUP_MASK, aatype)
 
     # Compute a mask whether ground truth exists for the group
-    gt_atoms_exist = utils.batched_gather(  # shape (N, 8, 3)
-        all_atom_mask.astype(jnp.float32), residx_rigidgroup_base_atom37_idx, batch_dims=1
-    )
+    gt_atoms_exist = utils.batched_gather(all_atom_mask.astype(jnp.float32), residx_rigidgroup_base_atom37_idx, batch_dims=1)  # shape (N, 8, 3)
     gt_exists = jnp.min(gt_atoms_exist, axis=-1) * group_exists  # (N, 8)
 
     # Adapt backbone frame to old convention (mirror x-axis and z-axis).
@@ -349,12 +341,8 @@ def torsion_angles_to_frames(
 ) -> geometry.Rigid3Array:  # (N, 8)
     """Compute rigid group frames from torsion angles."""
     assert len(aatype.shape) == 1, f"Expected array of rank 1, got array with shape: {aatype.shape}."
-    assert len(backb_to_global.rotation.shape) == 1, (
-        f"Expected array of rank 1, got array with shape: " f"{backb_to_global.rotation.shape}"
-    )
-    assert len(torsion_angles_sin_cos.shape) == 3, (
-        f"Expected array of rank 3, got array with shape: " f"{torsion_angles_sin_cos.shape}"
-    )
+    assert len(backb_to_global.rotation.shape) == 1, f"Expected array of rank 1, got array with shape: " f"{backb_to_global.rotation.shape}"
+    assert len(torsion_angles_sin_cos.shape) == 3, f"Expected array of rank 3, got array with shape: " f"{torsion_angles_sin_cos.shape}"
     assert torsion_angles_sin_cos.shape[1] == 7, f"wrong shape {torsion_angles_sin_cos.shape}"
     assert torsion_angles_sin_cos.shape[2] == 2, f"wrong shape {torsion_angles_sin_cos.shape}"
 
@@ -418,9 +406,7 @@ def frames_and_literature_positions_to_atom14_pos(
 
     # Gather the literature atom positions for each residue.
     # geometry.Vec3Array with shape (N, 14)
-    lit_positions = geometry.Vec3Array.from_array(
-        utils.batched_gather(residue_constants.restype_atom14_rigid_group_positions, aatype)
-    )
+    lit_positions = geometry.Vec3Array.from_array(utils.batched_gather(residue_constants.restype_atom14_rigid_group_positions, aatype))
 
     # Transform each atom from its local frame to the global frame.
     # geometry.Vec3Array with shape (N, 14)
@@ -676,9 +662,7 @@ def find_optimal_renaming(
     # shape (N, N, 14, 14)
     gt_dists = geometry.euclidean_distance(gt_positions[:, None, :, None], gt_positions[None, :, None, :], 1e-10)
 
-    alt_gt_dists = geometry.euclidean_distance(
-        alt_gt_positions[:, None, :, None], alt_gt_positions[None, :, None, :], 1e-10
-    )
+    alt_gt_dists = geometry.euclidean_distance(alt_gt_positions[:, None, :, None], alt_gt_positions[None, :, None, :], 1e-10)
 
     # Compute LDDT's.
     # shape (N, N, 14, 14)
@@ -834,9 +818,7 @@ def compute_chi_angles(positions: geometry.Vec3Array, mask: geometry.Vec3Array, 
     atom_indices = utils.batched_gather(params=chi_atom_indices, indices=aatype, axis=0)
     # Gather atom positions. Shape: [num_res, chis=4, atoms=4, xyz=3].
     chi_angle_atoms = jax.tree_map(
-        lambda x: utils.batched_gather(  # pylint: disable=g-long-lambda
-            params=x, indices=atom_indices, axis=-1, batch_dims=1
-        ),
+        lambda x: utils.batched_gather(params=x, indices=atom_indices, axis=-1, batch_dims=1),  # pylint: disable=g-long-lambda
         positions,
     )
     a, b, c, d = [chi_angle_atoms[..., i] for i in range(4)]
@@ -860,9 +842,7 @@ def compute_chi_angles(positions: geometry.Vec3Array, mask: geometry.Vec3Array, 
     return chi_angles, chi_mask
 
 
-def make_transform_from_reference(
-    a_xyz: geometry.Vec3Array, b_xyz: geometry.Vec3Array, c_xyz: geometry.Vec3Array
-) -> geometry.Rigid3Array:
+def make_transform_from_reference(a_xyz: geometry.Vec3Array, b_xyz: geometry.Vec3Array, c_xyz: geometry.Vec3Array) -> geometry.Rigid3Array:
     """Returns rotation and translation matrices to convert from reference.
 
     Note that this method does not take care of symmetries. If you provide the

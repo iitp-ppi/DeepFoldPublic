@@ -253,9 +253,7 @@ def _assess_hhsearch_hit(
     duplicate = template_sequence in query_sequence and length_ratio > max_subsequence_ratio
 
     if duplicate:
-        raise DuplicateError(
-            "Template is an exact subsequence of query with large " f"coverage. Length ratio: {length_ratio}."
-        )
+        raise DuplicateError("Template is an exact subsequence of query with large " f"coverage. Length ratio: {length_ratio}.")
 
     if len(template_sequence) < 10:
         raise LengthError(f"Template too short. Length: {len(template_sequence)}.")
@@ -473,10 +471,7 @@ def _check_residue_distances(
             if prev_is_unmasked:
                 distance = np.linalg.norm(this_calpha - prev_calpha)
                 if distance > max_ca_ca_distance:
-                    raise CaDistanceError(
-                        "The distance between residues %d and %d is %f > limit %f."
-                        % (i, i + 1, distance, max_ca_ca_distance)
-                    )
+                    raise CaDistanceError("The distance between residues %d and %d is %f > limit %f." % (i, i + 1, distance, max_ca_ca_distance))
             prev_calpha = this_calpha
         prev_is_unmasked = this_is_unmasked
 
@@ -560,10 +555,7 @@ def _extract_template_features(
         # If PDB70 contains a different version of the template, we use the sequence
         # from the mmcif_object.
         chain_id = template_chain_id
-        warning = (
-            f"The exact sequence {template_sequence} was not found in "
-            f"{pdb_id}_{chain_id}. Realigning the template to the actual sequence."
-        )
+        warning = f"The exact sequence {template_sequence} was not found in " f"{pdb_id}_{chain_id}. Realigning the template to the actual sequence."
         logging.warning(warning)
         # This throws an exception if it fails to realign the hit.
         seqres, mapping = _realign_pdb_template_to_query(

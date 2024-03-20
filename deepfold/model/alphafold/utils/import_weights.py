@@ -47,10 +47,7 @@ def process_translation_dict(d, top_layer=True):
     for k, v in d.items():
         if type(v) == dict:
             prefix = _NPZ_KEY_PREFIX if top_layer else ""
-            sub_flat = {
-                (prefix + "/".join([k, k_prime])): v_prime
-                for k_prime, v_prime in process_translation_dict(v, top_layer=False).items()
-            }
+            sub_flat = {(prefix + "/".join([k, k_prime])): v_prime for k_prime, v_prime in process_translation_dict(v, top_layer=False).items()}
             flat.update(sub_flat)
         else:
             k = "/" + k if not top_layer else k

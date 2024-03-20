@@ -103,9 +103,7 @@ class Vec3Array:
     @classmethod
     def zeros(cls, shape, dtype=jnp.float32):
         """Return Vec3Array corresponding to zeros of given shape."""
-        return cls(
-            jnp.zeros(shape, dtype), jnp.zeros(shape, dtype), jnp.zeros(shape, dtype)
-        )  # pytype: disable=wrong-arg-count  # trace-all-classes
+        return cls(jnp.zeros(shape, dtype), jnp.zeros(shape, dtype), jnp.zeros(shape, dtype))  # pytype: disable=wrong-arg-count  # trace-all-classes
 
     def to_array(self) -> jnp.ndarray:
         return jnp.stack([self.x, self.y, self.z], axis=-1)

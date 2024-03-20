@@ -141,9 +141,7 @@ class TestDataTransforms(unittest.TestCase):
             if k in protein and keep_extra:
                 assert protein_processed[k].shape[0] == min(protein[k].shape[0], max_seq)
                 assert "extra_" + k in protein_processed
-                assert protein_processed["extra_" + k].shape[0] == protein[k].shape[0] - min(
-                    protein[k].shape[0], max_seq
-                )
+                assert protein_processed["extra_" + k].shape[0] == protein[k].shape[0] - min(protein[k].shape[0], max_seq)
 
     def test_crop_extra_msa(self):
         with open("tests/data/features.pkl", "rb") as file:
@@ -216,7 +214,10 @@ class TestDataTransforms(unittest.TestCase):
         assert "msa" in protein
         assert protein["bert_mask"].sum() >= 0
         assert torch.all(
-            torch.eq(protein["true_msa"] * (1 - protein["bert_mask"]), protein["msa"] * (1 - protein["bert_mask"]))
+            torch.eq(
+                protein["true_msa"] * (1 - protein["bert_mask"]),
+                protein["msa"] * (1 - protein["bert_mask"]),
+            )
         )
 
     def test_make_msa_feat(self):

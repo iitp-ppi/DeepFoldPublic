@@ -105,11 +105,7 @@ def make_masked_msa(
     # Add a random amino acid uniformly.
     random_aa = torch.Tensor([0.05] * 20 + [0.0, 0.0], device=batch["msa"].device)
 
-    categorical_probs = (
-        uniform_prob * random_aa
-        + profile_prob * batch["msa_profile"]
-        + same_prob * torch.nn.functional.one_hot(batch["msa"], 22)
-    )
+    categorical_probs = uniform_prob * random_aa + profile_prob * batch["msa_profile"] + same_prob * torch.nn.functional.one_hot(batch["msa"], 22)
 
     # Put all remaining probability on [MASK] which is a new column.
     mask_prob = 1.0 - profile_prob - same_prob - uniform_prob
@@ -278,9 +274,7 @@ def sample_msa(
     # The cluster_bias_mask can be used to preserve the first row (target
     # sequence) for each chain, for example.
     if "cluster_bias_mask" not in batch:
-        cluster_bias_mask = torch.nn.functional.pad(
-            batch["msa"].new_zeros(batch["msa"].shape[0] - 1), (1, 0), value=1.0
-        )
+        cluster_bias_mask = torch.nn.functional.pad(batch["msa"].new_zeros(batch["msa"].shape[0] - 1), (1, 0), value=1.0)
     else:
         cluster_bias_mask = batch["cluster_bias_mask"]
 
@@ -349,14 +343,20 @@ def get_spatial_crop_idx(protein, crop_size, interface_threshold, generator):
     asym_id = protein["asym_id"]
 
     interface_residues = get_interface_residues(
-        positions=positions, atom_mask=atom_mask, asym_id=asym_id, interface_threshold=interface_threshold
+        positions=positions,
+        atom_mask=atom_mask,
+        asym_id=asym_id,
+        interface_threshold=interface_threshold,
     )
 
     if not torch.any(interface_residues):
         return get_contiguous_crop_idx(protein, crop_size, generator)
 
     target_res_idx = randint(
-        lower=0, upper=interface_residues.shape[-1] - 1, generator=generator, device=positions.device
+        lower=0,
+        upper=interface_residues.shape[-1] - 1,
+        generator=generator,
+        device=positions.device,
     )
 
     target_res = interface_residues[target_res_idx]
@@ -396,13 +396,16 @@ def get_contiguous_crop_idx(protein, crop_size, generator):
 
         crop_size_max = min(num_budget, chain_len)
         crop_size_min = min(chain_len, max(0, num_budget - num_remaining))
-        chain_crop_size = randint(
-            lower=crop_size_min, upper=crop_size_max, generator=generator, device=chain_lens.device
-        )
+        chain_crop_size = randint(lower=crop_size_min, upper=crop_size_max, generator=generator, device=chain_lens.device)
 
         num_budget -= chain_crop_size
 
-        chain_start = randint(lower=0, upper=chain_len - chain_crop_size, generator=generator, device=chain_lens.device)
+        chain_start = randint(
+            lower=0,
+            upper=chain_len - chain_crop_size,
+            generator=generator,
+            device=chain_lens.device,
+        )
 
         asym_offset = asym_offsets[idx]
         crop_idxs.append(torch.arange(asym_offset + chain_start, asym_offset + chain_start + chain_crop_size))

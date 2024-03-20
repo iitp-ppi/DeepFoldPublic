@@ -409,9 +409,7 @@ def _parse_hhr_hit(detailed_lines: Sequence[str]) -> TemplateHit:
     )
     match = re.match(pattern, detailed_lines[2])
     if match is None:
-        raise RuntimeError(
-            "Could not parse section: %s. Expected this: \n%s to contain summary." % (detailed_lines, detailed_lines[2])
-        )
+        raise RuntimeError("Could not parse section: %s. Expected this: \n%s to contain summary." % (detailed_lines, detailed_lines[2]))
     (_, _, _, aligned_cols, _, _, sum_probs, _) = [float(x) for x in match.groups()]
 
     # The next section reads the detailed comparisons. These are in a 'human
@@ -426,12 +424,7 @@ def _parse_hhr_hit(detailed_lines: Sequence[str]) -> TemplateHit:
 
     for line in detailed_lines[3:]:
         # Parse the query sequence line
-        if (
-            line.startswith("Q ")
-            and not line.startswith("Q ss_dssp")
-            and not line.startswith("Q ss_pred")
-            and not line.startswith("Q Consensus")
-        ):
+        if line.startswith("Q ") and not line.startswith("Q ss_dssp") and not line.startswith("Q ss_pred") and not line.startswith("Q Consensus"):
             # Thus the first 17 characters must be 'Q <query_name> ', and we can parse
             # everything after that.
             #              start    sequence       end       total_sequence_length
@@ -453,11 +446,7 @@ def _parse_hhr_hit(detailed_lines: Sequence[str]) -> TemplateHit:
 
         elif line.startswith("T "):
             # Parse the hit sequence.
-            if (
-                not line.startswith("T ss_dssp")
-                and not line.startswith("T ss_pred")
-                and not line.startswith("T Consensus")
-            ):
+            if not line.startswith("T ss_dssp") and not line.startswith("T ss_pred") and not line.startswith("T Consensus"):
                 # Thus the first 17 characters must be 'T <hit_name> ', and we can
                 # parse everything after that.
                 #              start    sequence       end     total_sequence_length
@@ -548,13 +537,21 @@ def _parse_hmmsearch_description(description: str) -> HitMetadata:
     """Parses the hmmsearch A3M sequence description line."""
     # Example 1: >4pqx_A/2-217 [subseq from] mol:protein length:217  Free text
     # Example 2: >5g3r_A/1-55 [subseq from] mol:protein length:352
-    match = re.match(r"^>?([a-z0-9]+)_(\w+)/([0-9]+)-([0-9]+).*protein length:([0-9]+) *(.*)$", description.strip())
+    match = re.match(
+        r"^>?([a-z0-9]+)_(\w+)/([0-9]+)-([0-9]+).*protein length:([0-9]+) *(.*)$",
+        description.strip(),
+    )
 
     if not match:
         raise ValueError(f'Could not parse description: "{description}".')
 
     return HitMetadata(
-        pdb_id=match[1], chain=match[2], start=int(match[3]), end=int(match[4]), length=int(match[5]), text=match[6]
+        pdb_id=match[1],
+        chain=match[2],
+        start=int(match[3]),
+        end=int(match[4]),
+        length=int(match[5]),
+        text=match[6],
     )
 
 

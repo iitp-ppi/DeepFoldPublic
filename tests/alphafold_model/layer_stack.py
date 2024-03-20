@@ -37,9 +37,7 @@ WrappedFn = Callable[..., Union[NestedArray, Tuple[NestedArray]]]
 def _check_no_varargs(f):
     if list(inspect.signature(f).parameters.values())[0].kind == inspect.Parameter.VAR_POSITIONAL:
         raise ValueError(
-            "The function `f` should not have any `varargs` (that is *args) "
-            "argument. Instead, it should only use explicit positional"
-            "arguments."
+            "The function `f` should not have any `varargs` (that is *args) " "argument. Instead, it should only use explicit positional" "arguments."
         )
 
 
@@ -134,9 +132,7 @@ class _LayerStack(hk.Module):
                         f"size {count}."
                     )
 
-                    sliced_value = jax.lax.dynamic_index_in_dim(
-                        value, scanned.i, axis=value.ndim - trailing_dims, keepdims=False
-                    )
+                    sliced_value = jax.lax.dynamic_index_in_dim(value, scanned.i, axis=value.ndim - trailing_dims, keepdims=False)
                     return next_getter(sliced_value)
 
                 with hk.experimental.custom_getter(getter):

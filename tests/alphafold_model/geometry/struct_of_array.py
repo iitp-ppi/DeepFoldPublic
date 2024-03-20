@@ -62,9 +62,7 @@ def get_dtype(instance):
         field_value = getattr(instance, fields[0].name)
     else:
         # Should this be Value Error?
-        raise AttributeError(
-            "Trying to access Dtype on Struct of Array without" 'either "same_dtype" or field setting dtype'
-        )
+        raise AttributeError("Trying to access Dtype on Struct of Array without" 'either "same_dtype" or field setting dtype')
 
     if hasattr(field_value, "dtype"):
         return field_value.dtype
@@ -104,10 +102,7 @@ def post_init(instance):
             else:
                 field_shape = array.shape
 
-            shape_msg = (
-                f"Stripped Shape {field_shape} of field {field} doesn't "
-                f"match shape {first_shape} of field {first_field}"
-            )
+            shape_msg = f"Stripped Shape {field_shape} of field {field} doesn't " f"match shape {first_shape} of field {first_field}"
             assert field_shape == first_shape, shape_msg
 
             field_dtype = array.dtype
@@ -196,9 +191,7 @@ class StructOfArray:
             value_dict = {}
             array_start = 0
             for num_array, inner_treedef, array_field in zip(num_arrays, inner_treedefs, array_fields):
-                value_dict[array_field] = jax.tree_util.tree_unflatten(
-                    inner_treedef, data[array_start : array_start + num_array]
-                )
+                value_dict[array_field] = jax.tree_util.tree_unflatten(inner_treedef, data[array_start : array_start + num_array])
                 array_start += num_array
             metadata_fields = get_metadata_fields(new_cls)
             for field in metadata_fields:

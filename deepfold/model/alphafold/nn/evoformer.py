@@ -16,10 +16,7 @@ from deepfold.model.alphafold.nn.outer_product_mean import ParallelOuterProductM
 from deepfold.model.alphafold.nn.primitives import Linear
 from deepfold.model.alphafold.nn.transitions import MSATransition, PairTransition
 from deepfold.model.alphafold.nn.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
-from deepfold.model.alphafold.nn.triangular_multiplicative_update import (
-    TriangleMultiplicationIncoming,
-    TriangleMultiplicationOutgoing,
-)
+from deepfold.model.alphafold.nn.triangular_multiplicative_update import TriangleMultiplicationIncoming, TriangleMultiplicationOutgoing
 from deepfold.utils.debug import dump_args
 
 
@@ -233,13 +230,26 @@ class EvoformerBlock(nn.Module):
         # TODO: opm_first
 
         # [*, S, N', C_m]
-        m = self.msa(m, z, msa_mask, chunk_size=chunk_size, _mask_trans=_mask_trans, _attn_chunk_size=_attn_chunk_size)
+        m = self.msa(
+            m,
+            z,
+            msa_mask,
+            chunk_size=chunk_size,
+            _mask_trans=_mask_trans,
+            _attn_chunk_size=_attn_chunk_size,
+        )
 
         # If not opm_first
         z = z + self.communication(m, mask=msa_mask, chunk_size=chunk_size)
 
         # [*, N', N, C_z]
-        z = self.pair(z, pair_mask, chunk_size=chunk_size, _mask_trans=_mask_trans, _attn_chunk_size=_attn_chunk_size)
+        z = self.pair(
+            z,
+            pair_mask,
+            chunk_size=chunk_size,
+            _mask_trans=_mask_trans,
+            _attn_chunk_size=_attn_chunk_size,
+        )
 
         return m, z
 

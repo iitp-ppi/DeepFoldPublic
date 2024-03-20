@@ -24,6 +24,7 @@ logger.setLevel(level=logging.INFO)
 
 def main():
     is_multimer = True
+    prefix = "H1106"
     inductor.enable()
 
     device = torch.device("cuda")
@@ -38,9 +39,10 @@ def main():
     torch.backends.cudnn.deterministic = True
 
     if is_multimer:
-        feature_dict = load_pickle("_runs/T1109/features_multimer.pkl")
+        feature_dict = load_pickle(f"_runs/{prefix}/features.pkl")
     else:
-        feature_dict = load_pickle("_runs/T1109/features.pkl")
+        feature_dict = load_pickle(f"_runs/{prefix}/features.pkl")
+        raise Exception()
     print("=== Feature Dict ===")
     for k, v in feature_dict.items():
         print(f"{k} :", tuple(v.shape))
@@ -113,18 +115,18 @@ def main():
         tree=out,
     )
 
-    dump_pickle(processed_feature_dict, "processed.pkl")
-    dump_pickle(out, "output.pkl")
+    dump_pickle(processed_feature_dict, f"{prefix}_seed_{random_seed}_processed.pkl")
+    dump_pickle(out, f"{prefix}_seed_{random_seed}_output.pkl")
 
     unrelaxed_protein = protein.from_prediction(
         processed_features=processed_feature_dict,
         result=out,
         b_factors=out["plddt"],
         remove_leading_feature_dimension=False,
-        remark="T1109",
+        remark=prefix,
     )
 
-    with open("unrelaxed.pdb", "w") as fp:
+    with open(f"{prefix}_seed_{random_seed}_unrelaxed.pdb", "w") as fp:
         fp.write(protein.to_pdb(unrelaxed_protein))
 
 

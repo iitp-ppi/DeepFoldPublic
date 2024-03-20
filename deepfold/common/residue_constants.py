@@ -35,7 +35,12 @@ ca_ca = 3.80209737096
 chi_angles_atoms = {
     "ALA": [],
     # Chi5 in arginine is always 0 +- 5 degrees, so ignore it.
-    "ARG": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "NE"], ["CG", "CD", "NE", "CZ"]],
+    "ARG": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "NE"],
+        ["CG", "CD", "NE", "CZ"],
+    ],
     "ASN": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "ASP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "CYS": [["N", "CA", "CB", "SG"]],
@@ -45,7 +50,12 @@ chi_angles_atoms = {
     "HIS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "ND1"]],
     "ILE": [["N", "CA", "CB", "CG1"], ["CA", "CB", "CG1", "CD1"]],
     "LEU": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "LYS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "CE"], ["CG", "CD", "CE", "NZ"]],
+    "LYS": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "CE"],
+        ["CG", "CD", "CE", "NZ"],
+    ],
     "MET": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "SD"], ["CB", "CG", "SD", "CE"]],
     "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
     "PRO": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]],
@@ -349,7 +359,22 @@ residue_atoms = {
     "PRO": ["C", "CA", "CB", "CG", "CD", "N", "O"],
     "SER": ["C", "CA", "CB", "N", "O", "OG"],
     "THR": ["C", "CA", "CB", "CG2", "N", "O", "OG1"],
-    "TRP": ["C", "CA", "CB", "CG", "CD1", "CD2", "CE2", "CE3", "CZ2", "CZ3", "CH2", "N", "NE1", "O"],
+    "TRP": [
+        "C",
+        "CA",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "CE2",
+        "CE3",
+        "CZ2",
+        "CZ3",
+        "CH2",
+        "N",
+        "NE1",
+        "O",
+    ],
     "TYR": ["C", "CA", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "N", "O", "OH"],
     "VAL": ["C", "CA", "CB", "CG1", "CG2", "N", "O"],
 }
@@ -559,7 +584,22 @@ restype_name_to_atom14_names = {
     "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD", "", "", "", "", "", "", ""],
     "SER": ["N", "CA", "C", "O", "CB", "OG", "", "", "", "", "", "", "", ""],
     "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2", "", "", "", "", "", "", ""],
-    "TRP": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "TRP": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "NE1",
+        "CE2",
+        "CE3",
+        "CZ2",
+        "CZ3",
+        "CH2",
+    ],
     "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH", "", ""],
     "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "", "", "", "", "", "", ""],
     "UNK": ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
@@ -568,7 +608,28 @@ restype_name_to_atom14_names = {
 # pylint: enable=line-too-long
 # This is the standard residue order when coding AA type as a number.
 # Reproduce it by taking 3-letter AA codes and sorting them alphabetically.
-restypes = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+restypes = [
+    "A",
+    "R",
+    "N",
+    "D",
+    "C",
+    "Q",
+    "E",
+    "G",
+    "H",
+    "I",
+    "L",
+    "K",
+    "M",
+    "F",
+    "P",
+    "S",
+    "T",
+    "W",
+    "Y",
+    "V",
+]
 restype_order = {restype: i for i, restype in enumerate(restypes)}
 restype_num = len(restypes)  # := 20.
 unk_restype_index = restype_num  # Catch-all index for unknown restypes.
@@ -598,9 +659,7 @@ def sequence_to_onehot(sequence: str, mapping: Mapping[str, int], map_unknown_to
     num_entries = max(mapping.values()) + 1
 
     if sorted(set(mapping.values())) != list(range(num_entries)):
-        raise ValueError(
-            f"The mapping must have values from 0 to num_unique_aas-1 without any gaps. Got: {sorted(mapping.values())}"
-        )
+        raise ValueError(f"The mapping must have values from 0 to num_unique_aas-1 without any gaps. Got: {sorted(mapping.values())}")
 
     one_hot_arr = np.zeros((len(sequence), num_entries), dtype=np.int32)
 

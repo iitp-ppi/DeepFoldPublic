@@ -447,11 +447,7 @@ def make_masked_msa(
     # Add a random amino acid uniformly.
     random_aa = torch.tensor([0.05] * 20 + [0.0, 0.0], dtype=torch.float32, device=device)
 
-    categorical_probs = (
-        uniform_prob * random_aa
-        + profile_prob * protein["hhblits_profile"]
-        + same_prob * make_one_hot(protein["msa"], 22)
-    )
+    categorical_probs = uniform_prob * random_aa + profile_prob * protein["hhblits_profile"] + same_prob * make_one_hot(protein["msa"], 22)
 
     # Put all remaining probability on [MASK] which is a new column
     pad_shapes = list(reduce(add, [(0, 0) for _ in range(len(categorical_probs.shape))]))
@@ -589,9 +585,7 @@ def make_atom14_masks(protein):
         atom_names = rc.restype_name_to_atom14_names[rc.restype_1to3[rt]]
         restype_atom14_to_atom37.append([(rc.atom_order[name] if name else 0) for name in atom_names])
         atom_name_to_idx14 = {name: i for i, name in enumerate(atom_names)}
-        restype_atom37_to_atom14.append(
-            [(atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0) for name in rc.atom_types]
-        )
+        restype_atom37_to_atom14.append([(atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0) for name in rc.atom_types])
 
         restype_atom14_mask.append([(1.0 if name else 0.0) for name in atom_names])
 
@@ -775,9 +769,7 @@ def atom37_to_frames(protein, eps=1e-8):
     restype_rigidgroup_base_atom37_idx = aatype.new_tensor(
         restype_rigidgroup_base_atom37_idx,
     )
-    restype_rigidgroup_base_atom37_idx = restype_rigidgroup_base_atom37_idx.view(
-        *((1,) * batch_dims), *restype_rigidgroup_base_atom37_idx.shape
-    )
+    restype_rigidgroup_base_atom37_idx = restype_rigidgroup_base_atom37_idx.view(*((1,) * batch_dims), *restype_rigidgroup_base_atom37_idx.shape)
 
     residx_rigidgroup_base_atom37_idx = batched_gather(
         restype_rigidgroup_base_atom37_idx,

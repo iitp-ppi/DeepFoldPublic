@@ -88,7 +88,8 @@ def rigids_from_3_points(
       the input points.
     """
     m = rots_from_two_vecs(
-        e0_unnormalized=vecs_sub(origin, point_on_neg_x_axis), e1_unnormalized=vecs_sub(point_on_xy_plane, origin)
+        e0_unnormalized=vecs_sub(origin, point_on_neg_x_axis),
+        e1_unnormalized=vecs_sub(point_on_xy_plane, origin),
     )
 
     return Rigids(rot=m, trans=origin)
@@ -173,7 +174,11 @@ def rigids_to_quataffine(r: Rigids) -> quat_affine.QuatAffine:
     """Convert Rigids r into QuatAffine, inverse of 'rigids_from_quataffine'."""
     return quat_affine.QuatAffine(
         quaternion=None,
-        rotation=[[r.rot.xx, r.rot.xy, r.rot.xz], [r.rot.yx, r.rot.yy, r.rot.yz], [r.rot.zx, r.rot.zy, r.rot.zz]],
+        rotation=[
+            [r.rot.xx, r.rot.xy, r.rot.xz],
+            [r.rot.yx, r.rot.yy, r.rot.yz],
+            [r.rot.zx, r.rot.zy, r.rot.zz],
+        ],
         translation=[r.trans.x, r.trans.y, r.trans.z],
     )
 
@@ -244,7 +249,9 @@ def rots_mul_rots(a: Rots, b: Rots) -> Rots:
 def rots_mul_vecs(m: Rots, v: Vecs) -> Vecs:
     """Apply rotations 'm' to vectors 'v'."""
     return Vecs(
-        m.xx * v.x + m.xy * v.y + m.xz * v.z, m.yx * v.x + m.yy * v.y + m.yz * v.z, m.zx * v.x + m.zy * v.y + m.zz * v.z
+        m.xx * v.x + m.xy * v.y + m.xz * v.z,
+        m.yx * v.x + m.yy * v.y + m.yz * v.z,
+        m.zx * v.x + m.zy * v.y + m.zz * v.z,
     )
 
 

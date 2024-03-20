@@ -23,17 +23,7 @@ import jax
 import jax.numpy as jnp
 
 import tests.alphafold_residue_constants as residue_constants
-from tests.alphafold_model import (
-    all_atom,
-    common_modules,
-    folding,
-    layer_stack,
-    lddt,
-    mapping,
-    prng,
-    quat_affine,
-    utils,
-)
+from tests.alphafold_model import all_atom, common_modules, folding, layer_stack, lddt, mapping, prng, quat_affine, utils
 
 _SOFTMAX_MASK = -1e9
 
@@ -251,9 +241,7 @@ class AlphaFoldIteration(hk.Module):
             if compute_loss:
                 total_loss += loss(module, head_config, ret, name, filter_ret=False)
 
-        if "predicted_aligned_error" in self.config.heads and self.config.heads.get(
-            "predicted_aligned_error.weight", 0.0
-        ):
+        if "predicted_aligned_error" in self.config.heads and self.config.heads.get("predicted_aligned_error.weight", 0.0):
             # Add PredictedAlignedErrorHead after StructureModule executes.
             name = "predicted_aligned_error"
             # Feed all previous results to give access to structure_module result.
@@ -280,7 +268,12 @@ class AlphaFold(hk.Module):
         self.global_config = config.global_config
 
     def __call__(
-        self, batch, is_training, compute_loss=False, ensemble_representations=False, return_representations=False
+        self,
+        batch,
+        is_training,
+        compute_loss=False,
+        ensemble_representations=False,
+        return_representations=False,
     ):
         """Run the AlphaFold model.
 
@@ -449,7 +442,10 @@ class TemplatePairStack(hk.Module):
                 next(sub_keys),
             )
             pair_act = dropout_wrapper_fn(
-                Transition(c.pair_transition, gc, name="pair_transition"), pair_act, pair_mask, next(sub_keys)
+                Transition(c.pair_transition, gc, name="pair_transition"),
+                pair_act,
+                pair_mask,
+                next(sub_keys),
             )
 
             return pair_act, safe_key
@@ -548,13 +544,22 @@ class Attention(hk.Module):
         value_dim = value_dim // num_head
 
         q_weights = hk.get_parameter(
-            "query_w", shape=(q_data.shape[-1], num_head, key_dim), dtype=q_data.dtype, init=glorot_uniform()
+            "query_w",
+            shape=(q_data.shape[-1], num_head, key_dim),
+            dtype=q_data.dtype,
+            init=glorot_uniform(),
         )
         k_weights = hk.get_parameter(
-            "key_w", shape=(m_data.shape[-1], num_head, key_dim), dtype=q_data.dtype, init=glorot_uniform()
+            "key_w",
+            shape=(m_data.shape[-1], num_head, key_dim),
+            dtype=q_data.dtype,
+            init=glorot_uniform(),
         )
         v_weights = hk.get_parameter(
-            "value_w", shape=(m_data.shape[-1], num_head, value_dim), dtype=q_data.dtype, init=glorot_uniform()
+            "value_w",
+            shape=(m_data.shape[-1], num_head, value_dim),
+            dtype=q_data.dtype,
+            init=glorot_uniform(),
         )
 
         q = jnp.einsum("bqa,ahc->bqhc", q_data, q_weights) * key_dim ** (-0.5)
@@ -580,7 +585,10 @@ class Attention(hk.Module):
                 init=hk.initializers.Constant(0.0),
             )
             gating_bias = hk.get_parameter(
-                "gating_b", shape=(num_head, value_dim), dtype=q_data.dtype, init=hk.initializers.Constant(1.0)
+                "gating_b",
+                shape=(num_head, value_dim),
+                dtype=q_data.dtype,
+                init=hk.initializers.Constant(1.0),
             )
 
             gate_values = jnp.einsum("bqc, chv->bqhv", q_data, gating_weights) + gating_bias
@@ -589,11 +597,12 @@ class Attention(hk.Module):
 
             weighted_avg *= gate_values
 
-        o_weights = hk.get_parameter(
-            "output_w", shape=(num_head, value_dim, self.output_dim), dtype=q_data.dtype, init=init
-        )
+        o_weights = hk.get_parameter("output_w", shape=(num_head, value_dim, self.output_dim), dtype=q_data.dtype, init=init)
         o_bias = hk.get_parameter(
-            "output_b", shape=(self.output_dim,), dtype=q_data.dtype, init=hk.initializers.Constant(0.0)
+            "output_b",
+            shape=(self.output_dim,),
+            dtype=q_data.dtype,
+            init=hk.initializers.Constant(0.0),
         )
 
         output = jnp.einsum("bqhc,hco->bqo", weighted_avg, o_weights) + o_bias
@@ -639,13 +648,17 @@ class GlobalAttention(hk.Module):
         value_dim = value_dim // num_head
 
         q_weights = hk.get_parameter(
-            "query_w", shape=(q_data.shape[-1], num_head, key_dim), dtype=q_data.dtype, init=glorot_uniform()
+            "query_w",
+            shape=(q_data.shape[-1], num_head, key_dim),
+            dtype=q_data.dtype,
+            init=glorot_uniform(),
         )
-        k_weights = hk.get_parameter(
-            "key_w", shape=(m_data.shape[-1], key_dim), dtype=q_data.dtype, init=glorot_uniform()
-        )
+        k_weights = hk.get_parameter("key_w", shape=(m_data.shape[-1], key_dim), dtype=q_data.dtype, init=glorot_uniform())
         v_weights = hk.get_parameter(
-            "value_w", shape=(m_data.shape[-1], value_dim), dtype=q_data.dtype, init=glorot_uniform()
+            "value_w",
+            shape=(m_data.shape[-1], value_dim),
+            dtype=q_data.dtype,
+            init=glorot_uniform(),
         )
 
         v = jnp.einsum("bka,ac->bkc", m_data, v_weights)
@@ -665,11 +678,12 @@ class GlobalAttention(hk.Module):
         else:
             init = glorot_uniform()
 
-        o_weights = hk.get_parameter(
-            "output_w", shape=(num_head, value_dim, self.output_dim), dtype=q_data.dtype, init=init
-        )
+        o_weights = hk.get_parameter("output_w", shape=(num_head, value_dim, self.output_dim), dtype=q_data.dtype, init=init)
         o_bias = hk.get_parameter(
-            "output_b", shape=(self.output_dim,), dtype=q_data.dtype, init=hk.initializers.Constant(0.0)
+            "output_b",
+            shape=(self.output_dim,),
+            dtype=q_data.dtype,
+            init=hk.initializers.Constant(0.0),
         )
 
         if self.config.gating:
@@ -680,7 +694,10 @@ class GlobalAttention(hk.Module):
                 init=hk.initializers.Constant(0.0),
             )
             gating_bias = hk.get_parameter(
-                "gating_b", shape=(num_head, value_dim), dtype=q_data.dtype, init=hk.initializers.Constant(1.0)
+                "gating_b",
+                shape=(num_head, value_dim),
+                dtype=q_data.dtype,
+                init=hk.initializers.Constant(1.0),
             )
 
             gate_values = jnp.einsum("bqc, chv->bqhv", q_data, gating_weights)
@@ -727,9 +744,7 @@ class MSARowAttentionWithPairBias(hk.Module):
 
         msa_act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="query_norm")(msa_act)
 
-        pair_act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="feat_2d_norm")(
-            pair_act
-        )
+        pair_act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="feat_2d_norm")(pair_act)
 
         init_factor = 1.0 / jnp.sqrt(int(pair_act.shape[-1]))
         weights = hk.get_parameter(
@@ -887,9 +902,7 @@ class TriangleAttention(hk.Module):
         mask = pair_mask[:, None, None, :]
         assert len(mask.shape) == 4
 
-        pair_act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="query_norm")(
-            pair_act
-        )
+        pair_act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="query_norm")(pair_act)
 
         init_factor = 1.0 / jnp.sqrt(int(pair_act.shape[-1]))
         weights = hk.get_parameter(
@@ -949,14 +962,13 @@ class MaskedMsaHead(hk.Module):
                 (unnormalized) log probabilies of predicted aatype at position.
         """
         del batch
-        logits = common_modules.Linear(
-            self.num_output, initializer=utils.final_init(self.global_config), name="logits"
-        )(representations["msa"])
+        logits = common_modules.Linear(self.num_output, initializer=utils.final_init(self.global_config), name="logits")(representations["msa"])
         return dict(logits=logits)
 
     def loss(self, value, batch):
         errors = softmax_cross_entropy(
-            labels=jax.nn.one_hot(batch["true_msa"], num_classes=self.num_output), logits=value["logits"]
+            labels=jax.nn.one_hot(batch["true_msa"], num_classes=self.num_output),
+            logits=value["logits"],
         )
         loss = jnp.sum(errors * batch["bert_mask"], axis=(-2, -1)) / (1e-8 + jnp.sum(batch["bert_mask"], axis=(-2, -1)))
         return {"loss": loss}
@@ -999,9 +1011,7 @@ class PredictedLDDTHead(hk.Module):
         act = common_modules.Linear(self.config.num_channels, initializer="relu", name="act_1")(act)
         act = jax.nn.relu(act)
 
-        logits = common_modules.Linear(
-            self.config.num_bins, initializer=utils.final_init(self.global_config), name="logits"
-        )(act)
+        logits = common_modules.Linear(self.config.num_bins, initializer=utils.final_init(self.global_config), name="logits")(act)
         # Shape (batch_size, num_res, num_bins)
         return dict(logits=logits)
 
@@ -1044,10 +1054,7 @@ class PredictedLDDTHead(hk.Module):
 
         if self.config.filter_by_resolution:
             # NMR & distillation have resolution = 0
-            loss *= (
-                (batch["resolution"] >= self.config.min_resolution)
-                & (batch["resolution"] <= self.config.max_resolution)
-            ).astype(jnp.float32)
+            loss *= ((batch["resolution"] >= self.config.min_resolution) & (batch["resolution"] <= self.config.max_resolution)).astype(jnp.float32)
 
         output = {"loss": loss}
         return output
@@ -1083,9 +1090,7 @@ class PredictedAlignedErrorHead(hk.Module):
         act = representations["pair"]
 
         # Shape (num_res, num_res, num_bins)
-        logits = common_modules.Linear(
-            self.config.num_bins, initializer=utils.final_init(self.global_config), name="logits"
-        )(act)
+        logits = common_modules.Linear(self.config.num_bins, initializer=utils.final_init(self.global_config), name="logits")(act)
         # Shape (num_bins,)
         breaks = jnp.linspace(0.0, self.config.max_error_bin, self.config.num_bins - 1)
         return dict(logits=logits, breaks=breaks)
@@ -1110,9 +1115,7 @@ class PredictedAlignedErrorHead(hk.Module):
             points = [jnp.expand_dims(x, axis=-2) for x in affine.translation]
             return affine.invert_point(points, extra_dims=1)
 
-        error_dist2_xyz = [
-            jnp.square(a - b) for a, b in zip(_local_frame_points(predicted_affine), _local_frame_points(true_affine))
-        ]
+        error_dist2_xyz = [jnp.square(a - b) for a, b in zip(_local_frame_points(predicted_affine), _local_frame_points(true_affine))]
         error_dist2 = sum(error_dist2_xyz)
         # Shape (num_res, num_res)
         # First num_res are alignment frames, second num_res are the residues.
@@ -1127,10 +1130,7 @@ class PredictedAlignedErrorHead(hk.Module):
 
         if self.config.filter_by_resolution:
             # NMR & distillation have resolution = 0
-            loss *= (
-                (batch["resolution"] >= self.config.min_resolution)
-                & (batch["resolution"] <= self.config.max_resolution)
-            ).astype(jnp.float32)
+            loss *= ((batch["resolution"] >= self.config.min_resolution) & (batch["resolution"] <= self.config.max_resolution)).astype(jnp.float32)
 
         output = {"loss": loss}
         return output
@@ -1164,7 +1164,9 @@ class ExperimentallyResolvedHead(hk.Module):
                 can be converted to probability by applying sigmoid.
         """
         logits = common_modules.Linear(
-            37, initializer=utils.final_init(self.global_config), name="logits"  # atom_exists.shape[-1]
+            37,
+            initializer=utils.final_init(self.global_config),
+            name="logits",  # atom_exists.shape[-1]
         )(representations["single"])
         return dict(logits=logits)
 
@@ -1183,10 +1185,7 @@ class ExperimentallyResolvedHead(hk.Module):
 
         if self.config.filter_by_resolution:
             # NMR & distillation examples have resolution = 0.
-            loss *= (
-                (batch["resolution"] >= self.config.min_resolution)
-                & (batch["resolution"] <= self.config.max_resolution)
-            ).astype(jnp.float32)
+            loss *= ((batch["resolution"] >= self.config.min_resolution) & (batch["resolution"] <= self.config.max_resolution)).astype(jnp.float32)
 
         output = {"loss": loss}
         return output
@@ -1244,9 +1243,7 @@ class TriangleMultiplication(hk.Module):
 
         mask = left_mask[..., None]
 
-        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="layer_norm_input")(
-            left_act
-        )
+        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="layer_norm_input")(left_act)
         input_act = act
 
         left_projection = common_modules.Linear(c.num_intermediate_channel, name="left_projection")
@@ -1257,13 +1254,19 @@ class TriangleMultiplication(hk.Module):
 
         left_gate_values = jax.nn.sigmoid(
             common_modules.Linear(
-                c.num_intermediate_channel, bias_init=1.0, initializer=utils.final_init(gc), name="left_gate"
+                c.num_intermediate_channel,
+                bias_init=1.0,
+                initializer=utils.final_init(gc),
+                name="left_gate",
             )(act)
         )
 
         right_gate_values = jax.nn.sigmoid(
             common_modules.Linear(
-                c.num_intermediate_channel, bias_init=1.0, initializer=utils.final_init(gc), name="right_gate"
+                c.num_intermediate_channel,
+                bias_init=1.0,
+                initializer=utils.final_init(gc),
+                name="right_gate",
             )(act)
         )
 
@@ -1286,7 +1289,10 @@ class TriangleMultiplication(hk.Module):
 
         gate_values = jax.nn.sigmoid(
             common_modules.Linear(
-                output_channel, bias_init=1.0, initializer=utils.final_init(gc), name="gating_linear"
+                output_channel,
+                bias_init=1.0,
+                initializer=utils.final_init(gc),
+                name="gating_linear",
             )(input_act)
         )
         act *= gate_values
@@ -1308,7 +1314,10 @@ class TriangleMultiplication(hk.Module):
 
         # Both left + right gate are fused into gate_values.
         gate_values = common_modules.Linear(
-            2 * c.num_intermediate_channel, name="gate", bias_init=1.0, initializer=utils.final_init(gc)
+            2 * c.num_intermediate_channel,
+            name="gate",
+            bias_init=1.0,
+            initializer=utils.final_init(gc),
         )(left_act)
         proj_act *= jax.nn.sigmoid(gate_values)
 
@@ -1322,9 +1331,7 @@ class TriangleMultiplication(hk.Module):
 
         act = common_modules.Linear(output_channel, initializer=utils.final_init(gc), name="output_projection")(act)
 
-        gate_values = common_modules.Linear(
-            output_channel, bias_init=1.0, initializer=utils.final_init(gc), name="gating_linear"
-        )(left_act)
+        gate_values = common_modules.Linear(output_channel, bias_init=1.0, initializer=utils.final_init(gc), name="gating_linear")(left_act)
         act *= jax.nn.sigmoid(gate_values)
 
         return act
@@ -1356,7 +1363,9 @@ class DistogramHead(hk.Module):
             * bin_breaks: array containing bin breaks, shape [N_bins - 1,].
         """
         half_logits = common_modules.Linear(
-            self.config.num_bins, initializer=utils.final_init(self.global_config), name="half_logits"
+            self.config.num_bins,
+            initializer=utils.final_init(self.global_config),
+            name="half_logits",
         )(representations["pair"])
 
         logits = half_logits + jnp.swapaxes(half_logits, -2, -3)
@@ -1380,7 +1389,9 @@ def _distogram_log_loss(logits, bin_edges, batch, num_bins):
     sq_breaks = jnp.square(bin_edges)
 
     dist2 = jnp.sum(
-        jnp.square(jnp.expand_dims(positions, axis=-2) - jnp.expand_dims(positions, axis=-3)), axis=-1, keepdims=True
+        jnp.square(jnp.expand_dims(positions, axis=-2) - jnp.expand_dims(positions, axis=-3)),
+        axis=-1,
+        keepdims=True,
     )
 
     true_bins = jnp.sum(dist2 > sq_breaks, axis=-1)
@@ -1425,9 +1436,7 @@ class OuterProductMean(hk.Module):
 
         left_act = mask * common_modules.Linear(c.num_outer_channel, initializer="linear", name="left_projection")(act)
 
-        right_act = mask * common_modules.Linear(c.num_outer_channel, initializer="linear", name="right_projection")(
-            act
-        )
+        right_act = mask * common_modules.Linear(c.num_outer_channel, initializer="linear", name="right_projection")(act)
 
         if gc.zero_init:
             init_w = hk.initializers.Constant(0.0)
@@ -1441,7 +1450,10 @@ class OuterProductMean(hk.Module):
             init=init_w,
         )
         output_b = hk.get_parameter(
-            "output_b", shape=(self.num_output_channel,), dtype=act.dtype, init=hk.initializers.Constant(0.0)
+            "output_b",
+            shape=(self.num_output_channel,),
+            dtype=act.dtype,
+            init=hk.initializers.Constant(0.0),
         )
 
         def compute_chunk(left_act):
@@ -1576,9 +1588,7 @@ class EvoformerIteration(hk.Module):
             pair_act = dropout_wrapper_fn(outer_module, msa_act, msa_mask, safe_key=next(sub_keys), output_act=pair_act)
 
         msa_act = dropout_wrapper_fn(
-            MSARowAttentionWithPairBias(
-                c.msa_row_attention_with_pair_bias, gc, name="msa_row_attention_with_pair_bias"
-            ),
+            MSARowAttentionWithPairBias(c.msa_row_attention_with_pair_bias, gc, name="msa_row_attention_with_pair_bias"),
             msa_act,
             msa_mask,
             safe_key=next(sub_keys),
@@ -1592,7 +1602,10 @@ class EvoformerIteration(hk.Module):
         msa_act = dropout_wrapper_fn(attn_mod, msa_act, msa_mask, safe_key=next(sub_keys))
 
         msa_act = dropout_wrapper_fn(
-            Transition(c.msa_transition, gc, name="msa_transition"), msa_act, msa_mask, safe_key=next(sub_keys)
+            Transition(c.msa_transition, gc, name="msa_transition"),
+            msa_act,
+            msa_mask,
+            safe_key=next(sub_keys),
         )
 
         if not c.outer_product_mean.first:
@@ -1625,7 +1638,10 @@ class EvoformerIteration(hk.Module):
         )
 
         pair_act = dropout_wrapper_fn(
-            Transition(c.pair_transition, gc, name="pair_transition"), pair_act, pair_mask, safe_key=next(sub_keys)
+            Transition(c.pair_transition, gc, name="pair_transition"),
+            pair_act,
+            pair_mask,
+            safe_key=next(sub_keys),
         )
 
         return {"msa": msa_act, "pair": pair_act}
@@ -1673,14 +1689,12 @@ class EmbeddingsAndEvoformer(hk.Module):
             pair_activations += common_modules.Linear(c.pair_channel, name="prev_pos_linear")(dgram)
 
         if c.recycle_features:
-            prev_msa_first_row = common_modules.LayerNorm(
-                axis=[-1], create_scale=True, create_offset=True, name="prev_msa_first_row_norm"
-            )(batch["prev_msa_first_row"])
+            prev_msa_first_row = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="prev_msa_first_row_norm")(
+                batch["prev_msa_first_row"]
+            )
             msa_activations = msa_activations.at[0].add(prev_msa_first_row)
 
-            pair_activations += common_modules.LayerNorm(
-                axis=[-1], create_scale=True, create_offset=True, name="prev_pair_norm"
-            )(batch["prev_pair"])
+            pair_activations += common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="prev_pair_norm")(batch["prev_pair"])
 
         # Relative position encoding.
         # Jumper et al. (2021) Suppl. Alg. 4 "relpos"
@@ -1699,9 +1713,7 @@ class EmbeddingsAndEvoformer(hk.Module):
         # Jumper et al. (2021) Suppl. Alg. 2 "Inference" lines 9-13
         if c.template.enabled:
             template_batch = {k: batch[k] for k in batch if k.startswith("template_")}
-            template_pair_representation = TemplateEmbedding(c.template, gc)(
-                pair_activations, template_batch, mask_2d, is_training=is_training
-            )
+            template_pair_representation = TemplateEmbedding(c.template, gc)(pair_activations, template_batch, mask_2d, is_training=is_training)
 
             pair_activations += template_pair_representation
 
@@ -1773,13 +1785,9 @@ class EmbeddingsAndEvoformer(hk.Module):
                 axis=-1,
             )
 
-            template_activations = common_modules.Linear(
-                c.msa_channel, initializer="relu", name="template_single_embedding"
-            )(template_features)
+            template_activations = common_modules.Linear(c.msa_channel, initializer="relu", name="template_single_embedding")(template_features)
             template_activations = jax.nn.relu(template_activations)
-            template_activations = common_modules.Linear(c.msa_channel, initializer="relu", name="template_projection")(
-                template_activations
-            )
+            template_activations = common_modules.Linear(c.msa_channel, initializer="relu", name="template_projection")(template_activations)
 
             # Concatenate the templates to the msa.
             evoformer_input["msa"] = jnp.concatenate([evoformer_input["msa"], template_activations], axis=0)
@@ -1798,7 +1806,10 @@ class EmbeddingsAndEvoformer(hk.Module):
             act, safe_key = x
             safe_key, safe_subkey = safe_key.split()
             evoformer_output = evoformer_iteration(
-                activations=act, masks=evoformer_masks, is_training=is_training, safe_key=safe_subkey
+                activations=act,
+                masks=evoformer_masks,
+                is_training=is_training,
+                safe_key=safe_subkey,
             )
             return (evoformer_output, safe_key)
 
@@ -1887,9 +1898,7 @@ class SingleTemplateEmbedding(hk.Module):
         # Backbone affine mask: whether the residue has C, CA, N
         # (the template mask defined above only considers pseudo CB).
         template_mask = (
-            batch["template_all_atom_masks"][..., n]
-            * batch["template_all_atom_masks"][..., ca]
-            * batch["template_all_atom_masks"][..., c]
+            batch["template_all_atom_masks"][..., n] * batch["template_all_atom_masks"][..., ca] * batch["template_all_atom_masks"][..., c]
         )
         template_mask_2d = template_mask[:, None] * template_mask[None, :]
 
@@ -1973,7 +1982,8 @@ class TemplateEmbedding(hk.Module):
         flat_query = jnp.reshape(query_embedding, [num_res * num_res, 1, query_num_channels])
 
         flat_templates = jnp.reshape(
-            jnp.transpose(template_pair_representation, [1, 2, 0, 3]), [num_res * num_res, num_templates, num_channels]
+            jnp.transpose(template_pair_representation, [1, 2, 0, 3]),
+            [num_res * num_res, num_templates, num_channels],
         )
 
         mask = template_mask[None, None, None, :]

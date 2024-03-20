@@ -419,7 +419,13 @@ class Parser:
         if len(p) == 7:
             p[0] = {"command": "predict", "name": p[2], "stoi": p[4], "model": p[6], "options": []}
         elif len(p) == 8:
-            p[0] = {"command": "predict", "name": p[2], "stoi": p[4], "model": p[6], "options": p[7]}
+            p[0] = {
+                "command": "predict",
+                "name": p[2],
+                "stoi": p[4],
+                "model": p[6],
+                "options": p[7],
+            }
 
     def p_pred_opts(self, p):
         """

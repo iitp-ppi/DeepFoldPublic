@@ -130,15 +130,11 @@ class InvariantPointAttention(hk.Module):
         # Value points have shape [num_residues, num_head, num_point_v]
 
         # Construct key and value points in local frame.
-        kv_point_local = common_modules.Linear(num_head * 3 * (num_point_qk + num_point_v), name="kv_point_local")(
-            inputs_1d
-        )
+        kv_point_local = common_modules.Linear(num_head * 3 * (num_point_qk + num_point_v), name="kv_point_local")(inputs_1d)
         kv_point_local = jnp.split(kv_point_local, 3, axis=-1)
         # Project key and value points into global frame.
         kv_point_global = affine.apply_to_point(kv_point_local, extra_dims=1)
-        kv_point_global = [
-            jnp.reshape(x, [num_residues, num_head, (num_point_qk + num_point_v)]) for x in kv_point_global
-        ]
+        kv_point_global = [jnp.reshape(x, [num_residues, num_head, (num_point_qk + num_point_v)]) for x in kv_point_global]
         # Split key and value points.
         k_point, v_point = list(
             zip(
@@ -235,12 +231,7 @@ class InvariantPointAttention(hk.Module):
         output_features.extend(result_point_local)
 
         output_features.append(
-            jnp.sqrt(
-                self._dist_epsilon
-                + jnp.square(result_point_local[0])
-                + jnp.square(result_point_local[1])
-                + jnp.square(result_point_local[2])
-            )
+            jnp.sqrt(self._dist_epsilon + jnp.square(result_point_local[0]) + jnp.square(result_point_local[1]) + jnp.square(result_point_local[2]))
         )
 
         # Dimensions: h = heads, i and j = residues,
@@ -309,9 +300,7 @@ class FoldIteration(hk.Module):
         safe_key, *sub_keys = safe_key.split(3)
         sub_keys = iter(sub_keys)
         act = safe_dropout_fn(act, next(sub_keys))
-        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="attention_layer_norm")(
-            act
-        )
+        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="attention_layer_norm")(act)
 
         final_init = "zeros" if self.global_config.zero_init else "linear"
 
@@ -324,9 +313,7 @@ class FoldIteration(hk.Module):
                 act = jax.nn.relu(act)
         act += input_act
         act = safe_dropout_fn(act, next(sub_keys))
-        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="transition_layer_norm")(
-            act
-        )
+        act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="transition_layer_norm")(act)
 
         if update_affine:
             # This block corresponds to
@@ -338,9 +325,7 @@ class FoldIteration(hk.Module):
 
             affine = affine.pre_compose(affine_update)
 
-        sc = MultiRigidSidechain(c.sidechain, self.global_config)(
-            affine.scale_translation(c.position_scale), [act, initial_act], aatype
-        )
+        sc = MultiRigidSidechain(c.sidechain, self.global_config)(affine.scale_translation(c.position_scale), [act, initial_act], aatype)
 
         outputs = {"affine": affine.to_tensor(), "sc": sc}
 
@@ -372,9 +357,7 @@ def generate_affines(representations, batch, config, global_config, is_training,
     c = config
     sequence_mask = batch["seq_mask"][:, None]
 
-    act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="single_layer_norm")(
-        representations["single"]
-    )
+    act = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="single_layer_norm")(representations["single"])
 
     initial_act = act
     act = common_modules.Linear(c.num_channel, name="initial_projection")(act)
@@ -390,9 +373,7 @@ def generate_affines(representations, batch, config, global_config, is_training,
         "affine": affine.to_tensor(),
     }
 
-    act_2d = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="pair_layer_norm")(
-        representations["pair"]
-    )
+    act_2d = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="pair_layer_norm")(representations["pair"])
 
     outputs = []
     safe_keys = safe_key.split(c.num_layer)
@@ -481,7 +462,9 @@ class StructureModule(hk.Module):
 
             # Several violation metrics:
             violation_metrics = compute_violation_metrics(
-                batch=batch, atom14_pred_positions=atom14_pred_positions, violations=value["violations"]
+                batch=batch,
+                atom14_pred_positions=atom14_pred_positions,
+                violations=value["violations"],
             )
             ret["metrics"].update(violation_metrics)
 
@@ -491,9 +474,7 @@ class StructureModule(hk.Module):
             value.update(compute_renamed_ground_truth(batch, value["final_atom14_positions"]))
         sc_loss = sidechain_loss(batch, value, self.config)
 
-        ret["loss"] = (1 - self.config.sidechain.weight_frac) * ret[
-            "loss"
-        ] + self.config.sidechain.weight_frac * sc_loss["loss"]
+        ret["loss"] = (1 - self.config.sidechain.weight_frac) * ret["loss"] + self.config.sidechain.weight_frac * sc_loss["loss"]
         ret["sidechain_fape"] = sc_loss["fape"]
 
         supervised_chi_loss(ret, batch, value, self.config)
@@ -547,13 +528,13 @@ def compute_renamed_ground_truth(
         atom14_atom_exists=batch["atom14_atom_exists"],
     )
 
-    renamed_atom14_gt_positions = (1.0 - alt_naming_is_better[:, None, None]) * batch[
-        "atom14_gt_positions"
-    ] + alt_naming_is_better[:, None, None] * batch["atom14_alt_gt_positions"]
+    renamed_atom14_gt_positions = (1.0 - alt_naming_is_better[:, None, None]) * batch["atom14_gt_positions"] + alt_naming_is_better[
+        :, None, None
+    ] * batch["atom14_alt_gt_positions"]
 
-    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[:, None]) * batch["atom14_gt_exists"] + alt_naming_is_better[
-        :, None
-    ] * batch["atom14_alt_gt_exists"]
+    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[:, None]) * batch["atom14_gt_exists"] + alt_naming_is_better[:, None] * batch[
+        "atom14_alt_gt_exists"
+    ]
 
     return {
         "alt_naming_is_better": alt_naming_is_better,  # (N)
@@ -591,18 +572,30 @@ def backbone_loss(ret, batch, value, config):
 
     fape_loss_fn = jax.vmap(fape_loss_fn, (0, None, None, 0, None, None))
     fape_loss = fape_loss_fn(
-        rigid_trajectory, gt_rigid, backbone_mask, rigid_trajectory.trans, gt_rigid.trans, backbone_mask
+        rigid_trajectory,
+        gt_rigid,
+        backbone_mask,
+        rigid_trajectory.trans,
+        gt_rigid.trans,
+        backbone_mask,
     )
 
     if "use_clamped_fape" in batch:
         # Jumper et al. (2021) Suppl. Sec. 1.11.5 "Loss clamping details"
         use_clamped_fape = jnp.asarray(batch["use_clamped_fape"], jnp.float32)
         unclamped_fape_loss_fn = functools.partial(
-            all_atom.frame_aligned_point_error, l1_clamp_distance=None, length_scale=config.fape.loss_unit_distance
+            all_atom.frame_aligned_point_error,
+            l1_clamp_distance=None,
+            length_scale=config.fape.loss_unit_distance,
         )
         unclamped_fape_loss_fn = jax.vmap(unclamped_fape_loss_fn, (0, None, None, 0, None, None))
         fape_loss_unclamped = unclamped_fape_loss_fn(
-            rigid_trajectory, gt_rigid, backbone_mask, rigid_trajectory.trans, gt_rigid.trans, backbone_mask
+            rigid_trajectory,
+            gt_rigid,
+            backbone_mask,
+            rigid_trajectory.trans,
+            gt_rigid.trans,
+            backbone_mask,
         )
 
         fape_loss = fape_loss * use_clamped_fape + fape_loss_unclamped * (1 - use_clamped_fape)
@@ -616,9 +609,9 @@ def sidechain_loss(batch, value, config):
     # Rename Frames
     # Jumper et al. (2021) Suppl. Alg. 26 "renameSymmetricGroundTruthAtoms" line 7
     alt_naming_is_better = value["alt_naming_is_better"]
-    renamed_gt_frames = (1.0 - alt_naming_is_better[:, None, None]) * batch[
-        "rigidgroups_gt_frames"
-    ] + alt_naming_is_better[:, None, None] * batch["rigidgroups_alt_gt_frames"]
+    renamed_gt_frames = (1.0 - alt_naming_is_better[:, None, None]) * batch["rigidgroups_gt_frames"] + alt_naming_is_better[:, None, None] * batch[
+        "rigidgroups_alt_gt_frames"
+    ]
 
     flat_gt_frames = r3.rigids_from_tensor_flat12(jnp.reshape(renamed_gt_frames, [-1, 12]))
     flat_frames_mask = jnp.reshape(batch["rigidgroups_gt_exists"], [-1])
@@ -661,16 +654,15 @@ def structural_violation_loss(ret, batch, value, config):
         violations["between_residues"]["bonds_c_n_loss_mean"]
         + violations["between_residues"]["angles_ca_c_n_loss_mean"]
         + violations["between_residues"]["angles_c_n_ca_loss_mean"]
-        + jnp.sum(
-            violations["between_residues"]["clashes_per_atom_loss_sum"]
-            + violations["within_residues"]["per_atom_loss_sum"]
-        )
+        + jnp.sum(violations["between_residues"]["clashes_per_atom_loss_sum"] + violations["within_residues"]["per_atom_loss_sum"])
         / (1e-6 + num_atoms)
     )
 
 
 def find_structural_violations(
-    batch: Dict[str, jnp.ndarray], atom14_pred_positions: jnp.ndarray, config: omegaconf.DictConfig  # (N, 14, 3)
+    batch: Dict[str, jnp.ndarray],
+    atom14_pred_positions: jnp.ndarray,
+    config: omegaconf.DictConfig,  # (N, 14, 3)
 ):
     """Computes several checks for structural violations."""
 
@@ -687,12 +679,8 @@ def find_structural_violations(
     # Compute the Van der Waals radius for every atom
     # (the first letter of the atom name is the element type).
     # Shape: (N, 14).
-    atomtype_radius = jnp.array(
-        [residue_constants.van_der_waals_radius[name[0]] for name in residue_constants.atom_types]
-    )
-    atom14_atom_radius = batch["atom14_atom_exists"] * utils.batched_gather(
-        atomtype_radius, batch["residx_atom14_to_atom37"]
-    )
+    atomtype_radius = jnp.array([residue_constants.van_der_waals_radius[name[0]] for name in residue_constants.atom_types])
+    atom14_atom_radius = batch["atom14_atom_exists"] * utils.batched_gather(atomtype_radius, batch["residx_atom14_to_atom37"])
 
     # Compute the between residue clash loss.
     between_residue_clashes = all_atom.between_residue_clash_loss(
@@ -707,7 +695,8 @@ def find_structural_violations(
     # Compute all within-residue violations (clashes,
     # bond length and angle violations).
     restype_atom14_bounds = residue_constants.make_atom14_dists_bounds(
-        overlap_tolerance=config.clash_overlap_tolerance, bond_length_tolerance_factor=config.violation_tolerance_factor
+        overlap_tolerance=config.clash_overlap_tolerance,
+        bond_length_tolerance_factor=config.violation_tolerance_factor,
     )
     atom14_dists_lower_bound = utils.batched_gather(restype_atom14_bounds["lower_bound"], batch["aatype"])
     atom14_dists_upper_bound = utils.batched_gather(restype_atom14_bounds["upper_bound"], batch["aatype"])
@@ -765,17 +754,18 @@ def compute_violation_metrics(
     )
     ret["violations_extreme_ca_ca_distance"] = extreme_ca_ca_violations
     ret["violations_between_residue_bond"] = utils.mask_mean(
-        mask=batch["seq_mask"], value=violations["between_residues"]["connections_per_residue_violation_mask"]
+        mask=batch["seq_mask"],
+        value=violations["between_residues"]["connections_per_residue_violation_mask"],
     )
     ret["violations_between_residue_clash"] = utils.mask_mean(
-        mask=batch["seq_mask"], value=jnp.max(violations["between_residues"]["clashes_per_atom_clash_mask"], axis=-1)
+        mask=batch["seq_mask"],
+        value=jnp.max(violations["between_residues"]["clashes_per_atom_clash_mask"], axis=-1),
     )
     ret["violations_within_residue"] = utils.mask_mean(
-        mask=batch["seq_mask"], value=jnp.max(violations["within_residues"]["per_atom_violations"], axis=-1)
+        mask=batch["seq_mask"],
+        value=jnp.max(violations["within_residues"]["per_atom_violations"], axis=-1),
     )
-    ret["violations_per_residue"] = utils.mask_mean(
-        mask=batch["seq_mask"], value=violations["total_per_residue_violations_mask"]
-    )
+    ret["violations_per_residue"] = utils.mask_mean(mask=batch["seq_mask"], value=violations["total_per_residue_violations_mask"])
     return ret
 
 
@@ -863,9 +853,7 @@ class MultiRigidSidechain(hk.Module):
           Dict containing atom positions and frames (in angstroms).
         """
         act = [
-            common_modules.Linear(  # pylint: disable=g-complex-comprehension
-                self.config.num_channel, name="input_projection"
-            )(jax.nn.relu(x))
+            common_modules.Linear(self.config.num_channel, name="input_projection")(jax.nn.relu(x))  # pylint: disable=g-complex-comprehension
             for x in representations_list
         ]
         # Sum the activation list (equivalent to concat then Linear).
@@ -877,9 +865,7 @@ class MultiRigidSidechain(hk.Module):
         for _ in range(self.config.num_residual_block):
             old_act = act
             act = common_modules.Linear(self.config.num_channel, initializer="relu", name="resblock1")(jax.nn.relu(act))
-            act = common_modules.Linear(self.config.num_channel, initializer=final_init, name="resblock2")(
-                jax.nn.relu(act)
-            )
+            act = common_modules.Linear(self.config.num_channel, initializer=final_init, name="resblock2")(jax.nn.relu(act))
             act += old_act
 
         # Map activations to torsion angles. Shape: (num_res, 14).

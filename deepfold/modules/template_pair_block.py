@@ -8,10 +8,7 @@ import deepfold.core.parallel_state as ps
 from deepfold.modules.dropout import DropoutColumnwise, DropoutRowwise
 from deepfold.modules.pair_transition import PairTransition
 from deepfold.modules.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
-from deepfold.modules.triangular_multiplicative_update import (
-    TriangleMultiplicationIncoming,
-    TriangleMultiplicationOutgoing,
-)
+from deepfold.modules.triangular_multiplicative_update import TriangleMultiplicationIncoming, TriangleMultiplicationOutgoing
 
 
 class TemplatePairBlock(nn.Module):

@@ -126,7 +126,12 @@ def rot_to_quat(rot, unstack_inputs=False):
 def rot_list_to_tensor(rot_list):
     """Convert list of lists to rotation tensor."""
     return jnp.stack(
-        [jnp.stack(rot_list[0], axis=-1), jnp.stack(rot_list[1], axis=-1), jnp.stack(rot_list[2], axis=-1)], axis=-2
+        [
+            jnp.stack(rot_list[0], axis=-1),
+            jnp.stack(rot_list[1], axis=-1),
+            jnp.stack(rot_list[2], axis=-1),
+        ],
+        axis=-2,
     )
 
 
@@ -297,7 +302,11 @@ class QuatAffine(object):
             translation = jax.tree_map(expand_fn, translation)
 
         rot_point = apply_rot_to_vec(rotation, point)
-        return [rot_point[0] + translation[0], rot_point[1] + translation[1], rot_point[2] + translation[2]]
+        return [
+            rot_point[0] + translation[0],
+            rot_point[1] + translation[1],
+            rot_point[2] + translation[2],
+        ]
 
     def invert_point(self, transformed_point, extra_dims=0):
         """Apply inverse of transformation to a point.
@@ -359,9 +368,7 @@ def _multiply(a, b):
     )
 
 
-def make_canonical_transform(
-    n_xyz: jnp.ndarray, ca_xyz: jnp.ndarray, c_xyz: jnp.ndarray
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+def make_canonical_transform(n_xyz: jnp.ndarray, ca_xyz: jnp.ndarray, c_xyz: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """Returns translation and rotation matrices to canonicalize residue atoms.
 
     Note that this method does not take care of symmetries. If you provide the
@@ -401,14 +408,22 @@ def make_canonical_transform(
     ones = jnp.ones_like(sin_c1)
     # pylint: disable=bad-whitespace
     c1_rot_matrix = jnp.stack(
-        [jnp.array([cos_c1, -sin_c1, zeros]), jnp.array([sin_c1, cos_c1, zeros]), jnp.array([zeros, zeros, ones])]
+        [
+            jnp.array([cos_c1, -sin_c1, zeros]),
+            jnp.array([sin_c1, cos_c1, zeros]),
+            jnp.array([zeros, zeros, ones]),
+        ]
     )
 
     # Rotate by angle c2 in the x-z plane (around the y-axis).
     sin_c2 = c_z / jnp.sqrt(1e-20 + c_x**2 + c_y**2 + c_z**2)
     cos_c2 = jnp.sqrt(c_x**2 + c_y**2) / jnp.sqrt(1e-20 + c_x**2 + c_y**2 + c_z**2)
     c2_rot_matrix = jnp.stack(
-        [jnp.array([cos_c2, zeros, sin_c2]), jnp.array([zeros, ones, zeros]), jnp.array([-sin_c2, zeros, cos_c2])]
+        [
+            jnp.array([cos_c2, zeros, sin_c2]),
+            jnp.array([zeros, ones, zeros]),
+            jnp.array([-sin_c2, zeros, cos_c2]),
+        ]
     )
 
     c_rot_matrix = _multiply(c2_rot_matrix, c1_rot_matrix)
@@ -420,16 +435,18 @@ def make_canonical_transform(
     sin_n = -n_z / jnp.sqrt(1e-20 + n_y**2 + n_z**2)
     cos_n = n_y / jnp.sqrt(1e-20 + n_y**2 + n_z**2)
     n_rot_matrix = jnp.stack(
-        [jnp.array([ones, zeros, zeros]), jnp.array([zeros, cos_n, -sin_n]), jnp.array([zeros, sin_n, cos_n])]
+        [
+            jnp.array([ones, zeros, zeros]),
+            jnp.array([zeros, cos_n, -sin_n]),
+            jnp.array([zeros, sin_n, cos_n]),
+        ]
     )
     # pylint: enable=bad-whitespace
 
     return (translation, jnp.transpose(_multiply(n_rot_matrix, c_rot_matrix), [2, 0, 1]))
 
 
-def make_transform_from_reference(
-    n_xyz: jnp.ndarray, ca_xyz: jnp.ndarray, c_xyz: jnp.ndarray
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+def make_transform_from_reference(n_xyz: jnp.ndarray, ca_xyz: jnp.ndarray, c_xyz: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """Returns rotation and translation matrices to convert from reference.
 
     Note that this method does not take care of symmetries. If you provide the

@@ -55,9 +55,7 @@ def lddt(predicted_points, true_points, true_points_mask, cutoff=15.0, per_resid
     # Compute true and predicted distance matrices.
     dmat_true = jnp.sqrt(1e-10 + jnp.sum((true_points[:, :, None] - true_points[:, None, :]) ** 2, axis=-1))
 
-    dmat_predicted = jnp.sqrt(
-        1e-10 + jnp.sum((predicted_points[:, :, None] - predicted_points[:, None, :]) ** 2, axis=-1)
-    )
+    dmat_predicted = jnp.sqrt(1e-10 + jnp.sum((predicted_points[:, :, None] - predicted_points[:, None, :]) ** 2, axis=-1))
 
     dists_to_score = (
         (dmat_true < cutoff).astype(jnp.float32)

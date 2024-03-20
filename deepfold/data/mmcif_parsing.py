@@ -403,9 +403,7 @@ def _is_set(data: str) -> bool:
     return data not in (".", "?")
 
 
-def get_atom_coords(
-    mmcif_object: MmcifObject, chain_id: str, _zero_center_positions: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+def get_atom_coords(mmcif_object: MmcifObject, chain_id: str, _zero_center_positions: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     # Locate the right chain
     chains = list(mmcif_object.structure.get_chains())
     relevant_chains = [c for c in chains if c.id == chain_id]

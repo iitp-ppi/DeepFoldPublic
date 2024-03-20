@@ -316,9 +316,7 @@ class TemplatePairEmbedderMultimer(nn.Module):
             c_xyz=feats["template_all_atom_positions"][..., c, :],
             eps=eps,
         )
-        backbone_mask = (
-            template_all_atom_mask[..., n] * template_all_atom_mask[..., ca] * template_all_atom_mask[..., c]
-        )
+        backbone_mask = template_all_atom_mask[..., n] * template_all_atom_mask[..., ca] * template_all_atom_mask[..., c]
 
         if inductor.is_enabled():
             compute_unit_vector = _compute_multimer_part2_jit

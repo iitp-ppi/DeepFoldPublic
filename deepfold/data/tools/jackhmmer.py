@@ -90,9 +90,7 @@ class Jackhmmer:
         self.get_tblout = get_tblout
         self.streaming_callback = streaming_callback
 
-    def _query_chunk(
-        self, input_fasta_path: str, database_path: str, max_sequences: Optional[int] = None
-    ) -> Mapping[str, Any]:
+    def _query_chunk(self, input_fasta_path: str, database_path: str, max_sequences: Optional[int] = None) -> Mapping[str, Any]:
         """Queries the database chunk using Jackhmmer."""
         with utils.tmpdir_manager() as query_tmp_dir:
             sto_path = os.path.join(query_tmp_dir, "output.sto")
@@ -171,14 +169,10 @@ class Jackhmmer:
 
         return raw_output
 
-    def query(
-        self, input_fasta_path: str, max_sequences: Optional[int] = None
-    ) -> Sequence[Sequence[Mapping[str, Any]]]:
+    def query(self, input_fasta_path: str, max_sequences: Optional[int] = None) -> Sequence[Sequence[Mapping[str, Any]]]:
         return self.query_multiple([input_fasta_path], max_sequences)
 
-    def query_multiple(
-        self, input_fasta_paths: Sequence[str], max_sequences: Optional[int] = None
-    ) -> Sequence[Sequence[Mapping[str, Any]]]:
+    def query_multiple(self, input_fasta_paths: Sequence[str], max_sequences: Optional[int] = None) -> Sequence[Sequence[Mapping[str, Any]]]:
         """Queries the database using Jackhmmer."""
         if self.num_streamed_chunks is None:
             single_chunk_results = []
@@ -223,9 +217,7 @@ class Jackhmmer:
                 # Run Jackhmmer with the chunk
                 future.result()
                 for fasta_idx, input_fasta_path in enumerate(input_fasta_paths):
-                    chunked_outputs[fasta_idx].append(
-                        self._query_chunk(input_fasta_path, db_local_chunk(i), max_sequences)
-                    )
+                    chunked_outputs[fasta_idx].append(self._query_chunk(input_fasta_path, db_local_chunk(i), max_sequences))
 
                 # Remove the local copy of the chunk
                 os.remove(db_local_chunk(i))

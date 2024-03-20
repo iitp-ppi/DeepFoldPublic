@@ -549,9 +549,7 @@ def make_atom14_masks(p: TensorDict) -> TensorDict:
         atom_names = rc.restype_name_to_atom14_names[rc.restype_1to3[rt]]
         restype_atom14_to_atom37.append([(rc.atom_order[name] if name else 0) for name in atom_names])
         atom_name_to_idx14 = {name: i for i, name in enumerate(atom_names)}
-        restype_atom37_to_atom14.append(
-            [atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0 for name in rc.atom_types]
-        )
+        restype_atom37_to_atom14.append([atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0 for name in rc.atom_types])
         restype_atom14_mask.append([1.0 if name else 0.0 for name in atom_names])
 
     # Add dummy mapping for 'X'
@@ -600,7 +598,10 @@ def make_atom14_positions(p: TensorDict) -> TensorDict:
 
     # Create a mask for known ground truth positions.
     residx_atom14_gt_mask = residx_atom14_mask * batched_gather(
-        p["all_atom_mask"], residx_atom14_to_atom37, dim=-1, num_batch_dims=len(p["all_atom_mask"].shape[:-1])
+        p["all_atom_mask"],
+        residx_atom14_to_atom37,
+        dim=-1,
+        num_batch_dims=len(p["all_atom_mask"].shape[:-1]),
     )
 
     # Gather the ground truth positions.
@@ -623,9 +624,7 @@ def make_atom14_positions(p: TensorDict) -> TensorDict:
     restype_3 += ["UNK"]
 
     # Matrices for renaming ambiguous atoms.
-    all_matrices = {
-        res: torch.eye(14, dtype=p["all_atom_mask"].dtype, device=p["all_atom_mask"].device) for res in restype_3
-    }
+    all_matrices = {res: torch.eye(14, dtype=p["all_atom_mask"].dtype, device=p["all_atom_mask"].device) for res in restype_3}
     for resname, swap in rc.residue_atom_renaming_swaps.items():
         correspondences = torch.arange(14, device=p["all_atom_mask"].device)
         for source_atom_swap, target_atom_swap in swap.items():
@@ -699,16 +698,15 @@ def atom37_to_frames(p: TensorDict, eps=1e-8) -> TensorDict:
     lookup = np.vectorize(lambda x: lookuptable[x])
     restype_rigidgroup_base_atom37_idx = lookup(restype_rigidgroup_base_atom_names)
     restype_rigidgroup_base_atom37_idx = aatype.new_tensor(restype_rigidgroup_base_atom37_idx)
-    restype_rigidgroup_base_atom37_idx = restype_rigidgroup_base_atom37_idx.view(
-        *((1,) * batch_dims), *restype_rigidgroup_base_atom37_idx.shape
-    )
+    restype_rigidgroup_base_atom37_idx = restype_rigidgroup_base_atom37_idx.view(*((1,) * batch_dims), *restype_rigidgroup_base_atom37_idx.shape)
 
-    residx_rigidgroup_base_atom37_idx = batched_gather(
-        restype_rigidgroup_base_atom37_idx, aatype, dim=-3, num_batch_dims=batch_dims
-    )
+    residx_rigidgroup_base_atom37_idx = batched_gather(restype_rigidgroup_base_atom37_idx, aatype, dim=-3, num_batch_dims=batch_dims)
 
     base_atom_pos = batched_gather(
-        all_atom_positions, residx_rigidgroup_base_atom37_idx, dim=-2, num_batch_dims=len(all_atom_positions.shape[:-2])
+        all_atom_positions,
+        residx_rigidgroup_base_atom37_idx,
+        dim=-2,
+        num_batch_dims=len(all_atom_positions.shape[:-2]),
     )
 
     gt_frames = Rigid.from_3_points(
@@ -721,7 +719,10 @@ def atom37_to_frames(p: TensorDict, eps=1e-8) -> TensorDict:
     group_exists = batched_gather(restype_rigidgroup_mask, aatype, dim=-2, num_batch_dims=batch_dims)
 
     gt_atoms_exist = batched_gather(
-        all_atom_mask, residx_rigidgroup_base_atom37_idx, dim=-1, num_batch_dims=len(all_atom_mask.shape[:-1])
+        all_atom_mask,
+        residx_rigidgroup_base_atom37_idx,
+        dim=-1,
+        num_batch_dims=len(all_atom_mask.shape[:-1]),
     )
     gt_exists = torch.min(gt_atoms_exist, dim=-1)[0] * group_exists
 
@@ -876,12 +877,13 @@ def atom37_to_torsion_angles(p: TensorDict, prefix="") -> TensorDict:
         dim=-3,
     )
 
-    torsion_angles_mask = torch.cat(
-        [pre_omega_mask[..., None], phi_mask[..., None], psi_mask[..., None], chis_mask], dim=-1
-    )
+    torsion_angles_mask = torch.cat([pre_omega_mask[..., None], phi_mask[..., None], psi_mask[..., None], chis_mask], dim=-1)
 
     torsion_frames = Rigid.from_3_points(
-        torsions_atom_pos[..., 1, :], torsions_atom_pos[..., 2, :], torsions_atom_pos[..., 0, :], eps=1e-8
+        torsions_atom_pos[..., 1, :],
+        torsions_atom_pos[..., 2, :],
+        torsions_atom_pos[..., 0, :],
+        eps=1e-8,
     )
 
     fourth_atom_rel_pos = torsion_frames.invert().apply(torsions_atom_pos[..., 3, :])
@@ -889,7 +891,12 @@ def atom37_to_torsion_angles(p: TensorDict, prefix="") -> TensorDict:
     torsion_angles_sin_cos = torch.stack([fourth_atom_rel_pos[..., 2], fourth_atom_rel_pos[..., 1]], dim=-1)
 
     denom = torch.sqrt(
-        torch.sum(torch.square(torsion_angles_sin_cos), dim=-1, dtype=torsion_angles_sin_cos.dtype, keepdims=True)
+        torch.sum(
+            torch.square(torsion_angles_sin_cos),
+            dim=-1,
+            dtype=torsion_angles_sin_cos.dtype,
+            keepdims=True,
+        )
         + 1e-8
     )
     torsion_angles_sin_cos = torsion_angles_sin_cos / denom

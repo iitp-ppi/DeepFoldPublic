@@ -150,10 +150,7 @@ class HHBlits:
                     if error_line.strip():
                         logging.error(error_line.strip())
                 logging.error("HHblits stderr end")
-                raise RuntimeError(
-                    "HHblits failed\nstdout:\n%s\n\nstderr:\n%s\n"
-                    % (stdout.decode("utf-8"), stderr[:500_000].decode("utf-8"))
-                )
+                raise RuntimeError("HHblits failed\nstdout:\n%s\n\nstderr:\n%s\n" % (stdout.decode("utf-8"), stderr[:500_000].decode("utf-8")))
 
             with open(a3m_path) as f:
                 a3m = f.read()

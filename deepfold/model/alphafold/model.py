@@ -12,13 +12,7 @@ import deepfold.common.residue_constants as rc
 from deepfold.distributed.legacy import get_tensor_model_parallel_world_size
 from deepfold.model.alphafold.data.types import TensorDict
 from deepfold.model.alphafold.dist_layers import GatherOutputs, ScatterFeatures
-from deepfold.model.alphafold.feats import (
-    atom14_to_atom37,
-    build_extra_msa_feat,
-    build_template_angle_feat,
-    build_template_pair_feat,
-    pseudo_beta_fn,
-)
+from deepfold.model.alphafold.feats import atom14_to_atom37, build_extra_msa_feat, build_template_angle_feat, build_template_pair_feat, pseudo_beta_fn
 from deepfold.model.alphafold.loss import compute_tm
 from deepfold.model.alphafold.nn.embedders import (
     ExtraMSAEmbedder,
@@ -67,9 +61,7 @@ class AlphaFold(nn.Module):
             self.template_pair_stack = TemplatePairStack(
                 **self.template_cfg["template_pair_stack"],
             )
-            self.template_pointwise_att = TemplatePointwiseAttention(
-                **self.template_cfg["template_pointwise_attention"]
-            )
+            self.template_pointwise_att = TemplatePointwiseAttention(**self.template_cfg["template_pointwise_attention"])
 
         if self.extra_msa_cfg.enabled:
             self.extra_msa_embedder = ExtraMSAEmbedder(

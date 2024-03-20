@@ -29,16 +29,7 @@ import jax.numpy as jnp
 import numpy as np
 
 import tests.alphafold_residue_constants as residue_constants
-from tests.alphafold_model import (
-    all_atom_multimer,
-    common_modules,
-    folding_multimer,
-    geometry,
-    layer_stack,
-    modules,
-    prng,
-    utils,
-)
+from tests.alphafold_model import all_atom_multimer, common_modules, folding_multimer, geometry, layer_stack, modules, prng, utils
 
 
 def reduce_fn(x, mode):
@@ -119,9 +110,7 @@ def make_masked_msa(batch, key, config, epsilon=1e-6):
     random_aa = jnp.array([0.05] * 20 + [0.0, 0.0], dtype=jnp.float32)
 
     categorical_probs = (
-        config.uniform_prob * random_aa
-        + config.profile_prob * batch["msa_profile"]
-        + config.same_prob * jax.nn.one_hot(batch["msa"], 22)
+        config.uniform_prob * random_aa + config.profile_prob * batch["msa_profile"] + config.same_prob * jax.nn.one_hot(batch["msa"], 22)
     )
 
     # Put all remaining probability on [MASK] which is a new column.
@@ -203,7 +192,13 @@ def create_msa_feat(batch):
 
     deletion_mean_value = (jnp.arctan(batch["cluster_deletion_mean"] / 3.0) * (2.0 / jnp.pi))[..., None]
 
-    msa_feat = [msa_1hot, has_deletion, deletion_value, batch["cluster_profile"], deletion_mean_value]
+    msa_feat = [
+        msa_1hot,
+        has_deletion,
+        deletion_value,
+        batch["cluster_profile"],
+        deletion_mean_value,
+    ]
 
     return jnp.concatenate(msa_feat, axis=-1)
 
@@ -306,9 +301,7 @@ class AlphaFoldIteration(hk.Module):
 
             for k in representations:
                 if k not in {"msa", "true_msa", "bert_mask"}:
-                    representations[k] += representations_update[k] * (1.0 / num_ensemble).astype(
-                        representations[k].dtype
-                    )
+                    representations[k] += representations_update[k] * (1.0 / num_ensemble).astype(representations[k].dtype)
                 else:
                     representations[k] = representations_update[k]
 
@@ -431,18 +424,14 @@ class AlphaFold(hk.Module):
 
             def recycle_body(x):
                 i, _, prev, safe_key = x
-                safe_key1, safe_key2 = (
-                    safe_key.split() if c.resample_msa_in_recycling else safe_key.duplicate()
-                )  # pylint: disable=line-too-long
+                safe_key1, safe_key2 = safe_key.split() if c.resample_msa_in_recycling else safe_key.duplicate()  # pylint: disable=line-too-long
                 ret = apply_network(prev=prev, safe_key=safe_key2)
                 return i + 1, prev, get_prev(ret), safe_key1
 
             def recycle_cond(x):
                 i, prev, next_in, _ = x
                 ca_idx = residue_constants.atom_order["CA"]
-                sq_diff = jnp.square(
-                    distances(prev["prev_pos"][:, ca_idx, :]) - distances(next_in["prev_pos"][:, ca_idx, :])
-                )
+                sq_diff = jnp.square(distances(prev["prev_pos"][:, ca_idx, :]) - distances(next_in["prev_pos"][:, ca_idx, :]))
                 mask = batch["seq_mask"][:, None] * batch["seq_mask"][None, :]
                 sq_diff = utils.mask_mean(mask, sq_diff)
                 # Early stopping criteria based on criteria used in
@@ -514,7 +503,9 @@ class EmbeddingsAndEvoformer(hk.Module):
 
         if c.use_chain_relative:
             final_offset = jnp.where(
-                asym_id_same, clipped_offset, (2 * c.max_relative_idx + 1) * jnp.ones_like(clipped_offset)
+                asym_id_same,
+                clipped_offset,
+                (2 * c.max_relative_idx + 1) * jnp.ones_like(clipped_offset),
             )
 
             rel_pos = jax.nn.one_hot(final_offset, 2 * c.max_relative_idx + 2)
@@ -533,7 +524,9 @@ class EmbeddingsAndEvoformer(hk.Module):
             clipped_rel_chain = jnp.clip(rel_sym_id + max_rel_chain, a_min=0, a_max=2 * max_rel_chain)
 
             final_rel_chain = jnp.where(
-                entity_id_same, clipped_rel_chain, (2 * max_rel_chain + 1) * jnp.ones_like(clipped_rel_chain)
+                entity_id_same,
+                clipped_rel_chain,
+                (2 * max_rel_chain + 1) * jnp.ones_like(clipped_rel_chain),
             )
             rel_chain = jax.nn.one_hot(final_rel_chain, 2 * c.max_relative_chain + 2)
 
@@ -591,14 +584,14 @@ class EmbeddingsAndEvoformer(hk.Module):
                 dgram = dgram.astype(dtype)
                 pair_activations += common_modules.Linear(c.pair_channel, name="prev_pos_linear")(dgram)
             if c.recycle_features:
-                prev_msa_first_row = common_modules.LayerNorm(
-                    axis=[-1], create_scale=True, create_offset=True, name="prev_msa_first_row_norm"
-                )(batch["prev_msa_first_row"]).astype(dtype)
+                prev_msa_first_row = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="prev_msa_first_row_norm")(
+                    batch["prev_msa_first_row"]
+                ).astype(dtype)
                 msa_activations = msa_activations.at[0].add(prev_msa_first_row)
 
-                pair_activations += common_modules.LayerNorm(
-                    axis=[-1], create_scale=True, create_offset=True, name="prev_pair_norm"
-                )(batch["prev_pair"]).astype(dtype)
+                pair_activations += common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="prev_pair_norm")(
+                    batch["prev_pair"]
+                ).astype(dtype)
 
             if c.max_relative_idx:
                 pair_activations += self._relative_encoding(batch)
@@ -626,9 +619,7 @@ class EmbeddingsAndEvoformer(hk.Module):
 
             # Extra MSA stack.
             (extra_msa_feat, extra_msa_mask) = create_extra_msa_feature(batch, c.num_extra_msa)
-            extra_msa_activations = common_modules.Linear(c.extra_msa_channel, name="extra_msa_activations")(
-                extra_msa_feat
-            ).astype(dtype)
+            extra_msa_activations = common_modules.Linear(c.extra_msa_channel, name="extra_msa_activations")(extra_msa_feat).astype(dtype)
             extra_msa_mask = extra_msa_mask.astype(dtype)
 
             extra_evoformer_input = {
@@ -637,15 +628,16 @@ class EmbeddingsAndEvoformer(hk.Module):
             }
             extra_masks = {"msa": extra_msa_mask, "pair": mask_2d}
 
-            extra_evoformer_iteration = modules.EvoformerIteration(
-                c.evoformer, gc, is_extra_msa=True, name="extra_msa_stack"
-            )
+            extra_evoformer_iteration = modules.EvoformerIteration(c.evoformer, gc, is_extra_msa=True, name="extra_msa_stack")
 
             def extra_evoformer_fn(x):
                 act, safe_key = x
                 safe_key, safe_subkey = safe_key.split()
                 extra_evoformer_output = extra_evoformer_iteration(
-                    activations=act, masks=extra_masks, is_training=is_training, safe_key=safe_subkey
+                    activations=act,
+                    masks=extra_masks,
+                    is_training=is_training,
+                    safe_key=safe_subkey,
                 )
                 return (extra_evoformer_output, safe_key)
 
@@ -667,21 +659,20 @@ class EmbeddingsAndEvoformer(hk.Module):
             }
             evoformer_masks = {"msa": batch["msa_mask"].astype(dtype), "pair": mask_2d}
             if c.template.enabled:
-                template_features, template_masks = template_embedding_1d(
-                    batch=batch, num_channel=c.msa_channel, global_config=gc
-                )
+                template_features, template_masks = template_embedding_1d(batch=batch, num_channel=c.msa_channel, global_config=gc)
 
                 evoformer_input["msa"] = jnp.concatenate([evoformer_input["msa"], template_features], axis=0)
                 evoformer_masks["msa"] = jnp.concatenate([evoformer_masks["msa"], template_masks], axis=0)
-            evoformer_iteration = modules.EvoformerIteration(
-                c.evoformer, gc, is_extra_msa=False, name="evoformer_iteration"
-            )
+            evoformer_iteration = modules.EvoformerIteration(c.evoformer, gc, is_extra_msa=False, name="evoformer_iteration")
 
             def evoformer_fn(x):
                 act, safe_key = x
                 safe_key, safe_subkey = safe_key.split()
                 evoformer_output = evoformer_iteration(
-                    activations=act, masks=evoformer_masks, is_training=is_training, safe_key=safe_subkey
+                    activations=act,
+                    masks=evoformer_masks,
+                    is_training=is_training,
+                    safe_key=safe_subkey,
                 )
                 return (evoformer_output, safe_key)
 
@@ -730,7 +721,13 @@ class TemplateEmbedding(hk.Module):
         self.global_config = global_config
 
     def __call__(
-        self, query_embedding, template_batch, padding_mask_2d, multichain_mask_2d, is_training, safe_key=None
+        self,
+        query_embedding,
+        template_batch,
+        padding_mask_2d,
+        multichain_mask_2d,
+        is_training,
+        safe_key=None,
     ):
         """Generate an embedding for a set of templates.
 
@@ -848,12 +845,14 @@ class SingleTemplateEmbedding(hk.Module):
         num_channels = self.config.num_channels
 
         def construct_input(
-            query_embedding, template_aatype, template_all_atom_positions, template_all_atom_mask, multichain_mask_2d
+            query_embedding,
+            template_aatype,
+            template_all_atom_positions,
+            template_all_atom_mask,
+            multichain_mask_2d,
         ):
             # Compute distogram feature for the template.
-            template_positions, pseudo_beta_mask = modules.pseudo_beta_fn(
-                template_aatype, template_all_atom_positions, template_all_atom_mask
-            )
+            template_positions, pseudo_beta_mask = modules.pseudo_beta_fn(template_aatype, template_all_atom_positions, template_all_atom_mask)
             pseudo_beta_mask_2d = pseudo_beta_mask[:, None] * pseudo_beta_mask[None, :]
             pseudo_beta_mask_2d *= multichain_mask_2d
             template_dgram = modules.dgram_from_positions(template_positions, **self.config.dgram_features)
@@ -875,9 +874,7 @@ class SingleTemplateEmbedding(hk.Module):
                 raw_atom_pos = raw_atom_pos.astype(jnp.float32)
 
             atom_pos = geometry.Vec3Array.from_array(raw_atom_pos)
-            rigid, backbone_mask = folding_multimer.make_backbone_affine(
-                atom_pos, template_all_atom_mask, template_aatype
-            )
+            rigid, backbone_mask = folding_multimer.make_backbone_affine(atom_pos, template_all_atom_mask, template_aatype)
             points = rigid.translation
             rigid_vec = rigid[:, None].inverse().apply_to_point(points)
             unit_vector = rigid_vec.normalized()
@@ -896,9 +893,7 @@ class SingleTemplateEmbedding(hk.Module):
             to_concat.extend([(x, 0) for x in unit_vector])
             to_concat.append((backbone_mask_2d, 0))
 
-            query_embedding = common_modules.LayerNorm(
-                axis=[-1], create_scale=True, create_offset=True, name="query_embedding_norm"
-            )(query_embedding)
+            query_embedding = common_modules.LayerNorm(axis=[-1], create_scale=True, create_offset=True, name="query_embedding_norm")(query_embedding)
             # Allow the template embedder to see the query embedding.  Note this
             # contains the position relative feature, so this is how the network knows
             # which residues are next to each other.
@@ -908,12 +903,19 @@ class SingleTemplateEmbedding(hk.Module):
 
             for i, (x, n_input_dims) in enumerate(to_concat):
                 act += common_modules.Linear(
-                    num_channels, num_input_dims=n_input_dims, initializer="relu", name=f"template_pair_embedding_{i}"
+                    num_channels,
+                    num_input_dims=n_input_dims,
+                    initializer="relu",
+                    name=f"template_pair_embedding_{i}",
                 )(x)
             return act
 
         act = construct_input(
-            query_embedding, template_aatype, template_all_atom_positions, template_all_atom_mask, multichain_mask_2d
+            query_embedding,
+            template_aatype,
+            template_all_atom_positions,
+            template_all_atom_mask,
+            multichain_mask_2d,
         )
 
         template_iteration = TemplateEmbeddingIteration(c.template_pair_stack, gc, name="template_embedding_iteration")
@@ -969,18 +971,14 @@ class TemplateEmbeddingIteration(hk.Module):
         sub_keys = iter(sub_keys)
 
         act = dropout_wrapper_fn(
-            modules.TriangleMultiplication(
-                c.triangle_multiplication_outgoing, gc, name="triangle_multiplication_outgoing"
-            ),
+            modules.TriangleMultiplication(c.triangle_multiplication_outgoing, gc, name="triangle_multiplication_outgoing"),
             act,
             pair_mask,
             safe_key=next(sub_keys),
         )
 
         act = dropout_wrapper_fn(
-            modules.TriangleMultiplication(
-                c.triangle_multiplication_incoming, gc, name="triangle_multiplication_incoming"
-            ),
+            modules.TriangleMultiplication(c.triangle_multiplication_incoming, gc, name="triangle_multiplication_incoming"),
             act,
             pair_mask,
             safe_key=next(sub_keys),
@@ -998,7 +996,10 @@ class TemplateEmbeddingIteration(hk.Module):
             safe_key=next(sub_keys),
         )
         act = dropout_wrapper_fn(
-            modules.Transition(c.pair_transition, gc, name="pair_transition"), act, pair_mask, safe_key=next(sub_keys)
+            modules.Transition(c.pair_transition, gc, name="pair_transition"),
+            act,
+            pair_mask,
+            safe_key=next(sub_keys),
         )
 
         return act
@@ -1039,7 +1040,8 @@ def template_embedding_1d(batch, num_channel, global_config):
     chi_mask = jnp.stack(all_chi_masks, axis=0)
 
     template_features = jnp.concatenate(
-        [aatype_one_hot, jnp.sin(chi_angles) * chi_mask, jnp.cos(chi_angles) * chi_mask, chi_mask], axis=-1
+        [aatype_one_hot, jnp.sin(chi_angles) * chi_mask, jnp.cos(chi_angles) * chi_mask, chi_mask],
+        axis=-1,
     )
 
     template_mask = chi_mask[:, :, 0]
@@ -1048,11 +1050,7 @@ def template_embedding_1d(batch, num_channel, global_config):
         template_features = template_features.astype(jnp.bfloat16)
         template_mask = template_mask.astype(jnp.bfloat16)
 
-    template_activations = common_modules.Linear(num_channel, initializer="relu", name="template_single_embedding")(
-        template_features
-    )
+    template_activations = common_modules.Linear(num_channel, initializer="relu", name="template_single_embedding")(template_features)
     template_activations = jax.nn.relu(template_activations)
-    template_activations = common_modules.Linear(num_channel, initializer="relu", name="template_projection")(
-        template_activations
-    )
+    template_activations = common_modules.Linear(num_channel, initializer="relu", name="template_projection")(template_activations)
     return template_activations, template_mask

@@ -110,7 +110,12 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
       The feature with an additional padding row.
     """
     assert feature.dtype != np.dtype(np.string_)
-    if feature_name in ("msa_all_seq", "msa_mask_all_seq", "deletion_matrix_all_seq", "deletion_matrix_int_all_seq"):
+    if feature_name in (
+        "msa_all_seq",
+        "msa_mask_all_seq",
+        "deletion_matrix_all_seq",
+        "deletion_matrix_int_all_seq",
+    ):
         num_res = feature.shape[1]
         padding = MSA_PAD_VALUES[feature_name] * np.ones([1, num_res], feature.dtype)
     elif feature_name == "msa_species_identifiers_all_seq":
@@ -217,18 +222,13 @@ def pair_sequences(
         if species_dfs_present <= 1:
             continue
 
-        if np.any(
-            np.array([len(species_df) for species_df in this_species_msa_dfs if isinstance(species_df, pd.DataFrame)])
-            > 600
-        ):
+        if np.any(np.array([len(species_df) for species_df in this_species_msa_dfs if isinstance(species_df, pd.DataFrame)]) > 600):
             continue
 
         paired_msa_rows = _match_rows_by_sequence_similarity(this_species_msa_dfs)
         all_paired_msa_rows.extend(paired_msa_rows)
         all_paired_msa_rows_dict[species_dfs_present].extend(paired_msa_rows)
-    all_paired_msa_rows_dict = {
-        num_examples: np.array(paired_msa_rows) for num_examples, paired_msa_rows in all_paired_msa_rows_dict.items()
-    }
+    all_paired_msa_rows_dict = {num_examples: np.array(paired_msa_rows) for num_examples, paired_msa_rows in all_paired_msa_rows_dict.items()}
     return all_paired_msa_rows_dict
 
 
@@ -267,7 +267,9 @@ def block_diag(*arrs: np.ndarray, pad_value: float = 0.0) -> np.ndarray:
 
 
 def _correct_post_merged_feats(
-    np_example: Mapping[str, np.ndarray], np_chains_list: Sequence[Mapping[str, np.ndarray]], pair_msa_sequences: bool
+    np_example: Mapping[str, np.ndarray],
+    np_chains_list: Sequence[Mapping[str, np.ndarray]],
+    pair_msa_sequences: bool,
 ) -> Mapping[str, np.ndarray]:
     """Adds features that need to be computed/recomputed post merging."""
 
@@ -306,9 +308,7 @@ def _correct_post_merged_feats(
     return np_example
 
 
-def _pad_templates(
-    chains: Sequence[Mapping[str, np.ndarray]], max_templates: int
-) -> Sequence[Mapping[str, np.ndarray]]:
+def _pad_templates(chains: Sequence[Mapping[str, np.ndarray]], max_templates: int) -> Sequence[Mapping[str, np.ndarray]]:
     """For each chain pad the number of templates to a fixed size.
 
     Args:
@@ -329,9 +329,7 @@ def _pad_templates(
     return chains
 
 
-def _merge_features_from_multiple_chains(
-    chains: Sequence[Mapping[str, np.ndarray]], pair_msa_sequences: bool
-) -> Mapping[str, np.ndarray]:
+def _merge_features_from_multiple_chains(chains: Sequence[Mapping[str, np.ndarray]], pair_msa_sequences: bool) -> Mapping[str, np.ndarray]:
     """Merge features from multiple chains.
 
     Args:
@@ -399,9 +397,7 @@ def _concatenate_paired_and_unpaired_features(example: Mapping[str, np.ndarray])
     return example
 
 
-def merge_chain_features(
-    np_chains_list: List[Mapping[str, np.ndarray]], pair_msa_sequences: bool, max_templates: int
-) -> Mapping[str, np.ndarray]:
+def merge_chain_features(np_chains_list: List[Mapping[str, np.ndarray]], pair_msa_sequences: bool, max_templates: int) -> Mapping[str, np.ndarray]:
     """Merges features for multiple chains to single FeatureDict.
 
     Args:
@@ -419,9 +415,7 @@ def merge_chain_features(
     np_example = _merge_features_from_multiple_chains(np_chains_list, pair_msa_sequences=False)
     if pair_msa_sequences:
         np_example = _concatenate_paired_and_unpaired_features(np_example)
-    np_example = _correct_post_merged_feats(
-        np_example=np_example, np_chains_list=np_chains_list, pair_msa_sequences=pair_msa_sequences
-    )
+    np_example = _correct_post_merged_feats(np_example=np_example, np_chains_list=np_chains_list, pair_msa_sequences=pair_msa_sequences)
 
     return np_example
 

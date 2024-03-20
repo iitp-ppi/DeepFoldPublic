@@ -249,9 +249,7 @@ def make_dummy_msa_feats(input_sequence) -> FeatureDict:
     return make_msa_features([msa_data_obj])
 
 
-def make_sequence_features_with_custom_template(
-    sequence: str, mmcif_path: str, pdb_id: str, chain_id: str, kalign_binary_path: str
-) -> FeatureDict:
+def make_sequence_features_with_custom_template(sequence: str, mmcif_path: str, pdb_id: str, chain_id: str, kalign_binary_path: str) -> FeatureDict:
     """
     process a single fasta file using features derived from a single template rather than an alignment
     """
@@ -405,7 +403,9 @@ class AlignmentRunner:
         self.jackhmmer_uniprot_runner = None
         if uniprot_database_path is not None:
             self.jackhmmer_uniprot_runner = jackhmmer.Jackhmmer(
-                binary_path=jackhmmer_binary_path, database_path=uniprot_database_path, n_cpu=num_cpus
+                binary_path=jackhmmer_binary_path,
+                database_path=uniprot_database_path,
+                n_cpu=num_cpus,
             )
 
         if template_searcher is not None and self.jackhmmer_uniref90_runner is None:
@@ -501,9 +501,7 @@ def _make_chain_id_map(
 ) -> Mapping[str, _FastaChain]:
     """Makes a mapping from PDB-format chain ID to sequence and description."""
     if len(sequences) != len(descriptions):
-        raise ValueError(
-            "sequences and descriptions must have equal length. " f"Got {len(sequences)} != {len(descriptions)}."
-        )
+        raise ValueError("sequences and descriptions must have equal length. " f"Got {len(sequences)} != {len(descriptions)}.")
     if len(sequences) > protein.PDB_MAX_CHAINS:
         raise ValueError("Cannot process more chains than the PDB format supports. " f"Got {len(sequences)} chains.")
     chain_id_map = {}
@@ -665,9 +663,7 @@ class DataPipeline:
 
         return msa_data
 
-    def _parse_template_hit_files(
-        self, alignment_dir: str, input_sequence: str, alignment_index: Optional[Any] = None
-    ) -> Mapping[str, Any]:
+    def _parse_template_hit_files(self, alignment_dir: str, input_sequence: str, alignment_index: Optional[Any] = None) -> Mapping[str, Any]:
         all_hits = {}
         if alignment_index is not None:
             fp = open(os.path.join(alignment_dir, alignment_index["db"]), "rb")
@@ -730,7 +726,10 @@ class DataPipeline:
         return list(msa_data.values())
 
     def _process_msa_feats(
-        self, alignment_dir: str, input_sequence: Optional[str] = None, alignment_index: Optional[Any] = None
+        self,
+        alignment_dir: str,
+        input_sequence: Optional[str] = None,
+        alignment_index: Optional[Any] = None,
     ) -> Mapping[str, Any]:
 
         msas = self._get_msas(alignment_dir, input_sequence, alignment_index)
@@ -800,7 +799,9 @@ class DataPipeline:
 
         input_sequence = mmcif.chain_to_seqres[chain_id]
         hits = self._parse_template_hit_files(
-            alignment_dir=alignment_dir, input_sequence=input_sequence, alignment_index=alignment_index
+            alignment_dir=alignment_dir,
+            input_sequence=input_sequence,
+            alignment_index=alignment_index,
         )
 
         template_features = make_template_features(input_sequence, hits, self.template_featurizer)
@@ -911,12 +912,7 @@ class DataPipeline:
 
             final_msa.extend(msas)
             final_deletion_mat.extend(deletion_mats)
-            final_msa_obj.extend(
-                [
-                    parsers.Msa(sequences=msas[k], deletion_matrix=deletion_mats[k], descriptions=None)
-                    for k in range(len(msas))
-                ]
-            )
+            final_msa_obj.extend([parsers.Msa(sequences=msas[k], deletion_matrix=deletion_mats[k], descriptions=None) for k in range(len(msas))])
 
         msa_features = make_msa_features(msas=final_msa_obj)
 
@@ -977,7 +973,9 @@ class DataPipelineMultimer:
 
         with temp_fasta_file(chain_fasta_str) as chain_fasta_path:
             chain_features = self._monomer_data_pipeline.process_fasta(
-                fasta_path=chain_fasta_path, alignment_dir=chain_alignment_dir, alignment_index=chain_alignment_index
+                fasta_path=chain_fasta_path,
+                alignment_dir=chain_alignment_dir,
+                alignment_index=chain_alignment_index,
             )
 
             # We only construct the pairing features if there are 2 or more unique
@@ -998,9 +996,7 @@ class DataPipelineMultimer:
                 msa = fp.read(size).decode("utf-8")
                 return msa
 
-            start, size = next(
-                iter((start, size) for name, start, size in alignment_index["files"] if name == "uniprot_hits.sto")
-            )
+            start, size = next(iter((start, size) for name, start, size in alignment_index["files"] if name == "uniprot_hits.sto"))
 
             msa = parsers.parse_stockholm(read_msa(start, size))
             fp.close()
@@ -1008,9 +1004,7 @@ class DataPipelineMultimer:
             uniprot_msa_path = os.path.join(alignment_dir, "uniprot_hits.sto")
             if not os.path.exists(uniprot_msa_path):
                 chain_id = os.path.basename(os.path.normpath(alignment_dir))
-                raise ValueError(
-                    f"Missing 'uniprot_hits.sto' for {chain_id}. " f"This is required for Multimer MSA pairing."
-                )
+                raise ValueError(f"Missing 'uniprot_hits.sto' for {chain_id}. " f"This is required for Multimer MSA pairing.")
 
             with open(uniprot_msa_path, "r") as fp:
                 uniprot_msa_string = fp.read()

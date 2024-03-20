@@ -28,7 +28,12 @@ class Hmmsearch(object):
     """Python wrapper of the hmmsearch binary."""
 
     def __init__(
-        self, *, binary_path: str, hmmbuild_binary_path: str, database_path: str, flags: Optional[Sequence[str]] = None
+        self,
+        *,
+        binary_path: str,
+        hmmbuild_binary_path: str,
+        database_path: str,
+        flags: Optional[Sequence[str]] = None,
     ):
         """Initializes the Python hmmsearch wrapper.
 
@@ -91,7 +96,12 @@ class Hmmsearch(object):
             with open(hmm_input_path, "w") as f:
                 f.write(hmm)
 
-            cmd = [self.binary_path, "--noali", "--cpu", "8"]  # Don't include the alignment in stdout.
+            cmd = [
+                self.binary_path,
+                "--noali",
+                "--cpu",
+                "8",
+            ]  # Don't include the alignment in stdout.
             # If adding flags, we have to do so before the output and input:
             if self.flags:
                 cmd.extend(self.flags)
@@ -111,9 +121,7 @@ class Hmmsearch(object):
                 retcode = process.wait()
 
             if retcode:
-                raise RuntimeError(
-                    "hmmsearch failed:\nstdout:\n%s\n\nstderr:\n%s\n" % (stdout.decode("utf-8"), stderr.decode("utf-8"))
-                )
+                raise RuntimeError("hmmsearch failed:\nstdout:\n%s\n\nstderr:\n%s\n" % (stdout.decode("utf-8"), stderr.decode("utf-8")))
 
             with open(out_path) as f:
                 out_msa = f.read()

@@ -249,9 +249,7 @@ class MultiProcessTestCase(unittest.TestCase):
                 # Check if any subprocess exited with an error early
                 for i, p in enumerate(self.processes):
                     if p.exitcode == MultiProcessTestCase.TEST_ERROR_EXIT_CODE:
-                        logger.error(
-                            f"Process {i} terminated with exit code {p.exitcode}, terminating remaining processes"
-                        )
+                        logger.error(f"Process {i} terminated with exit code {p.exitcode}, terminating remaining processes")
                         active_children = torch.multiprocessing.active_children()
                         for ac in active_children:
                             ac.terminate()
@@ -306,9 +304,7 @@ class MultiProcessTestCase(unittest.TestCase):
         first_process = self.processes[0]
 
         # TODO: Enhance
-        errored_processes = [
-            (i, p) for i, p in enumerate(self.processes) if p.exitcode == MultiProcessTestCase.TEST_ERROR_EXIT_CODE
-        ]
+        errored_processes = [(i, p) for i, p in enumerate(self.processes) if p.exitcode == MultiProcessTestCase.TEST_ERROR_EXIT_CODE]
         if errored_processes:
             error = ""
             for i, proc in errored_processes:

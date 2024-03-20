@@ -1094,9 +1094,7 @@ class Rigid:
 
     def compose_jit(self, r: Rigid) -> Rigid:
         if inductor.is_enabled():
-            new_rot_mats, new_trans = rigid_compose(
-                self._rots.get_rot_mats(), r._rots.get_rot_mats(), r._trans, self._trans
-            )
+            new_rot_mats, new_trans = rigid_compose(self._rots.get_rot_mats(), r._rots.get_rot_mats(), r._trans, self._trans)
             return Rigid(Rotation(rot_mats=new_rot_mats, quats=None), new_trans)
         else:
             return self.compose(r)

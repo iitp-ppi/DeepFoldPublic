@@ -32,7 +32,13 @@ def dump_args(func):
                     ts[k] = tuple(v.shape)
             func_args_str = ", ".join(map("{0[0]}: {0[1]!r}".format, ts.items()))
             s = "│" * _CNT
-            print(s, "┌", f"{func.__module__}.{func.__qualname__} <- ( {func_args_str} )", file=sys.stderr, sep="")
+            print(
+                s,
+                "┌",
+                f"{func.__module__}.{func.__qualname__} <- ( {func_args_str} )",
+                file=sys.stderr,
+                sep="",
+            )
         ret = func(*args, **kwargs)
         if get_rank() == 0:
             ts = []
@@ -44,7 +50,13 @@ def dump_args(func):
                 ts.append((str(type(ret)), tuple(ret.shape)))
             func_ret_str = ", ".join(map("{0[0]!r}".format, ts))
             s = "│" * _CNT
-            print(s, "└", f"{func.__module__}.{func.__qualname__} -> ( {func_ret_str} )", file=sys.stderr, sep="")
+            print(
+                s,
+                "└",
+                f"{func.__module__}.{func.__qualname__} -> ( {func_ret_str} )",
+                file=sys.stderr,
+                sep="",
+            )
             _CNT -= 1
         return ret
 

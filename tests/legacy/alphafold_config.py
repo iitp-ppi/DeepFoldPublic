@@ -90,8 +90,14 @@ CONFIG_DIFFS = {
         "model.embeddings_and_evoformer.template.enabled": True,
         "model.heads.predicted_aligned_error.weight": 0.1,
     },
-    "model_3_ptm": {"data.common.max_extra_msa": 5120, "model.heads.predicted_aligned_error.weight": 0.1},
-    "model_4_ptm": {"data.common.max_extra_msa": 5120, "model.heads.predicted_aligned_error.weight": 0.1},
+    "model_3_ptm": {
+        "data.common.max_extra_msa": 5120,
+        "model.heads.predicted_aligned_error.weight": 0.1,
+    },
+    "model_4_ptm": {
+        "data.common.max_extra_msa": 5120,
+        "model.heads.predicted_aligned_error.weight": 0.1,
+    },
     "model_5_ptm": {"model.heads.predicted_aligned_error.weight": 0.1},
     "model_1_multimer_v3": {},
     "model_2_multimer_v3": {},
@@ -344,7 +350,12 @@ CONFIG = omegaconf.DictConfig(
                 "eval_dropout": False,
             },
             "heads": {
-                "distogram": {"first_break": 2.3125, "last_break": 21.6875, "num_bins": 64, "weight": 0.3},
+                "distogram": {
+                    "first_break": 2.3125,
+                    "last_break": 21.6875,
+                    "num_bins": 64,
+                    "weight": 0.3,
+                },
                 "predicted_aligned_error": {
                     # `num_bins - 1` bins uniformly space the
                     # [0, max_error_bin A] range.
@@ -366,7 +377,11 @@ CONFIG = omegaconf.DictConfig(
                 },
                 "structure_module": {
                     "num_layer": 8,
-                    "fape": {"clamp_distance": 10.0, "clamp_type": "relu", "loss_unit_distance": 10.0},
+                    "fape": {
+                        "clamp_distance": 10.0,
+                        "clamp_type": "relu",
+                        "loss_unit_distance": 10.0,
+                    },
                     "angle_norm_weight": 0.01,
                     "chi_weight": 0.5,
                     "clash_overlap_tolerance": 1.5,
@@ -483,7 +498,12 @@ CONFIG_MULTIMER = omegaconf.DictConfig(
                 "extra_msa_stack_num_block": 4,
                 "num_msa": 508,
                 "num_extra_msa": 2048,
-                "masked_msa": {"profile_prob": 0.1, "replace_fraction": 0.15, "same_prob": 0.1, "uniform_prob": 0.1},
+                "masked_msa": {
+                    "profile_prob": 0.1,
+                    "replace_fraction": 0.15,
+                    "same_prob": 0.1,
+                    "uniform_prob": 0.1,
+                },
                 "use_chain_relative": True,
                 "max_relative_chain": 2,
                 "max_relative_idx": 32,
@@ -552,7 +572,12 @@ CONFIG_MULTIMER = omegaconf.DictConfig(
                 "eval_dropout": False,
             },
             "heads": {
-                "distogram": {"first_break": 2.3125, "last_break": 21.6875, "num_bins": 64, "weight": 0.3},
+                "distogram": {
+                    "first_break": 2.3125,
+                    "last_break": 21.6875,
+                    "num_bins": 64,
+                    "weight": 0.3,
+                },
                 "experimentally_resolved": {
                     "filter_by_resolution": True,
                     "max_resolution": 3.0,

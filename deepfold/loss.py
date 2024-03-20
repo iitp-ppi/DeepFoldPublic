@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import deepfold.common.residue_constants as rc
 from deepfold.config import LossConfig
 from deepfold.utils.rigid_utils import Rigid, Rotation
-from deepfold.utils.tensor_utils import tensor_tree_map, tree_map
+from deepfold.utils.tensor_utils import masked_mean, tensor_tree_map, tree_map
 
 array_tree_map = partial(tree_map, leaf_type=np.ndarray)
 
@@ -31,6 +31,7 @@ class AlphaFoldLoss(nn.Module):
         self.experimentally_resolved_loss_config = config.experimentally_resolved_loss_config
         self.violation_loss_config = config.violation_loss_config
         self.tm_loss_config = config.tm_loss_config
+        self.chain_center_of_mass_config = config.chain_center_of_mass_config
 
     def forward(
         self,
@@ -135,6 +136,7 @@ class AlphaFoldLoss(nn.Module):
         losses["violation"] = violation_loss(
             violations=outputs["violations"],
             atom14_atom_exists=batch["atom14_atom_exists"],
+            average_clashes=self.violation_loss_config.average_clashes,
             eps=self.violation_loss_config.eps,
         )
 
@@ -152,21 +154,32 @@ class AlphaFoldLoss(nn.Module):
                 eps=self.tm_loss_config.eps,
             )
 
+        if self.chain_center_of_mass_config.enabled:
+            losses["chain_center_of_mass"] = chain_center_of_mass_loss(
+                all_atom_pred_pos=outputs["final_atom_positions"],
+                all_atom_positions=batch["all_atom_positions"],
+                all_atom_mask=batch["all_atom_mask"],
+                asym_id=batch["asym_id"],
+                weight=self.chain_center_of_mass_config.weight,
+            )
+
         for loss in losses.values():
             assert loss.size() == (batch_size,)
 
+        # fmt: off
         weighted_losses = {}
         weighted_losses["fape"] = losses["fape"] * self.fape_loss_config.weight
         weighted_losses["supervised_chi"] = losses["supervised_chi"] * self.supervised_chi_loss_config.weight
         weighted_losses["distogram"] = losses["distogram"] * self.distogram_loss_config.weight
         weighted_losses["masked_msa"] = losses["masked_msa"] * self.masked_msa_loss_config.weight
         weighted_losses["plddt_loss"] = losses["plddt_loss"] * self.plddt_loss_config.weight
-        weighted_losses["experimentally_resolved"] = (
-            losses["experimentally_resolved"] * self.experimentally_resolved_loss_config.weight
-        )
+        weighted_losses["experimentally_resolved"] = losses["experimentally_resolved"] * self.experimentally_resolved_loss_config.weight
         weighted_losses["violation"] = losses["violation"] * self.violation_loss_config.weight
         if self.tm_loss_config.enabled:
             weighted_losses["tm"] = losses["tm"] * self.tm_loss_config.weight
+        if self.chain_center_of_mass_config.enabled:
+            weighted_losses["chain_center_of_mass"] = losses["chain_center_of_mass"]  # TODO: Move weight to here
+        # fmt: on
 
         for name in list(weighted_losses.keys()):
             loss = weighted_losses[name]
@@ -178,11 +191,8 @@ class AlphaFoldLoss(nn.Module):
         weighted_total_loss = sum(weighted_losses.values())
 
         # "To decrease the relative importance of short sequences,
-        # we multiply the final loss of each training example
-        # by the square root of the number of residues after cropping.
-        # This implies equal weighting for all proteins that
-        # are longer than the crop size,
-        # and a square-root penalty for the shorter ones."
+        # we multiply the final loss of each training example by the square root of the number of residues after cropping.
+        # This implies equal weighting for all proteins that are longer than the crop size, and a square-root penalty for the shorter ones."
         assert batch["seq_length"].size() == (batch_size,)
         seq_length = batch["seq_length"].float()
         crop_size = torch.ones_like(seq_length) * batch["aatype"].size(1)
@@ -336,9 +346,9 @@ def sidechain_loss(
     length_scale: float = 10.0,
     eps: float = 1e-4,
 ) -> torch.Tensor:
-    renamed_gt_frames = (
-        1.0 - alt_naming_is_better[..., None, None, None]
-    ) * rigidgroups_gt_frames + alt_naming_is_better[..., None, None, None] * rigidgroups_alt_gt_frames
+    renamed_gt_frames = (1.0 - alt_naming_is_better[..., None, None, None]) * rigidgroups_gt_frames + alt_naming_is_better[
+        ..., None, None, None
+    ] * rigidgroups_alt_gt_frames
 
     sidechain_frames = sidechain_frames[:, -1]
     batch_dims = sidechain_frames.shape[:-4]
@@ -454,13 +464,13 @@ def supervised_chi_loss(
     sq_chi_error_shifted = torch.sum((true_chi_shifted - pred_angles) ** 2, dim=-1)
     sq_chi_error = torch.minimum(sq_chi_error, sq_chi_error_shifted)
 
-    sq_chi_loss = _masked_mean(chi_mask[..., None, :, :], sq_chi_error, dim=(-1, -2, -3))
+    sq_chi_loss = masked_mean(chi_mask[..., None, :, :], sq_chi_error, dim=(-1, -2, -3))
 
     loss = chi_weight * sq_chi_loss
 
     angle_norm = torch.sqrt(torch.sum(unnormalized_angles_sin_cos**2, dim=-1) + eps)
     norm_error = torch.abs(angle_norm - 1.0)
-    angle_norm_loss = _masked_mean(seq_mask[..., None, :, None], norm_error, dim=(-1, -2, -3))
+    angle_norm_loss = masked_mean(seq_mask[..., None, :, None], norm_error, dim=(-1, -2, -3))
 
     loss = loss + angle_norm_weight * angle_norm_loss
 
@@ -589,12 +599,7 @@ def lddt(
             dim=-1,
         )
     )
-    dists_to_score = (
-        (dmat_true < cutoff)
-        * all_atom_mask
-        * torch.swapdims(all_atom_mask, -2, -1)
-        * (1.0 - torch.eye(n, device=all_atom_mask.device))
-    )
+    dists_to_score = (dmat_true < cutoff) * all_atom_mask * torch.swapdims(all_atom_mask, -2, -1) * (1.0 - torch.eye(n, device=all_atom_mask.device))
 
     dist_l1 = torch.abs(dmat_true - dmat_pred)
 
@@ -899,12 +904,8 @@ def between_residue_bond_loss(
 
     # The C-N bond to proline has slightly different length because of the ring.
     next_is_proline = aatype[..., 1:] == rc.resname_to_idx["PRO"]
-    gt_length = (~next_is_proline) * rc.between_res_bond_length_c_n[
-        0
-    ] + next_is_proline * rc.between_res_bond_length_c_n[1]
-    gt_stddev = (~next_is_proline) * rc.between_res_bond_length_stddev_c_n[
-        0
-    ] + next_is_proline * rc.between_res_bond_length_stddev_c_n[1]
+    gt_length = (~next_is_proline) * rc.between_res_bond_length_c_n[0] + next_is_proline * rc.between_res_bond_length_c_n[1]
+    gt_stddev = (~next_is_proline) * rc.between_res_bond_length_stddev_c_n[0] + next_is_proline * rc.between_res_bond_length_stddev_c_n[1]
     c_n_bond_length_error = torch.sqrt(eps + (c_n_bond_length - gt_length) ** 2)
     c_n_loss_per_residue = torch.relu(c_n_bond_length_error - tolerance_factor_soft * gt_stddev)
     mask = this_c_mask * next_n_mask * has_no_gap_mask
@@ -1047,9 +1048,7 @@ def between_residue_clash_loss(
 
     # Compute the lower bound for the allowed distances.
     # shape (N, N, 14, 14)
-    dists_lower_bound = dists_mask * (
-        atom14_atom_radius[..., :, None, :, None] + atom14_atom_radius[..., None, :, None, :]
-    )
+    dists_lower_bound = dists_mask * (atom14_atom_radius[..., :, None, :, None] + atom14_atom_radius[..., None, :, None, :])
 
     # Compute the error.
     # shape (N, N, 14, 14)
@@ -1286,7 +1285,7 @@ def extreme_ca_ca_distance_violations(
     ca_ca_distance = torch.sqrt(eps + torch.sum((this_ca_pos - next_ca_pos) ** 2, dim=-1))
     violations = (ca_ca_distance - rc.ca_ca) > max_angstrom_tolerance
     mask = this_ca_mask * next_ca_mask * has_no_gap_mask
-    return _masked_mean(mask, violations, -1)
+    return masked_mean(mask, violations, -1)
 
 
 def compute_violation_metrics(
@@ -1302,12 +1301,12 @@ def compute_violation_metrics(
     )
     violation_metrics = {}
     violation_metrics["violations_extreme_ca_ca_distance"] = extreme_ca_ca_violations
-    violation_metrics["violations_between_residue_bond"] = _masked_mean(
+    violation_metrics["violations_between_residue_bond"] = masked_mean(
         mask=batch["seq_mask"],
         value=violations["between_residues"]["connections_per_residue_violation_mask"],
         dim=-1,
     )
-    violation_metrics["violations_between_residue_clash"] = _masked_mean(
+    violation_metrics["violations_between_residue_clash"] = masked_mean(
         mask=batch["seq_mask"],
         value=torch.max(
             violations["between_residues"]["clashes_per_atom_clash_mask"],
@@ -1315,7 +1314,7 @@ def compute_violation_metrics(
         )[0],
         dim=-1,
     )
-    violation_metrics["violations_within_residue"] = _masked_mean(
+    violation_metrics["violations_within_residue"] = masked_mean(
         mask=batch["seq_mask"],
         value=torch.max(
             violations["within_residues"]["per_atom_violations"],
@@ -1323,7 +1322,7 @@ def compute_violation_metrics(
         )[0],
         dim=-1,
     )
-    violation_metrics["violations_per_residue"] = _masked_mean(
+    violation_metrics["violations_per_residue"] = masked_mean(
         mask=batch["seq_mask"],
         value=violations["total_per_residue_violations_mask"],
         dim=-1,
@@ -1348,16 +1347,24 @@ def compute_violation_metrics_np(
 def violation_loss(
     violations: Dict[str, torch.Tensor],
     atom14_atom_exists: torch.Tensor,
+    average_clashes: bool = False,
     eps: float = 1e-6,
 ) -> torch.Tensor:
     num_atoms = torch.sum(atom14_atom_exists, dim=(-1, -2))
 
-    l_clash = torch.sum(
-        violations["between_residues"]["clashes_per_atom_loss_sum"]
-        + violations["within_residues"]["per_atom_loss_sum"],
-        dim=(-1, -2),
-    )
-    l_clash = l_clash / (eps + num_atoms)
+    per_atom_clash = violations["between_residues"]["clashes_per_atom_loss_sum"] + violations["within_residues"]["per_atom_loss_sum"]
+
+    if average_clashes:
+        num_clash = violations["between_residues"]["clashes_per_atom_num_clash"] + violations["within_residues"]["per_atom_num_clash"]
+
+    l_clash = torch.sum(per_atom_clash) / (eps + num_atoms)
+
+    # l_clash = torch.sum(
+    #     violations["between_residues"]["clashes_per_atom_loss_sum"]
+    #     + violations["within_residues"]["per_atom_loss_sum"],
+    #     dim=(-1, -2),
+    # )
+    # l_clash = l_clash / (eps + num_atoms)
 
     loss = (
         violations["between_residues"]["bonds_c_n_loss_mean"]
@@ -1442,13 +1449,13 @@ def compute_renamed_ground_truth(
     fp_type = atom14_pred_positions.dtype
     alt_naming_is_better = (alt_per_res_lddt < per_res_lddt).type(fp_type)
 
-    renamed_atom14_gt_positions = (
-        1.0 - alt_naming_is_better[..., None, None]
-    ) * atom14_gt_positions + alt_naming_is_better[..., None, None] * atom14_alt_gt_positions
+    renamed_atom14_gt_positions = (1.0 - alt_naming_is_better[..., None, None]) * atom14_gt_positions + alt_naming_is_better[
+        ..., None, None
+    ] * atom14_alt_gt_positions
 
-    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[..., None]) * atom14_gt_exists + alt_naming_is_better[
-        ..., None
-    ] * batch["atom14_alt_gt_exists"]
+    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[..., None]) * atom14_gt_exists + alt_naming_is_better[..., None] * batch[
+        "atom14_alt_gt_exists"
+    ]
 
     return {
         "alt_naming_is_better": alt_naming_is_better,
@@ -1457,11 +1464,85 @@ def compute_renamed_ground_truth(
     }
 
 
-def _masked_mean(
-    mask: torch.Tensor,
-    value: torch.Tensor,
-    dim: Union[int, Tuple[int, ...]],
-    eps: float = 1e-4,
+def chain_center_of_mass_loss(
+    all_atom_pred_pos: torch.Tensor,
+    all_atom_positions: torch.Tensor,
+    all_atom_mask: torch.Tensor,
+    asym_id: torch.Tensor,
+    clamp_distance: float = -4.0,
+    weight: float = 0.05,
+    eps: float = 1e-10,
 ) -> torch.Tensor:
-    mask = mask.expand(*value.shape)
-    return torch.sum(mask * value, dim=dim) / (eps + torch.sum(mask, dim=dim))
+    """Computes chain centre-of-mass loss.
+
+    Implements section 2.5, eqn 1 in the Multimer paper.
+
+    Args:
+        all_atom_pred_pos:
+            [batch, N_pts, 37, 3] All-atom predicted atom positions
+        all_atom_positions:
+            [batch, N_pts, 37, 3] Ground truth all-atom positions
+        all_atom_mask:
+            [batch, N_pts, 37] All-atom positions mask
+        asym_id:
+            [batch, N_pts] Chain asym IDs
+        clamp_distance:
+            Cutoff above which distance errors are disregarded
+        weight:
+            Weight for loss
+        eps:
+            Small value used to regularize denominators
+    Returns:
+        [batch*] loss tensor
+    """
+    ca_pos = rc.atom_order["CA"]
+    all_atom_pred_pos = all_atom_pred_pos[..., ca_pos, :]
+    all_atom_positions = all_atom_positions[..., ca_pos, :]
+    all_atom_mask = all_atom_mask[..., ca_pos : (ca_pos + 1)]  # keep dim
+
+    one_hot = torch.nn.functional.one_hot(asym_id.long()).to(dtype=all_atom_mask.dtype)
+    one_hot = one_hot * all_atom_mask
+    chain_pos_mask = one_hot.transpose(-2, -1)
+    chain_exists = torch.any(chain_pos_mask, dim=-1).to(dtype=all_atom_positions.dtype)
+
+    def get_chain_center_of_mass(pos: torch.Tensor) -> torch.Tensor:
+        center_sum = (chain_pos_mask[..., None] * pos[..., None, :, :]).sum(dim=-2)
+        centers = center_sum / (torch.sum(chain_pos_mask, dim=-1, keepdim=True) + eps)
+        return centers
+
+    pred_centers = get_chain_center_of_mass(all_atom_pred_pos)
+    # pred_centers: [batch, N_chain, 3]
+    true_centers = get_chain_center_of_mass(all_atom_positions)
+    # true_centers: [batch, N_chain, 3]
+
+    pred_dists = euclidean_distance(pred_centers[..., None, :], pred_centers[..., :, None], epsilon=eps)
+    true_dists = euclidean_distance(true_centers[..., None, :], true_centers[..., :, None], epsilon=eps)
+    losses = torch.clamp((weight * (pred_dists - true_dists - clamp_distance)), max=0) ** 2
+    loss_mask = chain_exists[..., :, None] * chain_exists[..., None, :]
+
+    loss = masked_mean(loss_mask, losses, dim=(-1, -2))
+    return loss
+
+
+def euclidean_distance(
+    vec1: torch.Tensor,
+    vec2: torch.Tensor,
+    eps: float = 1e-6,  # 1e-12
+) -> Union[float, torch.Tensor]:
+    """Computes euclidean distance between 'vec1' and 'vec2'.
+
+    Args:
+        vec1: Tensor to compute distance.
+        vec2: Tensor to compute distance. It should be broadcast compatible with 'vec1'
+        eps: distance is clipped from below to be at least epsilon
+
+    Returns:
+        Array of square euclidean distances.
+        Shape will be result of broadcasting 'vec1' and 'vec2'
+    """
+    difference = vec1 - vec2
+    distance_sq = difference.dot(difference)
+    if eps:
+        distance_sq = torch.clamp(distance, min=eps)
+    distance = torch.sqrt(distance_sq)
+    return distance

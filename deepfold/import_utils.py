@@ -54,10 +54,7 @@ def _process_translations_dict(d, top_layer=True):
     for k, v in d.items():
         if type(v) == dict:
             prefix = _NPZ_KEY_PREFIX if top_layer else ""
-            sub_flat = {
-                (prefix + "/".join([k, k_prime])): v_prime
-                for k_prime, v_prime in _process_translations_dict(v, top_layer=False).items()
-            }
+            sub_flat = {(prefix + "/".join([k, k_prime])): v_prime for k_prime, v_prime in _process_translations_dict(v, top_layer=False).items()}
             flat.update(sub_flat)
         else:
             k = "/" + k if not top_layer else k
@@ -85,7 +82,10 @@ def stacked(param_dict_list, out=None):
             stacked(v, out=out[k])
         elif type(v[0]) is Param:
             stacked_param = Param(
-                param=[param.param for param in v], param_type=v[0].param_type, stacked=True, swap=v[0].swap
+                param=[param.param for param in v],
+                param_type=v[0].param_type,
+                stacked=True,
+                swap=v[0].swap,
             )
 
             out[k] = stacked_param
@@ -470,11 +470,7 @@ def import_jax_weights_(
             "single_layer_norm": LayerNormParams(model.structure_module.layer_norm_s),
             "initial_projection": LinearParams(model.structure_module.linear_in),
             "pair_layer_norm": LayerNormParams(model.structure_module.layer_norm_z),
-            "fold_iteration": (
-                MultimerFoldIterationParams(model.structure_module)
-                if is_multimer
-                else FoldIterationParams(model.structure_module)
-            ),
+            "fold_iteration": (MultimerFoldIterationParams(model.structure_module) if is_multimer else FoldIterationParams(model.structure_module)),
         },
         "predicted_lddt_head": {
             "input_layer_norm": LayerNormParams(model.auxiliary_heads.plddt.layer_norm),

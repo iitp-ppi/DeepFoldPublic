@@ -67,10 +67,7 @@ class Kalign:
 
         for s in sequences:
             if len(s) < 6:
-                raise ValueError(
-                    "Kalign requires all sequences to be at least 6 "
-                    "residues long. Got %s (%d residues)." % (s, len(s))
-                )
+                raise ValueError("Kalign requires all sequences to be at least 6 " "residues long. Got %s (%d residues)." % (s, len(s)))
 
         with utils.tmpdir_manager() as query_tmp_dir:
             input_fasta_path = os.path.join(query_tmp_dir, "input.fasta")
@@ -102,9 +99,7 @@ class Kalign:
                 )
 
             if retcode:
-                raise RuntimeError(
-                    "Kalign failed\nstdout:\n%s\n\nstderr:\n%s\n" % (stdout.decode("utf-8"), stderr.decode("utf-8"))
-                )
+                raise RuntimeError("Kalign failed\nstdout:\n%s\n\nstderr:\n%s\n" % (stdout.decode("utf-8"), stderr.decode("utf-8")))
 
             with open(output_a3m_path) as f:
                 a3m = f.read()

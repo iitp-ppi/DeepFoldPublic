@@ -217,9 +217,7 @@ def make_dummy_msa_feats(input_sequence: str) -> FeatureDict:
     return msa_features
 
 
-def make_sequence_features_with_custom_template(
-    sequence: str, mmcif_path: str, pdb_id: str, chain_id: str, kalign_binary_path: str
-) -> FeatureDict:
+def make_sequence_features_with_custom_template(sequence: str, mmcif_path: str, pdb_id: str, chain_id: str, kalign_binary_path: str) -> FeatureDict:
     """
     process a single fasta file using features derived from a single template rather than an alignment
     """
@@ -721,9 +719,7 @@ class AlignmentRunner:
 
         if self.jackhmmer_uniref90_runner is not None:
             jackhmmer_uniref90_result = self.jackhmmer_uniref90_runner.query(fasta_path)[0]
-            uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(
-                jackhmmer_uniref90_result["sto"], max_sequences=self.uniref_max_hits
-            )
+            uniref90_msa_as_a3m = parsers.convert_stockholm_to_a3m(jackhmmer_uniref90_result["sto"], max_sequences=self.uniref_max_hits)
             uniref90_out_path = os.path.join(output_dir, "uniref90_hits.a3m")
             with open(uniref90_out_path, "w") as f:
                 f.write(uniref90_msa_as_a3m)
@@ -736,9 +732,7 @@ class AlignmentRunner:
 
         if self.jackhmmer_mgnify_runner is not None:
             jackhmmer_mgnify_result = self.jackhmmer_mgnify_runner.query(fasta_path)[0]
-            mgnify_msa_as_a3m = parsers.convert_stockholm_to_a3m(
-                jackhmmer_mgnify_result["sto"], max_sequences=self.mgnify_max_hits
-            )
+            mgnify_msa_as_a3m = parsers.convert_stockholm_to_a3m(jackhmmer_mgnify_result["sto"], max_sequences=self.mgnify_max_hits)
             mgnify_out_path = os.path.join(output_dir, "mgnify_hits.a3m")
             with open(mgnify_out_path, "w") as f:
                 f.write(mgnify_msa_as_a3m)

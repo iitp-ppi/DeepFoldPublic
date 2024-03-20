@@ -52,11 +52,7 @@ def main():
     parser.add_argument("--alignment_dir", type=str, help="path to alignment dir")
     args = parser.parse_args()
     alignment_dir = args.alignment_dir
-    stockholm_files = [
-        i
-        for i in os.listdir(alignment_dir)
-        if all([i.endswith(".sto"), "hmm_output" not in i, "uniprot_hits" not in i])
-    ]
+    stockholm_files = [i for i in os.listdir(alignment_dir) if all([i.endswith(".sto"), "hmm_output" not in i, "uniprot_hits" not in i])]
     a3m_files = [i for i in os.listdir(alignment_dir) if i.endswith(".a3m")]
     msa_data = run_parse_all_msa_files_multiprocessing(stockholm_files, a3m_files, alignment_dir)
 

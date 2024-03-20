@@ -5,10 +5,7 @@ import jax
 import numpy as np
 import torch
 
-from deepfold.model.alphafold.nn.triangular_multiplicative_update import (
-    TriangleMultiplicationIncoming,
-    TriangleMultiplicationOutgoing,
-)
+from deepfold.model.alphafold.nn.triangular_multiplicative_update import TriangleMultiplicationIncoming, TriangleMultiplicationOutgoing
 from deepfold.model.alphafold.utils import import_weights
 from deepfold.utils.tensor_utils import tree_map
 from tests import compare_utils
@@ -44,7 +41,7 @@ class TestTriangularMultiplicativeUpdate(unittest.TestCase):
             config = compare_utils.get_alphafold_config()
             c_e = config.model.embeddings_and_evoformer.evoformer
             tri_mul = modules.TriangleMultiplication(
-                c_e.triangle_multiplication_incoming if incoming else c_e.triangle_multiplication_outgoing,
+                (c_e.triangle_multiplication_incoming if incoming else c_e.triangle_multiplication_outgoing),
                 config.model.global_config,
                 name=name,
             )

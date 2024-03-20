@@ -63,7 +63,8 @@ class Rigid3Array:
     def identity(cls, shape, dtype=jnp.float32) -> Rigid3Array:
         """Return identity Rigid3Array of given shape."""
         return cls(
-            rotation_matrix.Rot3Array.identity(shape, dtype=dtype), vector.Vec3Array.zeros(shape, dtype=dtype)
+            rotation_matrix.Rot3Array.identity(shape, dtype=dtype),
+            vector.Vec3Array.zeros(shape, dtype=dtype),
         )  # pytype: disable=wrong-arg-count  # trace-all-classes
 
     def scale_translation(self, factor: Float) -> Rigid3Array:

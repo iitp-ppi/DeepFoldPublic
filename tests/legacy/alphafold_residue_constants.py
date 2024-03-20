@@ -34,7 +34,12 @@ ca_ca = 3.80209737096
 chi_angles_atoms = {
     "ALA": [],
     # Chi5 in arginine is always 0 +- 5 degrees, so ignore it.
-    "ARG": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "NE"], ["CG", "CD", "NE", "CZ"]],
+    "ARG": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "NE"],
+        ["CG", "CD", "NE", "CZ"],
+    ],
     "ASN": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "ASP": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "OD1"]],
     "CYS": [["N", "CA", "CB", "SG"]],
@@ -44,7 +49,12 @@ chi_angles_atoms = {
     "HIS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "ND1"]],
     "ILE": [["N", "CA", "CB", "CG1"], ["CA", "CB", "CG1", "CD1"]],
     "LEU": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
-    "LYS": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"], ["CB", "CG", "CD", "CE"], ["CG", "CD", "CE", "NZ"]],
+    "LYS": [
+        ["N", "CA", "CB", "CG"],
+        ["CA", "CB", "CG", "CD"],
+        ["CB", "CG", "CD", "CE"],
+        ["CG", "CD", "CE", "NZ"],
+    ],
     "MET": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "SD"], ["CB", "CG", "SD", "CE"]],
     "PHE": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD1"]],
     "PRO": [["N", "CA", "CB", "CG"], ["CA", "CB", "CG", "CD"]],
@@ -348,7 +358,22 @@ residue_atoms = {
     "PRO": ["C", "CA", "CB", "CG", "CD", "N", "O"],
     "SER": ["C", "CA", "CB", "N", "O", "OG"],
     "THR": ["C", "CA", "CB", "CG2", "N", "O", "OG1"],
-    "TRP": ["C", "CA", "CB", "CG", "CD1", "CD2", "CE2", "CE3", "CZ2", "CZ3", "CH2", "N", "NE1", "O"],
+    "TRP": [
+        "C",
+        "CA",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "CE2",
+        "CE3",
+        "CZ2",
+        "CZ3",
+        "CH2",
+        "N",
+        "NE1",
+        "O",
+    ],
     "TYR": ["C", "CA", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "N", "O", "OH"],
     "VAL": ["C", "CA", "CB", "CG1", "CG2", "N", "O"],
 }
@@ -379,9 +404,7 @@ BondAngle = collections.namedtuple("BondAngle", ["atom1_name", "atom2_name", "at
 
 
 @functools.lru_cache(maxsize=None)
-def load_stereo_chemical_props() -> (
-    Tuple[Mapping[str, List[Bond]], Mapping[str, List[Bond]], Mapping[str, List[BondAngle]]]
-):
+def load_stereo_chemical_props() -> Tuple[Mapping[str, List[Bond]], Mapping[str, List[Bond]], Mapping[str, List[BondAngle]]]:
     """Load stereo_chemical_props.txt into a nice structure.
 
     Load literature values for bond lengths and bond angles and translate
@@ -422,7 +445,13 @@ def load_stereo_chemical_props() -> (
         if resname not in residue_bond_angles:
             residue_bond_angles[resname] = []
         residue_bond_angles[resname].append(
-            BondAngle(atom1, atom2, atom3, float(angle_degree) / 180.0 * np.pi, float(stddev_degree) / 180.0 * np.pi)
+            BondAngle(
+                atom1,
+                atom2,
+                atom3,
+                float(angle_degree) / 180.0 * np.pi,
+                float(stddev_degree) / 180.0 * np.pi,
+            )
         )
     residue_bond_angles["UNK"] = []
 
@@ -533,7 +562,22 @@ restype_name_to_atom14_names = {
     "PRO": ["N", "CA", "C", "O", "CB", "CG", "CD", "", "", "", "", "", "", ""],
     "SER": ["N", "CA", "C", "O", "CB", "OG", "", "", "", "", "", "", "", ""],
     "THR": ["N", "CA", "C", "O", "CB", "OG1", "CG2", "", "", "", "", "", "", ""],
-    "TRP": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "TRP": [
+        "N",
+        "CA",
+        "C",
+        "O",
+        "CB",
+        "CG",
+        "CD1",
+        "CD2",
+        "NE1",
+        "CE2",
+        "CE3",
+        "CZ2",
+        "CZ3",
+        "CH2",
+    ],
     "TYR": ["N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH", "", ""],
     "VAL": ["N", "CA", "C", "O", "CB", "CG1", "CG2", "", "", "", "", "", "", ""],
     "UNK": ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
@@ -544,7 +588,28 @@ restype_name_to_atom14_names = {
 
 # This is the standard residue order when coding AA type as a number.
 # Reproduce it by taking 3-letter AA codes and sorting them alphabetically.
-restypes = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+restypes = [
+    "A",
+    "R",
+    "N",
+    "D",
+    "C",
+    "Q",
+    "E",
+    "G",
+    "H",
+    "I",
+    "L",
+    "K",
+    "M",
+    "F",
+    "P",
+    "S",
+    "T",
+    "W",
+    "Y",
+    "V",
+]
 restype_order = {restype: i for i, restype in enumerate(restypes)}
 restype_num = len(restypes)  # := 20.
 unk_restype_index = restype_num  # Catch-all index for unknown restypes.
@@ -575,10 +640,7 @@ def sequence_to_onehot(sequence: str, mapping: Mapping[str, int], map_unknown_to
     num_entries = max(mapping.values()) + 1
 
     if sorted(set(mapping.values())) != list(range(num_entries)):
-        raise ValueError(
-            "The mapping must have values from 0 to num_unique_aas-1 "
-            "without any gaps. Got: %s" % sorted(mapping.values())
-        )
+        raise ValueError("The mapping must have values from 0 to num_unique_aas-1 " "without any gaps. Got: %s" % sorted(mapping.values()))
 
     one_hot_arr = np.zeros((len(sequence), num_entries), dtype=np.int32)
 
@@ -725,9 +787,7 @@ ID_TO_HHBLITS_AA = {
 }
 
 restypes_with_x_and_gap = restypes + ["X", "-"]
-MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(
-    restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap))
-)
+MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap)))
 
 
 def _make_standard_atom_mask() -> np.ndarray:
@@ -776,9 +836,7 @@ chi_atom_2_one_hot = chi_angle_atom(2)
 # An array like chi_angles_atoms but using indices rather than names.
 chi_angles_atom_indices = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
 chi_angles_atom_indices = tree.map_structure(lambda atom_name: atom_order[atom_name], chi_angles_atom_indices)
-chi_angles_atom_indices = np.array(
-    [chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices]
-)
+chi_angles_atom_indices = np.array([chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices])
 
 # Mapping from (res_name, atom_name) pairs to the atom's chi group index
 # and atom index within that group.
@@ -846,7 +904,9 @@ def _make_rigid_group_constants():
 
         # phi-frame to backbone
         mat = _make_rigid_transformation_4x4(
-            ex=atom_positions["N"] - atom_positions["CA"], ey=np.array([1.0, 0.0, 0.0]), translation=atom_positions["N"]
+            ex=atom_positions["N"] - atom_positions["CA"],
+            ey=np.array([1.0, 0.0, 0.0]),
+            translation=atom_positions["N"],
         )
         restype_rigid_group_default_frame[restype, 2, :, :] = mat
 
@@ -879,7 +939,9 @@ def _make_rigid_group_constants():
                 axis_end_atom_name = chi_angles_atoms[resname][chi_idx][2]
                 axis_end_atom_position = atom_positions[axis_end_atom_name]
                 mat = _make_rigid_transformation_4x4(
-                    ex=axis_end_atom_position, ey=np.array([-1.0, 0.0, 0.0]), translation=axis_end_atom_position
+                    ex=axis_end_atom_position,
+                    ey=np.array([-1.0, 0.0, 0.0]),
+                    translation=axis_end_atom_position,
                 )
                 restype_rigid_group_default_frame[restype, 4 + chi_idx, :, :] = mat
 

@@ -12,10 +12,7 @@ from deepfold.model.alphafold.nn.dropout import DropoutColumnwise, DropoutRowwis
 from deepfold.model.alphafold.nn.primitives import Attention, LayerNorm
 from deepfold.model.alphafold.nn.transitions import PairTransition
 from deepfold.model.alphafold.nn.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
-from deepfold.model.alphafold.nn.triangular_multiplicative_update import (
-    TriangleMultiplicationIncoming,
-    TriangleMultiplicationOutgoing,
-)
+from deepfold.model.alphafold.nn.triangular_multiplicative_update import TriangleMultiplicationIncoming, TriangleMultiplicationOutgoing
 from deepfold.utils.chunk_utils import chunk_layer
 from deepfold.utils.tensor_utils import permute_final_dims
 

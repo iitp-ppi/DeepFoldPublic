@@ -48,11 +48,7 @@ class TestImportWeights(unittest.TestCase):
             ),
             # From a stack
             (
-                torch.as_tensor(
-                    data[prefix + ("evoformer/evoformer_iteration/outer_product_mean/" "left_projection//weights")][
-                        1
-                    ].transpose(-1, -2)
-                ),
+                torch.as_tensor(data[prefix + ("evoformer/evoformer_iteration/outer_product_mean/" "left_projection//weights")][1].transpose(-1, -2)),
                 model.evoformer_stack.blocks[1].outer_product_mean.linear_1.weight,
             ),
         ]

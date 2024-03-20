@@ -82,10 +82,7 @@ class Protein:
 
     def __post_init__(self):
         if len(np.unique(self.chain_index)) > PDB_MAX_CHAINS:
-            raise ValueError(
-                f"Cannot build an instance with more than {PDB_MAX_CHAINS} "
-                "chains because these cannot be written to PDB format"
-            )
+            raise ValueError(f"Cannot build an instance with more than {PDB_MAX_CHAINS} " "chains because these cannot be written to PDB format")
 
 
 def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
@@ -123,10 +120,7 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
 
         for res in chain:
             if res.id[2] != " ":
-                raise ValueError(
-                    f"PDB contains an insertion code at chain {chain.id} and residue "
-                    f"index {res.id[1]}. These are not supported."
-                )
+                raise ValueError(f"PDB contains an insertion code at chain {chain.id} and residue " f"index {res.id[1]}. These are not supported.")
             res_shortname = rc.restype_3to1.get(res.resname, "X")
             restype_idx = rc.restype_order.get(res_shortname, rc.restype_num)
             pos = np.zeros((rc.atom_type_num, 3))
@@ -302,7 +296,12 @@ def to_pdb(prot: Protein) -> str:
         # Close the previous chain if in a multichain PDB.
         if last_chain_index != chain_index[i]:
             pdb_lines.append(
-                _chain_end(atom_index, res_1to3(aatype[i - 1]), chain_ids[chain_index[i - 1]], residue_index[i - 1])
+                _chain_end(
+                    atom_index,
+                    res_1to3(aatype[i - 1]),
+                    chain_ids[chain_index[i - 1]],
+                    residue_index[i - 1],
+                )
             )
             last_chain_index = chain_index[i]
             atom_index += 1  # Atom index increases at the TER symbol.
@@ -345,11 +344,7 @@ def to_pdb(prot: Protein) -> str:
         if should_terminate:
             # Close the chain.
             chain_end = "TER"
-            chain_termination_line = (
-                f"{chain_end:<6}{atom_index:>5}      "
-                f"{res_1to3(aatype[i]):>3} "
-                f"{chain_tag:>1}{residue_index[i]:>4}"
-            )
+            chain_termination_line = f"{chain_end:<6}{atom_index:>5}      " f"{res_1to3(aatype[i]):>3} " f"{chain_tag:>1}{residue_index[i]:>4}"
             pdb_lines.append(chain_termination_line)
             atom_index += 1
 

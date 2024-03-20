@@ -628,7 +628,12 @@ class StructureModule(nn.Module):
         if not hasattr(self, "default_frames"):
             self.register_buffer(
                 "default_frames",
-                torch.tensor(restype_rigid_group_default_frame, dtype=float_dtype, device=device, requires_grad=False),
+                torch.tensor(
+                    restype_rigid_group_default_frame,
+                    dtype=float_dtype,
+                    device=device,
+                    requires_grad=False,
+                ),
                 persistent=False,
             )
         if not hasattr(self, "group_idx"):
@@ -647,7 +652,10 @@ class StructureModule(nn.Module):
             self.register_buffer(
                 "lit_positions",
                 torch.tensor(
-                    restype_atom14_rigid_group_positions, dtype=float_dtype, device=device, requires_grad=False
+                    restype_atom14_rigid_group_positions,
+                    dtype=float_dtype,
+                    device=device,
+                    requires_grad=False,
                 ),
                 persistent=False,
             )
@@ -661,6 +669,4 @@ class StructureModule(nn.Module):
     def frames_and_literature_positions_to_atom14_pos(self, r, f):  # [*, N, 8], [*, N]
         # Lazily initialize the residue constants on the correct device
         self._init_residue_constants(r.get_rots().dtype, r.get_rots().device)
-        return frames_and_literature_positions_to_atom14_pos(
-            r, f, self.default_frames, self.group_idx, self.atom_mask, self.lit_positions
-        )
+        return frames_and_literature_positions_to_atom14_pos(r, f, self.default_frames, self.group_idx, self.atom_mask, self.lit_positions)
