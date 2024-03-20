@@ -226,6 +226,7 @@ def compute_fape(
     target_positions: torch.Tensor,
     positions_mask: torch.Tensor,
     length_scale: float,
+    pair_mask: Optional[torch.Tensor] = None,
     l1_clamp_distance: Optional[float] = None,
     eps: float = 1e-8,
 ) -> torch.Tensor:
@@ -239,6 +240,7 @@ def compute_fape(
         target_positions: Ground truth positions.           [*, N_pts, 3]
         positions_mask: Positions mask.                     [*, N_pts]
         length_scale: Length scale by which the loss is divided.
+        pair_mask: Separate intra- from inter-chain losses. [*, N_frames, N_pts]
         l1_clamp_distance: Cutoff above which distance errors are disregarded.
         eps: Small value used to regularize denominators.
 
@@ -259,19 +261,28 @@ def compute_fape(
     normed_error = normed_error * frames_mask[..., None]
     normed_error = normed_error * positions_mask[..., None, :]
 
-    # FP16-friendly averaging. Roughly equivalent to:
-    #
-    # norm_factor = (
-    #     torch.sum(frames_mask, dim=-1) *
-    #     torch.sum(positions_mask, dim=-1)
-    # )
-    # normed_error = torch.sum(normed_error, dim=(-1, -2)) / (eps + norm_factor)
-    #
-    # "roughly" because eps is necessarily duplicated in the latter
-    normed_error = torch.sum(normed_error, dim=-1)
-    normed_error = normed_error / (eps + torch.sum(frames_mask, dim=-1))[..., None]
-    normed_error = torch.sum(normed_error, dim=-1)
-    normed_error = normed_error / (eps + torch.sum(positions_mask, dim=-1))
+    if pair_mask is not None:
+        normed_error = normed_error * pair_mask
+        normed_error = torch.sum(normed_error, dim=(-1, -2))
+
+        mask = frames_mask[..., None] * positions_mask[..., None, :] * pair_mask
+        norm_factor = torch.sum(mask, dim=(-2, -1))
+
+        normed_error = normed_error / (eps + norm_factor)
+    else:
+        # FP16-friendly averaging. Roughly equivalent to:
+        #
+        # norm_factor = (
+        #     torch.sum(frames_mask, dim=-1) *
+        #     torch.sum(positions_mask, dim=-1)
+        # )
+        # normed_error = torch.sum(normed_error, dim=(-1, -2)) / (eps + norm_factor)
+        #
+        # "roughly" because eps is necessarily duplicated in the latter
+        normed_error = torch.sum(normed_error, dim=-1)
+        normed_error = normed_error / (eps + torch.sum(frames_mask, dim=-1))[..., None]
+        normed_error = torch.sum(normed_error, dim=-1)
+        normed_error = normed_error / (eps + torch.sum(positions_mask, dim=-1))
 
     return normed_error
 
@@ -280,6 +291,7 @@ def backbone_loss(
     backbone_rigid_tensor: torch.Tensor,
     backbone_rigid_mask: torch.Tensor,
     traj: torch.Tensor,
+    pair_mask: Optional[torch.Tensor] = None,
     use_clamped_fape: Optional[torch.Tensor] = None,
     clamp_distance: float = 10.0,
     loss_unit_distance: float = 10.0,
@@ -306,6 +318,7 @@ def backbone_loss(
         pred_positions=pred_aff.get_trans(),
         target_positions=gt_aff[:, None].get_trans(),
         positions_mask=backbone_rigid_mask[:, None],
+        pair_mask=pair_mask,
         l1_clamp_distance=clamp_distance,
         length_scale=loss_unit_distance,
         eps=eps,
@@ -319,6 +332,7 @@ def backbone_loss(
             pred_positions=pred_aff.get_trans(),
             target_positions=gt_aff[:, None].get_trans(),
             positions_mask=backbone_rigid_mask[:, None],
+            pair_mask=pair_mask,
             l1_clamp_distance=None,
             length_scale=loss_unit_distance,
             eps=eps,
@@ -369,6 +383,7 @@ def sidechain_loss(
         pred_positions=sidechain_atom_pos,
         target_positions=renamed_atom14_gt_positions,
         positions_mask=renamed_atom14_gt_exists,
+        pair_mask=None,
         l1_clamp_distance=clamp_distance,
         length_scale=length_scale,
         eps=eps,
@@ -383,22 +398,55 @@ def fape_loss(
     backbone_clamp_distance: float,
     backbone_loss_unit_distance: float,
     backbone_weight: float,
+    interface_clamp_distance: float,
+    interface_loss_unit_distance: float,
+    interface_weight: float,
     sidechain_clamp_distance: float,
     sidechain_length_scale: float,
     sidechain_weight: float,
     eps: float = 1e-4,
 ) -> torch.Tensor:
-    backbone_loss_value = backbone_loss(
-        backbone_rigid_tensor=batch["backbone_rigid_tensor"],
-        backbone_rigid_mask=batch["backbone_rigid_mask"],
-        traj=outputs["sm_frames"],
-        use_clamped_fape=batch.get("use_clamped_fape", None),
-        clamp_distance=backbone_clamp_distance,
-        loss_unit_distance=backbone_loss_unit_distance,
-        eps=eps,
-    )
 
-    sidechain_loss_value = sidechain_loss(
+    traj = outputs["sm_frames"]
+    asym_id = batch.get("asym_id")
+    if asym_id is not None:
+        intra_chain_mask = (asym_id[..., :, None] == asym_id[..., None, :]).to(dtype=traj.dtype)
+        intra_chain_bb_loss = backbone_loss(
+            backbone_rigid_tensor=batch["backbone_rigid_tensor"],
+            backbone_rigid_mask=batch["backbone_rigid_mask"],
+            traj=outputs["sm_frames"],
+            pair_mask=intra_chain_mask,
+            use_clamped_fape=batch.get("use_clamped_fape", None),
+            clamp_distance=backbone_clamp_distance,
+            loss_unit_distance=backbone_loss_unit_distance,
+            eps=eps,
+        )
+        interface_bb_loss = backbone_loss(
+            backbone_rigid_tensor=batch["backbone_rigid_tensor"],
+            backbone_rigid_mask=batch["backbone_rigid_mask"],
+            traj=outputs["sm_frames"],
+            pair_mask=(1.0 - intra_chain_mask),
+            use_clamped_fape=batch.get("use_clamped_fape", None),
+            clamp_distance=backbone_clamp_distance,
+            loss_unit_distance=backbone_loss_unit_distance,
+            eps=eps,
+        )
+        # NOTE: `backbone_weight` is `intra_chain_backbone_weight`.
+        # NOTE: `interface_weight` is `interface_backbone_weight`.
+        weighted_bb_loss = intra_chain_bb_loss * backbone_weight + interface_bb_loss * interface_weight
+    else:
+        backbone_loss = backbone_loss(
+            backbone_rigid_tensor=batch["backbone_rigid_tensor"],
+            backbone_rigid_mask=batch["backbone_rigid_mask"],
+            traj=outputs["sm_frames"],
+            use_clamped_fape=batch.get("use_clamped_fape", None),
+            clamp_distance=backbone_clamp_distance,
+            loss_unit_distance=backbone_loss_unit_distance,
+            eps=eps,
+        )
+        weighted_bb_loss = backbone_loss * backbone_weight
+
+    sidechain_loss = sidechain_loss(
         sidechain_frames=outputs["sm_sidechain_frames"],
         sidechain_atom_pos=outputs["sm_positions"],
         rigidgroups_gt_frames=batch["rigidgroups_gt_frames"],
@@ -412,7 +460,7 @@ def fape_loss(
         eps=eps,
     )
 
-    fape_loss_value = backbone_loss_value * backbone_weight + sidechain_loss_value * sidechain_weight
+    fape_loss_value = weighted_bb_loss + sidechain_loss * sidechain_weight
 
     return fape_loss_value
 
@@ -766,6 +814,8 @@ def compute_predicted_aligned_error(
 def compute_tm(
     logits: torch.Tensor,
     residue_weights: Optional[torch.Tensor] = None,
+    asym_id: Optional[torch.Tensor] = None,
+    interface: bool = False,
     max_bin: int = 31,
     num_bins: int = 64,
     eps: float = 1e-8,
@@ -792,7 +842,20 @@ def compute_tm(
     tm_per_bin = 1.0 / (1 + (bin_centers**2) / (d0**2))
     predicted_tm_term = torch.sum(probs * tm_per_bin, dim=-1)
 
-    normed_residue_mask = residue_weights / (eps + residue_weights.sum())
+    num_res = residue_weights.shape[-1]
+    pair_mask = residue_weights.new_ones((num_res, num_res), dtype=torch.int32)
+    if interface and (asym_id is not None):
+        if len(asym_id.shape) > 1:
+            assert len(asym_id.shape) <= 2
+            batch_size = asym_id.shape[0]
+            pair_mask = residue_weights.new_ones((batch_size, num_res, num_res), dtype=torch.int32)
+        pair_mask *= (asym_id[..., :, None] != asym_id[..., None, :]).to(dtype=pair_mask.dtype)
+
+    predicted_tm_term *= pair_mask
+
+    pair_residue_weights = pair_mask * (residue_weights[..., None, :] * residue_weights[..., :, None])
+    denom = eps + torch.sum(pair_residue_weights, dim=-1, keepdim=True)
+    normed_residue_mask = residue_weights / denom
     per_alignment = torch.sum(predicted_tm_term * normed_residue_mask, dim=-1)
 
     weighted = per_alignment * residue_weights
@@ -973,6 +1036,7 @@ def between_residue_clash_loss(
     atom14_atom_exists: torch.Tensor,
     atom14_atom_radius: torch.Tensor,
     residue_index: torch.Tensor,
+    asym_id: Optional[torch.Tensor] = None,
     overlap_tolerance_soft: float = 1.5,
     overlap_tolerance_hard: float = 1.5,
     eps: float = 1e-10,
@@ -988,6 +1052,7 @@ def between_residue_clash_loss(
       atom14_atom_exists: Mask denoting whether atom at positions exists for given amino acid type.
       atom14_atom_radius: Van der Waals radius for each atom.
       residue_index: Residue index for given amino acid.
+      asym_id: Chian index for given amino acid.
       overlap_tolerance_soft: Soft tolerance factor.
       overlap_tolerance_hard: Hard tolerance factor.
 
@@ -996,6 +1061,7 @@ def between_residue_clash_loss(
         * 'mean_loss': average clash loss
         * 'per_atom_loss_sum': sum of all clash losses per atom, shape (N, 14)
         * 'per_atom_clash_mask': mask whether atom clashes with any other atom shape (N, 14)
+        * 'per_atom_num_clash': number of clash per atom (N, 14)
 
     """
     dtype = atom14_pred_positions.dtype
@@ -1033,7 +1099,13 @@ def between_residue_clash_loss(
     )
     n_one_hot = n_one_hot.type(dtype)
 
-    neighbour_mask = (residue_index[..., :, None, None, None] + 1) == residue_index[..., None, :, None, None]
+    neighbour_mask = (residue_index[..., :, None] + 1) == residue_index[..., None, :]
+
+    if asym_id is not None:
+        neighbour_mask = neighbour_mask & (asym_id[..., :, None] == asym_id[..., None, :])
+
+    neighbour_mask = neighbour_mask[..., None, None]
+
     c_n_bonds = neighbour_mask * c_one_hot[..., None, None, :, None] * n_one_hot[..., None, None, None, :]
     dists_mask = dists_mask * (1.0 - c_n_bonds)
 
@@ -1060,23 +1132,26 @@ def between_residue_clash_loss(
 
     # Compute the per atom loss sum.
     # shape (N, 14)
-    per_atom_loss_sum = torch.sum(dists_to_low_error, dim=(-4, -2)) + torch.sum(dists_to_low_error, axis=(-3, -1))
+    per_atom_loss_sum = torch.sum(dists_to_low_error, dim=(-4, -2)) + torch.sum(dists_to_low_error, dim=(-3, -1))
 
     # Compute the hard clash mask.
     # shape (N, N, 14, 14)
     clash_mask = dists_mask * (dists < (dists_lower_bound - overlap_tolerance_hard))
 
+    per_atom_num_clash = torch.sum(clash_mask, dim=(-4, -2)) + torch.sum(clash_mask, dim=(-3, -1))
+
     # Compute the per atom clash.
     # shape (N, 14)
     per_atom_clash_mask = torch.maximum(
-        torch.amax(clash_mask, axis=(-4, -2)),
-        torch.amax(clash_mask, axis=(-3, -1)),
+        torch.amax(clash_mask, dim=(-4, -2)),
+        torch.amax(clash_mask, dim=(-3, -1)),
     )
 
     return {
         "mean_loss": mean_loss,  # shape ()
         "per_atom_loss_sum": per_atom_loss_sum,  # shape (N, 14)
         "per_atom_clash_mask": per_atom_clash_mask,  # shape (N, 14)
+        "per_atom_num_clash": per_atom_clash_mask,  # shape (N, 14)
     }
 
 
@@ -1178,7 +1253,14 @@ def find_structural_violations(
     # Shape: (N, 14).
     atomtype_radius = [rc.van_der_waals_radius[name[0]] for name in rc.atom_types]
     atomtype_radius = atom14_pred_positions.new_tensor(atomtype_radius)
-    atom14_atom_radius = batch["atom14_atom_exists"] * atomtype_radius[batch["residx_atom14_to_atom37"]]
+
+    # TODO: Is there some better way?
+    asym_id = batch.get("asym_id")
+    if asym_id is not None:
+        residx_atom14_to_atom37 = torch.tensor(rc.RESTYPE_ATOM14_TO_ATOM37, device=batch["aatype"].device)
+        atom14_atom_radius = batch["atom14_atom_exists"] * atomtype_radius[residx_atom14_to_atom37.long()]
+    else:
+        atom14_atom_radius = batch["atom14_atom_exists"] * atomtype_radius[batch["residx_atom14_to_atom37"]]
 
     # Compute the between residue clash loss.
     between_residue_clashes = between_residue_clash_loss(
@@ -1186,6 +1268,7 @@ def find_structural_violations(
         atom14_atom_exists=batch["atom14_atom_exists"],
         atom14_atom_radius=atom14_atom_radius,
         residue_index=batch["residue_index"],
+        asym_id=asym_id,
         overlap_tolerance_soft=clash_overlap_tolerance,
         overlap_tolerance_hard=clash_overlap_tolerance,
     )
@@ -1230,10 +1313,12 @@ def find_structural_violations(
             "clashes_mean_loss": between_residue_clashes["mean_loss"],  # ()
             "clashes_per_atom_loss_sum": between_residue_clashes["per_atom_loss_sum"],  # (N, 14)
             "clashes_per_atom_clash_mask": between_residue_clashes["per_atom_clash_mask"],  # (N, 14)
+            "clashes_per_atom_num_clash": between_residue_clashes["per_atom_num_clash"],  # (N, 14)
         },
         "within_residues": {
             "per_atom_loss_sum": residue_violations["per_atom_loss_sum"],  # (N, 14)
-            "per_atom_violations": residue_violations["per_atom_violations"],  # (N, 14),
+            "per_atom_violations": residue_violations["per_atom_violations"],  # (N, 14)
+            "per_atom_num_clash": residue_violations["per_atom_clash"],  # (N, 14)
         },
         "total_per_residue_violations_mask": per_residue_violations_mask,  # (N)
     }
@@ -1294,12 +1379,12 @@ def compute_violation_metrics(
     violations: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     """Compute several metrics to assess the structural violations."""
+    violation_metrics = {}
     extreme_ca_ca_violations = extreme_ca_ca_distance_violations(
         pred_atom_positions=atom14_pred_positions,
         pred_atom_mask=batch["atom14_atom_exists"],
         residue_index=batch["residue_index"],
     )
-    violation_metrics = {}
     violation_metrics["violations_extreme_ca_ca_distance"] = extreme_ca_ca_violations
     violation_metrics["violations_between_residue_bond"] = masked_mean(
         mask=batch["seq_mask"],
@@ -1356,6 +1441,7 @@ def violation_loss(
 
     if average_clashes:
         num_clash = violations["between_residues"]["clashes_per_atom_num_clash"] + violations["within_residues"]["per_atom_num_clash"]
+        per_atom_clash = per_atom_clash / (eps + num_clash)
 
     l_clash = torch.sum(per_atom_clash) / (eps + num_atoms)
 
@@ -1373,7 +1459,10 @@ def violation_loss(
         + l_clash
     )
 
-    return loss
+    # Average over the batch dimension
+    mean = torch.mean(loss)
+
+    return mean
 
 
 def compute_renamed_ground_truth(

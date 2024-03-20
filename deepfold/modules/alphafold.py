@@ -126,6 +126,10 @@ class AlphaFold(nn.Module):
         aux_outputs = self.auxiliary_heads(outputs)
         outputs.update(aux_outputs)
 
+        # NOTE: Multimer
+        if "asym_id" in batch:
+            outputs["asym_id"] = batch["asym_id"]
+
         return outputs
 
     def _forward_iteration(

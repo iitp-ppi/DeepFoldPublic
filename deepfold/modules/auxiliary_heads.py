@@ -33,6 +33,8 @@ class AuxiliaryHeads(nn.Module):
             self.tm = TMScoreHead(
                 **asdict(config.tm_score_head_config),
             )
+        self.ptm_weight = config.ptm_weight
+        self.iptm_weight = config.iptm_weight
 
     def forward(self, outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         aux_outputs = {}
@@ -43,11 +45,22 @@ class AuxiliaryHeads(nn.Module):
         aux_outputs["experimentally_resolved_logits"] = self.experimentally_resolved(outputs["single"])
         if self.tm_score_head_enabled:
             aux_outputs["tm_logits"] = self.tm(outputs["pair"])
-            aux_outputs["predicted_tm_score"] = compute_tm(
+            aux_outputs["ptm_score"] = compute_tm(
                 logits=aux_outputs["tm_logits"],
                 max_bin=self.tm.max_bin,
                 num_bins=self.tm.num_bins,
             )
+            asym_id = outputs.get("asym_id")
+            if asym_id is not None:
+                aux_outputs["iptm_score"] = compute_tm(
+                    logits=aux_outputs["tm_logits"],
+                    asym_id=asym_id,
+                    interface=True,
+                    max_bin=self.tm.max_bin,
+                    num_bins=self.tm.num_bins,
+                )
+                aux_outputs["weighted_ptm_score"] = self.iptm_weight * aux_outputs["iptm_score"] + self.ptm_weight * aux_outputs["ptm_score"]
+
             aux_outputs.update(
                 compute_predicted_aligned_error(
                     logits=aux_outputs["tm_logits"],

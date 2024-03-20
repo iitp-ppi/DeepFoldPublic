@@ -206,14 +206,20 @@ class AuxiliaryHeadsConfig:
         default=TMScoreHeadConfig(),
     )
     tm_score_head_enabled: bool = False
+    ptm_weight: float = 0.2
+    iptm_weight: float = 0.8
 
 
 @dataclass
 class FAPELossConfig:
     weight: float = 1.0
+    # `backbone_` is used as `intra_chain_backbone_` in the multimer model.
     backbone_clamp_distance: float = 10.0
     backbone_loss_unit_distance: float = 10.0
     backbone_weight: float = 0.5
+    interface_clamp_distance: float = 30.0
+    interface_loss_unit_distance: float = 20.0
+    interface_weight: float = 0.5
     sidechain_clamp_distance: float = 10.0
     sidechain_length_scale: float = 10.0
     sidechain_weight: float = 0.5
@@ -241,6 +247,7 @@ class DistogramLossConfig:
 class MaskedMSALossConfig:
     weight: float = 2.0
     eps: float = 1e-8
+    num_classes: int = 23
 
 
 @dataclass
@@ -265,8 +272,9 @@ class ExperimentallyResolvedLossConfig:
 class ViolationLossConfig:
     weight: float = 0.0
     violation_tolerance_factor: float = 12.0
+    average_clashes: bool = False
     clash_overlap_tolerance: float = 1.5
-    eps: float = 1e-8
+    eps: float = 1e-6  # 1e-8
 
 
 @dataclass
@@ -283,7 +291,9 @@ class TMLossConfig:
 @dataclass
 class CenterOfMassConfig:
     enabled: bool = False
-    weight: float = 1e-8
+    clamp_distance: float = -4.0
+    eps: float = 1e-10
+    weight: float = 0.05
 
 
 @dataclass

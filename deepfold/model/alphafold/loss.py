@@ -197,9 +197,9 @@ def sidechain_loss(
     eps: float = 1e-4,
     **kwargs,
 ) -> torch.Tensor:
-    renamed_gt_frames = (
-        1.0 - alt_naming_is_better[..., None, None, None]
-    ) * rigidgroups_gt_frames + alt_naming_is_better[..., None, None, None] * rigidgroups_alt_gt_frames
+    renamed_gt_frames = (1.0 - alt_naming_is_better[..., None, None, None]) * rigidgroups_gt_frames + alt_naming_is_better[
+        ..., None, None, None
+    ] * rigidgroups_alt_gt_frames
 
     # Steamroll the inputs
     sidechain_frames = sidechain_frames[-1]
@@ -364,10 +364,7 @@ def lddt(
         )
     )
     dists_to_score = (
-        (dmat_true < cutoff)
-        * all_atom_mask
-        * permute_final_dims(all_atom_mask, (1, 0))
-        * (1.0 - torch.eye(n, device=all_atom_mask.device))
+        (dmat_true < cutoff) * all_atom_mask * permute_final_dims(all_atom_mask, (1, 0)) * (1.0 - torch.eye(n, device=all_atom_mask.device))
     )
 
     dist_l1 = torch.abs(dmat_true - dmat_pred)
@@ -686,12 +683,8 @@ def between_residue_bond_loss(
 
     # The C-N bond to proline has slightly different length because of the ring.
     next_is_proline = aatype[..., 1:] == rc.resname_to_idx["PRO"]
-    gt_length = (~next_is_proline) * rc.between_res_bond_length_c_n[
-        0
-    ] + next_is_proline * rc.between_res_bond_length_c_n[1]
-    gt_stddev = (~next_is_proline) * rc.between_res_bond_length_stddev_c_n[
-        0
-    ] + next_is_proline * rc.between_res_bond_length_stddev_c_n[1]
+    gt_length = (~next_is_proline) * rc.between_res_bond_length_c_n[0] + next_is_proline * rc.between_res_bond_length_c_n[1]
+    gt_stddev = (~next_is_proline) * rc.between_res_bond_length_stddev_c_n[0] + next_is_proline * rc.between_res_bond_length_stddev_c_n[1]
     c_n_bond_length_error = torch.sqrt(eps + (c_n_bond_length - gt_length) ** 2)
     c_n_loss_per_residue = torch.nn.functional.relu(c_n_bond_length_error - tolerance_factor_soft * gt_stddev)
     mask = this_c_mask * next_n_mask * has_no_gap_mask
@@ -727,9 +720,7 @@ def between_residue_bond_loss(
     # Compute a per residue loss (equally distribute the loss to both
     # neighbouring residues).
     per_residue_loss_sum = c_n_loss_per_residue + ca_c_n_loss_per_residue + c_n_ca_loss_per_residue
-    per_residue_loss_sum = 0.5 * (
-        torch.nn.functional.pad(per_residue_loss_sum, (0, 1)) + torch.nn.functional.pad(per_residue_loss_sum, (1, 0))
-    )
+    per_residue_loss_sum = 0.5 * (torch.nn.functional.pad(per_residue_loss_sum, (0, 1)) + torch.nn.functional.pad(per_residue_loss_sum, (1, 0)))
 
     # Compute hard violations.
     violation_mask = torch.max(
@@ -830,9 +821,7 @@ def between_residue_clash_loss(
 
     # Compute the lower bound for the allowed distances.
     # shape (N, N, 14, 14)
-    dists_lower_bound = dists_mask * (
-        atom14_atom_radius[..., :, None, :, None] + atom14_atom_radius[..., None, :, None, :]
-    )
+    dists_lower_bound = dists_mask * (atom14_atom_radius[..., :, None, :, None] + atom14_atom_radius[..., None, :, None, :])
 
     # Compute the error.
     # shape (N, N, 14, 14)
@@ -1130,9 +1119,7 @@ def violation_loss(
     **kwargs,
 ) -> torch.Tensor:
     num_atoms = torch.sum(atom14_atom_exists)
-    l_clash = torch.sum(
-        violations["between_residues"]["clashes_per_atom_loss_sum"] + violations["within_residues"]["per_atom_loss_sum"]
-    )
+    l_clash = torch.sum(violations["between_residues"]["clashes_per_atom_loss_sum"] + violations["within_residues"]["per_atom_loss_sum"])
     l_clash = l_clash / (eps + num_atoms)
     loss = (
         violations["between_residues"]["bonds_c_n_loss_mean"]
@@ -1224,13 +1211,13 @@ def compute_renamed_ground_truth(
     fp_type = atom14_pred_positions.dtype
     alt_naming_is_better = (alt_per_res_lddt < per_res_lddt).type(fp_type)
 
-    renamed_atom14_gt_positions = (
-        1.0 - alt_naming_is_better[..., None, None]
-    ) * atom14_gt_positions + alt_naming_is_better[..., None, None] * atom14_alt_gt_positions
+    renamed_atom14_gt_positions = (1.0 - alt_naming_is_better[..., None, None]) * atom14_gt_positions + alt_naming_is_better[
+        ..., None, None
+    ] * atom14_alt_gt_positions
 
-    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[..., None]) * atom14_gt_exists + alt_naming_is_better[
-        ..., None
-    ] * batch["atom14_alt_gt_exists"]
+    renamed_atom14_gt_mask = (1.0 - alt_naming_is_better[..., None]) * atom14_gt_exists + alt_naming_is_better[..., None] * batch[
+        "atom14_alt_gt_exists"
+    ]
 
     return {
         "alt_naming_is_better": alt_naming_is_better,
