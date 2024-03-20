@@ -140,6 +140,9 @@ def import_jax_weights_(
         fuse_projection_weights: Whether triangular multiplicative layers are fused or not.
     """
 
+    # Multimer model can predict TM score.
+    enable_ptm |= is_multimer
+
     data = np.load(npz_path, allow_pickle=True)
     if "arr_0" in data:
         data = data["arr_0"].flat[0]

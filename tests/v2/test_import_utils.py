@@ -5,8 +5,8 @@ import numpy as np
 import torch
 
 from deepfold.config import AlphaFoldConfig
-from deepfold.import_utils import import_jax_weights_
 from deepfold.modules.alphafold import AlphaFold
+from deepfold.utils.import_utils import import_jax_weights_
 
 
 class TestImportWeights(unittest.TestCase):
