@@ -167,7 +167,7 @@ def plot_plddt(
         if asym_id is not None:
             boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
-                ax.axvline(x=i, color="k", linestyle="-.")
+                ax.axvline(x=i, color="k", linestyle="-.", alpha=0.6)
     ax.legend()
     ax.set_ylim(0, 100)
     ax.set_xlabel("Positions")
