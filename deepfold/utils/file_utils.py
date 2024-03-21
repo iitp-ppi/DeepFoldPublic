@@ -20,12 +20,12 @@ def _read_text(path: str) -> str:
         if os.path.splitext(path)[1] == ".gz":
             with gzip.open(path, "rb") as fp:
                 return fp.read().decode()
+        else:
+            with gzip.open(f"{path}.gz", "rb") as fp:
+                return fp.read().decode()
+    except FileNotFoundError:
         with open(path, "r") as fp:
             return fp.read()
-    except FileNotFoundError:
-        logger.debug(f"File not found: {path}")
-        with gzip.open(f"{path}.gz", "rb") as fp:
-            return fp.read().decode()
 
 
 def load_pickle(path: os.PathLike) -> Any:
@@ -33,11 +33,12 @@ def load_pickle(path: os.PathLike) -> Any:
         if os.path.splitext(path)[1] == ".gz":
             with gzip.open(path, "rb") as fp:
                 return pickle.load(fp)
-        with open(path, "rb") as fp:
-            return pickle.load(fp)
+        else:
+            with gzip.open(f"{path}.gz", "rb") as fp:
+                return pickle.load(fp)
     except FileNotFoundError:
         logger.debug(f"File not found: {path}")
-        with gzip.open(f"{path}.gz", "rb") as fp:
+        with open(path, "rb") as fp:
             return pickle.load(fp)
 
 
