@@ -400,6 +400,7 @@ class AlphaFoldConfig:
         enable_ptm: bool = False,
         enable_templates: bool = False,
         inference_chunk_size: Optional[int] = 128,
+        **additional_options,
     ) -> "AlphaFoldConfig":
         cfg = {
             "is_multimer": is_multimer,
@@ -459,6 +460,8 @@ class AlphaFoldConfig:
             _update(cfg, _half_precision_settings())
         else:
             raise ValueError(f"Unknown precision={repr(precision)}")
+
+        cfg.update(additional_options)
 
         return cls.from_dict(cfg)
 
@@ -651,6 +654,7 @@ class FeaturePipelineConfig:
         preset: str,
         ensemble_seed: int = 0,
         is_multimer: bool = False,
+        **additional_options,
     ) -> FeaturePipelineConfig:
         cfg = {}
         if preset == "predict":
@@ -670,6 +674,8 @@ class FeaturePipelineConfig:
                     "max_recycling_iters": 20,
                 }
             )
+
+        cfg.update(additional_options)
 
         return cls.from_dict(cfg)
 
