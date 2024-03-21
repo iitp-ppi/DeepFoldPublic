@@ -123,12 +123,12 @@ class AlphaFold(nn.Module):
         outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
         outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
-        aux_outputs = self.auxiliary_heads(outputs)
-        outputs.update(aux_outputs)
 
-        # NOTE: Multimer
-        if "asym_id" in batch:
-            outputs["asym_id"] = batch["asym_id"]
+        asym_id = None
+        if "asym_id" in feats:  # NOTE: Multimer
+            asym_id = feats["asym_id"]
+        aux_outputs = self.auxiliary_heads(outputs, asym_id)
+        outputs.update(aux_outputs)
 
         return outputs
 

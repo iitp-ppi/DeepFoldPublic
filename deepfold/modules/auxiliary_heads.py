@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -36,7 +36,11 @@ class AuxiliaryHeads(nn.Module):
         self.ptm_weight = config.ptm_weight
         self.iptm_weight = config.iptm_weight
 
-    def forward(self, outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(
+        self,
+        outputs: Dict[str, torch.Tensor],
+        asym_id: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
         aux_outputs = {}
         aux_outputs["lddt_logits"] = self.plddt(s=outputs["sm_single"])
         aux_outputs["plddt"] = compute_plddt(logits=aux_outputs["lddt_logits"])
@@ -50,7 +54,6 @@ class AuxiliaryHeads(nn.Module):
                 max_bin=self.tm.max_bin,
                 num_bins=self.tm.num_bins,
             )
-            asym_id = outputs.get("asym_id")
             if asym_id is not None:
                 aux_outputs["iptm_score"] = compute_tm(
                     logits=aux_outputs["tm_logits"],

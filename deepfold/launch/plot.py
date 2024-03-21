@@ -1,5 +1,4 @@
-import os
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import matplotlib as mpl
 import numpy as np
@@ -29,6 +28,7 @@ def find_cluster_boundaries(a: np.ndarray) -> List[Tuple[int, int, int]]:
 
 def plot_distogram(
     outputs: dict,
+    asym_id: Optional[np.ndarray],
     fig_kwargs: dict = dict(),
 ) -> plt.Figure:
     num_models = len(outputs)
@@ -50,7 +50,7 @@ def plot_distogram(
         im1 = ax.imshow(distogram, cmap="viridis_r", vmin=0, vmax=22)
 
         # Draw chain breaks
-        if "asym_id" in value:
+        if asym_id is not None:
             for i, _, _ in boundaries[1:]:
                 ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
                 ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
@@ -74,7 +74,7 @@ def plot_distogram(
         im2 = ax.imshow(np.clip(distogram, a_min=0, a_max=22), cmap="viridis_r", vmin=0, vmax=22)
 
         # Draw chain breaks
-        if "asym_id" in value:
+        if asym_id is not None:
             for i, _, _ in boundaries[1:]:
                 ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
                 ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
@@ -87,6 +87,7 @@ def plot_distogram(
 
 def plot_predicted_alignment_error(
     outputs: dict,
+    asym_id: Optional[np.ndarray] = None,
     fig_kwargs: dict = dict(),
 ) -> plt.Figure:
     num_models = len(outputs)
@@ -104,7 +105,7 @@ def plot_predicted_alignment_error(
         im = ax.imshow(value["predicted_aligned_error"], label=model_name, cmap="bwr", vmin=0, vmax=30)
 
         # Draw chain breaks
-        if "asym_id" in value:
+        if asym_id is not None:
             boundaries = find_cluster_boundaries(value["asym_id"])
             for i, _, _ in boundaries[1:]:
                 ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
