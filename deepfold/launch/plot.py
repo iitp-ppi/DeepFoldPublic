@@ -164,7 +164,7 @@ def plot_plddt(
         ax.plot(x, y, "-", label=f"rank_{n} ({model_name})", zorder=1)
 
         # Draw chain breaks
-        if asym_id is not None
+        if asym_id is not None:
             boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
                 ax.axvline(x=i, color="k", linestyle="-.")
