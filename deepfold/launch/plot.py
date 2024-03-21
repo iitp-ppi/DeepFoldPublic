@@ -28,7 +28,7 @@ def find_cluster_boundaries(a: np.ndarray) -> List[Tuple[int, int, int]]:
 
 def plot_distogram(
     outputs: dict,
-    asym_id: Optional[np.ndarray],
+    asym_id: Optional[np.ndarray] = None,
     fig_kwargs: dict = dict(),
 ) -> plt.Figure:
     num_models = len(outputs)
@@ -40,8 +40,8 @@ def plot_distogram(
     )
     fig = plt.figure(**fig_kwargs)
     for n, (model_name, value) in enumerate(outputs.items(), start=1):
-        if "asym_id" in value:
-            boundaries = find_cluster_boundaries("asym_id")
+        if asym_id is not None:
+            boundaries = find_cluster_boundaries(asym_id)
 
         # From the distogram head
         ax = fig.add_subplot(2, num_models, n)
@@ -106,7 +106,7 @@ def plot_predicted_alignment_error(
 
         # Draw chain breaks
         if asym_id is not None:
-            boundaries = find_cluster_boundaries("asym_id")
+            boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
                 ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
                 ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
