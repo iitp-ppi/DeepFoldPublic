@@ -41,7 +41,7 @@ def plot_distogram(
     fig = plt.figure(**fig_kwargs)
     for n, (model_name, value) in enumerate(outputs.items(), start=1):
         if "asym_id" in value:
-            boundaries = find_cluster_boundaries(value["asym_id"])
+            boundaries = find_cluster_boundaries("asym_id")
 
         # From the distogram head
         ax = fig.add_subplot(2, num_models, n)
@@ -106,7 +106,7 @@ def plot_predicted_alignment_error(
 
         # Draw chain breaks
         if asym_id is not None:
-            boundaries = find_cluster_boundaries(value["asym_id"])
+            boundaries = find_cluster_boundaries("asym_id")
             for i, _, _ in boundaries[1:]:
                 ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
                 ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
@@ -128,6 +128,7 @@ PLDDT_CMAP = LinearSegmentedColormap.from_list(name="plddt", colors=PLDDT_COLORS
 
 def plot_plddt(
     outputs: dict,
+    asym_id: Optional[np.ndarray] = None,
     scale_with_len: bool = False,
     fig_kwargs: dict = dict(),
 ) -> plt.Figure:
@@ -163,8 +164,8 @@ def plot_plddt(
         ax.plot(x, y, "-", label=f"rank_{n} ({model_name})", zorder=1)
 
         # Draw chain breaks
-        if "asym_id" in value:
-            boundaries = find_cluster_boundaries(value["asym_id"])
+        if asym_id is not None
+            boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
                 ax.axvline(x=i, color="k", linestyle="-.")
     ax.legend()
