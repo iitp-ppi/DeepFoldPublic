@@ -17,6 +17,9 @@ def read_text(path: os.PathLike) -> str:
 @functools.lru_cache(16, typed=False)
 def _read_text(path: str) -> str:
     try:
+        if os.path.splitext(path)[1] == ".gz":
+            with gzip.open(path, "rb") as fp:
+                return fp.read().decode()
         with open(path, "r") as fp:
             return fp.read()
     except FileNotFoundError:
@@ -27,6 +30,9 @@ def _read_text(path: str) -> str:
 
 def load_pickle(path: os.PathLike) -> Any:
     try:
+        if os.path.splitext(path)[1] == ".gz":
+            with gzip.open(path, "rb") as fp:
+                return pickle.load(fp)
         with open(path, "rb") as fp:
             return pickle.load(fp)
     except FileNotFoundError:
