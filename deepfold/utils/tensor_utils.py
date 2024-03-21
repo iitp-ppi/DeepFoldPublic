@@ -42,6 +42,17 @@ def one_hot(x: torch.Tensor, v_bins: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.one_hot(am, num_classes=len(v_bins)).float()
 
 
+def pts_to_distogram(
+    pts: torch.Tensor,
+    min_bin: float = 2.2325,
+    max_bin: float = 21.6875,
+    num_bins: int = 64,
+) -> torch.Tensor:
+    boundaries = torch.linspace(min_bin, max_bin, steps=(num_bins - 1), device=pts.device)
+    dists = torch.sqrt(torch.sum((pts.unsqueeze(-2) - pts.unsqueeze(-3)) ** 2, dim=-1))
+    return torch.bucketize(dists, boundaries, right=False)
+
+
 def dict_multimap(fn: Callable, dicts: List[Dict[Any, Any]]) -> Dict[Any, Any]:
     first = dicts[0]
     new_dict = {}
