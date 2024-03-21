@@ -5,7 +5,6 @@ import unittest
 import numpy as np
 import torch
 
-from deepfold.launch.config_utils import load
 from deepfold.model.alphafold.data.transforms import (
     MSA_FEATURE_NAMES,
     add_distillation_flag,
@@ -26,6 +25,7 @@ from deepfold.model.alphafold.data.transforms import (
     sample_msa,
     squeeze_features,
 )
+from deepfold.runner.config_utils import load
 
 cfg = load("conf/model/alphafold/model_1.yaml")
 

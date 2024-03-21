@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import networkx as nx
 
-from deepfold.launch.parser import Parser
+from deepfold.runner.parser import Parser
 
 logger = logging.getLogger(__name__)
 

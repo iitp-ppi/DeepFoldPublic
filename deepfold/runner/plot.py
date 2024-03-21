@@ -52,8 +52,9 @@ def plot_distogram(
         # Draw chain breaks
         if asym_id is not None:
             for i, _, _ in boundaries[1:]:
-                ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
-                ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
+                z = i - 0.5
+                ax.axhline(y=z, color="k", linestyle="-", alpha=0.6)
+                ax.axvline(x=z, color="k", linestyle="-", alpha=0.6)
 
         # Pseudo beta positions
         all_atom_positions = value["final_atom_positions"]
@@ -76,8 +77,9 @@ def plot_distogram(
         # Draw chain breaks
         if asym_id is not None:
             for i, _, _ in boundaries[1:]:
-                ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
-                ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
+                z = i - 0.5
+                ax.axhline(y=z, color="k", linestyle="-", alpha=0.6)
+                ax.axvline(x=z, color="k", linestyle="-", alpha=0.6)
 
     fig.colorbar(im1)
     fig.colorbar(im2)
@@ -108,8 +110,9 @@ def plot_predicted_alignment_error(
         if asym_id is not None:
             boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
-                ax.axhline(y=i, color="k", linestyle="-", alpha=0.6)
-                ax.axvline(x=i, color="k", linestyle="-", alpha=0.6)
+                z = i - 0.5
+                ax.axhline(y=z, color="k", linestyle="-", alpha=0.6)
+                ax.axvline(x=z, color="k", linestyle="-", alpha=0.6)
     fig.colorbar(im)
 
     return fig
@@ -167,7 +170,8 @@ def plot_plddt(
         if asym_id is not None:
             boundaries = find_cluster_boundaries(asym_id)
             for i, _, _ in boundaries[1:]:
-                ax.axvline(x=i, color="k", linestyle="-.", alpha=0.6)
+                z = i - 0.5
+                ax.axvline(x=z, color="k", linestyle="-.", alpha=0.6)
     ax.legend()
     ax.set_ylim(0, 100)
     ax.set_xlabel("Positions")
@@ -235,13 +239,13 @@ def plot_msa(
         extent=(0, lines.shape[1], 0, lines.shape[0]),
     )
     for i in ln[1:-1]:
-        ax.plot([i, i], [0, lines.shape[0]], color="black")
+        ax.plot([i - 0.5, i - 0.5], [0, lines.shape[0]], color="black", alpha=0.6)
     for j in nn[1:-1]:
-        ax.plot([0, lines.shape[1]], [j, j], color="black")
+        ax.plot([0, lines.shape[1]], [j - 0.5, j - 0.5], color="black", alpha=0.6)
 
     ax.plot((np.isnan(lines) == False).sum(0), color="black")
     ax.set_xlim(0, lines.shape[1])
-    ax.set_ylim(0, lines.shape[0])
+    ax.set_ylim(0, max(lines.shape[0], 100))
     fig.colorbar(im)
     ax.set_xlabel("Positions")
     ax.set_ylabel("Sequences")
