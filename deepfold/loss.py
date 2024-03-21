@@ -747,7 +747,7 @@ def experimentally_resolved_loss(
     return loss
 
 
-def _calculate_bin_centers(boundaries: torch.Tensor) -> torch.Tensor:
+def calculate_bin_centers(boundaries: torch.Tensor) -> torch.Tensor:
     step = boundaries[1] - boundaries[0]
     bin_centers = boundaries + step / 2
     bin_centers = torch.cat(
@@ -760,11 +760,11 @@ def _calculate_bin_centers(boundaries: torch.Tensor) -> torch.Tensor:
     return bin_centers
 
 
-def _calculate_expected_aligned_error(
+def calculate_expected_aligned_error(
     alignment_confidence_breaks: torch.Tensor,
     aligned_distance_error_probs: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    bin_centers = _calculate_bin_centers(alignment_confidence_breaks)
+    bin_centers = calculate_bin_centers(alignment_confidence_breaks)
     return (
         torch.sum(aligned_distance_error_probs * bin_centers, dim=-1),
         bin_centers[-1],
@@ -796,7 +796,7 @@ def compute_predicted_aligned_error(
 
     aligned_confidence_probs = torch.softmax(logits, dim=-1)
 
-    expected_aligned_error = _calculate_expected_aligned_error(
+    expected_aligned_error = calculate_expected_aligned_error(
         alignment_confidence_breaks=boundaries,
         aligned_distance_error_probs=aligned_confidence_probs,
     )
@@ -830,14 +830,12 @@ def compute_tm(
         device=logits.device,
     )
 
-    bin_centers = _calculate_bin_centers(boundaries)
-
-    num_res = logits.shape[-2]
-    clipped_n = max(num_res, 19)
+    bin_centers = calculate_bin_centers(boundaries)
+    clipped_n = max(torch.sum(residue_weights), 19)
 
     d0 = 1.24 * (clipped_n - 15) ** (1.0 / 3) - 1.8
 
-    probs = torch.softmax(logits, dim=-1)
+    probs = F.softmax(logits, dim=-1)
 
     tm_per_bin = 1.0 / (1 + (bin_centers**2) / (d0**2))
     predicted_tm_term = torch.sum(probs * tm_per_bin, dim=-1)
