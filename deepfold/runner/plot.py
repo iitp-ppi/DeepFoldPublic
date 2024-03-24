@@ -18,7 +18,7 @@ def find_cluster_boundaries(a: np.ndarray) -> List[Tuple[int, int, int]]:
 
     for i in range(1, len(a)):
         if a[i] != current:
-            boundaries.append((current, start, i - 1))
+            boundaries.append((start, i - 1, current))
             start = i
             current = a[i]
     boundaries.append((start, len(a) - 1, current))
