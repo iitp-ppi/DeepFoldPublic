@@ -513,7 +513,7 @@ def from_prediction(
     processed_features: FeatureDict,
     result: ModelOutput,
     b_factors: Optional[np.ndarray] = None,
-    remove_leading_feature_dimension: bool = True,
+    remove_leading_feature_dimension: bool = False,
     remark: Optional[str] = None,
     parents: Optional[Sequence[str]] = None,
     parents_chain_index: Optional[Sequence[int]] = None,
