@@ -30,7 +30,7 @@ function run_jackhmmer() {
     local DB_PATH=$3
     local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
 
-    echo "TOOL=JackHMMER"
+    echo "TOOL=JACKHMMER"
     echo "DB=$DB_PATH"
 
     time jackhmmer \
@@ -50,7 +50,7 @@ function run_hhblits() {
     local DB_PATH=$3
     local A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
 
-    echo "TOOL=HHBlits"
+    echo "TOOL=HHBLITS"
     echo "DB=$DB_PATH"
 
     time hhblits \
@@ -65,6 +65,30 @@ function run_hhblits() {
         -maxseq 1000000 \
         -cpu $NUM_CPUS \
         -d $DB_PATH
+
+    echo
+}
+
+function run_hmmsearch() {
+    local NAME=$1
+    local INPUT_FASTA_PATH=$2
+    local DB_PATH=$3
+    local HMM_PATH="${OUTPUT_DIR}/output.hmm"
+    local STO_PATH="${OUTPUT_DIR}/{$NAME}_hits.hmm"
+
+    echo "TOOL=HMMBUILD"
+    echo "DB=$DBPATH"
+
+    time hmmbuild \
+        --hand --amino \
+        $HMMPATH \
+        $INPUT_FASTA_PATH
+
+    time hmmsearch \
+        --noali --cpu $NUM_CPUS \
+        --F1 0.1 --F2 0.1 --F3 0.1 \
+        --incE 100 -E 100 --domE 100 --incdomE 100 \
+        -A $STO_PATH $HMM_PATH $DB_PATH
 
     echo
 }
@@ -114,10 +138,10 @@ run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_i
 # UniRef30
 run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
 
-# PDB70
-# run_hhblits "pdb70" $FASTA_PATH "${DATABASE_BASE}/pdb70/pdb70"
+# HMM
+run_hmmsearch "pdb" $FASTA_PATH "{DATABASE_BASE}/pdb/pdb_seqres.txt"
 
-# UniClust30
-# run_jachmmer "uniclust30" $FASTA_PATH "${DATABASE_BASE/uniclust/...}"
+# PDB70
+run_hhblits "pdb70" $FASTA_PATH "${DATABASE_BASE}/pdb70/pdb70"
 
 exit 0
