@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -9,6 +9,7 @@ import deepfold.core.parallel_state as ps
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
+from deepfold.utils.iter_utils import slice_generator
 from deepfold.utils.precision import is_fp16_enabled
 
 
@@ -29,11 +30,14 @@ class TriangleMultiplicativeUpdate(nn.Module):
         c_z: int,
         c_hidden: int,
         tmu_type: str,
+        block_size: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.c_z = c_z
         self.c_hidden = c_hidden
         self._is_outgoing = {"outgoing": True, "incoming": False}[tmu_type]
+        self.block_size = block_size
+
         self.linear_ab_p = Linear(c_z, c_hidden * 2, init="default")
         self.linear_ab_g = Linear(c_z, c_hidden * 2, init="gating")
         # self.linear_a_p = Linear(c_z, c_hidden, bias=True, init="default")
@@ -66,6 +70,9 @@ class TriangleMultiplicativeUpdate(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_res, N_res, 1]
 
+        if not self.training and self.block_size is not None:
+            return self._chunk_2d(z, mask)
+
         # TODO: Fusion with a.float, b.float (?)
         a, b = _compute_projections(
             z,
@@ -74,7 +81,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
             self.linear_ab_g.bias,
             self.linear_ab_p.weight,
             self.linear_ab_p.bias,
-        ).chunk(2, dim=-1)
+        )  # .chunk(2, dim=-1)
 
         if ps.is_enabled():
             if self._is_outgoing:
@@ -111,6 +118,7 @@ class TriangleMultiplicativeUpdate(nn.Module):
         a: torch.Tensor,
         b: torch.Tensor,
     ) -> torch.Tensor:
+
         if self._is_outgoing:
             a = a.movedim(-1, -3)
             b = b.swapdims(-1, -3)
@@ -121,6 +129,125 @@ class TriangleMultiplicativeUpdate(nn.Module):
         p = torch.matmul(a, b)
 
         return p.movedim(-3, -1)
+
+    def _chunk_2d(
+        self,
+        z: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Args:
+            z: [B, N', N, C]
+            mask: [B, N', N, 1]
+
+        Returns:
+            z: [*, N', N, C]
+
+        Notes:
+            Avoid too small block size (<256).
+        """
+        out = torch.empty_like(z)
+
+        par_dim = z.shape[-3] if self._is_outgoing else z.shape[-2]  # N'
+
+        for i_begin, i_end in slice_generator(0, par_dim, self.block_size):
+            if self._is_outgoing:
+                z_i = z[:, i_begin:i_end, :, :]  # [B, N', N, C]
+                a_chunk, _ = _compute_projections(
+                    z_i,
+                    mask[:, i_begin:i_end, :, :],
+                    self.linear_ab_g.weight,
+                    self.linear_ab_g.bias,
+                    self.linear_ab_p.weight,
+                    self.linear_ab_p.bias,
+                )  # a_chunk: [B, I', K, C], b_chunk: [B, J', K, C]
+                a_chunk = a_chunk.movedim(-1, -3)  # [B, C, I', K]
+            else:  # is_incoming
+                z_i = z[:, :, i_begin:i_end, :]  # [B, N, N', C]
+                _, b_chunk = _compute_projections(
+                    z_i,
+                    mask[:, :, i_begin:i_end, :],
+                    self.linear_ab_g.weight,
+                    self.linear_ab_g.bias,
+                    self.linear_ab_p.weight,
+                    self.linear_ab_p.bias,
+                )  # a_chunk: [B, K, I', C], b_chunk: [B, K, J', C]
+                b_chunk = b_chunk.movedim(-1, -3)  # [B, C, K, J']
+
+                for j_begin, j_end in slice_generator(0, par_dim, self.block_size):
+                    if self._is_outgoing:
+                        z_j = z[:j_begin:j_end, :, :]
+                        _, b_chunk = _compute_projections(
+                            z_j,
+                            mask[:, j_begin:j_end, :, :],
+                            self.linear_ab_g.weight,
+                            self.linear_ab_g.bias,
+                            self.linear_ab_p.weight,
+                            self.linear_ab_p.bias,
+                        )  # a_chunk: [B, K, I', C], b_chunk: [B, K, J', C]
+                        b_chunk = b_chunk.swapdims(-1, -3)  # [B, C, K, J']
+                    else:
+                        z_j = z[:, :, j_begin:j_end, :]
+                        a_chunk, _ = _compute_projections(
+                            z_j,
+                            mask[:, :, j_begin:j_end, :],
+                            self.linear_ab_g.weight,
+                            self.linear_ab_g.bias,
+                            self.linear_ab_p.weight,
+                            self.linear_ab_p.bias,
+                        )  # a_chunk: [B, K, I', C], b_chunk: [B, K, J', C]
+                        a_chunk = a_chunk.swapdims(-1, -3)  # [B, C, I', K]
+
+                        if ps.is_enabled():
+                            for r in range(ps.size()):
+                                if self._is_outgoing:
+                                    if r == ps.rank():
+                                        buf = b_chunk.clone()
+                                    else:
+                                        buf = torch.empty_like(b_chunk)
+                                    buf = cc.broadcast(buf, r)
+                                    x_chunk = torch.matmul(a_chunk, buf)
+                                    del buf
+                                else:
+                                    if r == ps.rank():
+                                        buf = a_chunk.clone()
+                                    else:
+                                        buf = torch.empty_like(a_chunk)
+                                    buf = cc.broadcast(buf, r)
+                                    x_chunk = torch.matmul(buf, b_chunk)
+                                    del buf
+                                x_chunk = x_chunk.movedim(-3, -1)
+                                j_global_begin = par_dim * r + j_begin
+                                j_global_end = min(j_global_begin + self.block_size, par_dim * (r + 1))
+
+                                if self._is_outgoing:
+                                    out[:, i_begin:i_end, j_global_begin:j_global_end, :] = x_chunk
+                                else:
+                                    out[:, j_global_begin:j_global_end, i_begin:i_end, :] = x_chunk
+                                del x_chunk
+                        else:
+                            x_chunk = torch.matmul(a_chunk, b_chunk).movedim(-3, -1)
+                            if self._is_outgoing:
+                                out[:, i_begin:i_end, j_begin:j_end, :] = x_chunk
+                            else:
+                                out[:, j_begin:j_end, i_begin:i_end, :] = x_chunk
+
+        for i_begin, i_end in slice_generator(0, z.shape[-3], self.block_size):
+            for j_begin, j_end in slice_generator(0, z.shape[-2], self.block_size):
+                z_chunk = z[:, i_begin:i_end, j_begin:j_end, :]
+                x_chunk = out[:, i_begin:i_end, j_begin:j_end, :]
+                x_chunk = self.layer_norm_out(x_chunk)
+                x_chunk = _compute_output(
+                    x_chunk,
+                    z_chunk,
+                    self.linear_z.weight,
+                    self.linear_z.bias,
+                    self.linear_g.weight,
+                    self.linear_g.bias,
+                )
+                out[:, i_begin:i_end, j_begin:j_end, :] = x_chunk
+
+        return out
 
 
 class TriangleMultiplicationOutgoing(TriangleMultiplicativeUpdate):
@@ -139,11 +266,13 @@ class TriangleMultiplicationOutgoing(TriangleMultiplicativeUpdate):
         self,
         c_z: int,
         c_hidden: int,
+        block_size: Optional[int],
     ) -> None:
         super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             tmu_type="outgoing",
+            block_size=block_size,
         )
 
 
@@ -163,11 +292,13 @@ class TriangleMultiplicationIncoming(TriangleMultiplicativeUpdate):
         self,
         c_z: int,
         c_hidden: int,
+        block_size: Optional[int],
     ) -> None:
         super().__init__(
             c_z=c_z,
             c_hidden=c_hidden,
             tmu_type="incoming",
+            block_size=block_size,
         )
 
 
@@ -200,7 +331,7 @@ def _compute_projections(
         compute_projections_fn = _compute_projections_jit
     else:
         compute_projections_fn = _compute_projections_eager
-    return compute_projections_fn(z, mask, w_ab_g, b_ab_g, w_ab_p, b_ab_p)
+    return compute_projections_fn(z, mask, w_ab_g, b_ab_g, w_ab_p, b_ab_p).chunk(2, dim=-1)
 
 
 def _compute_output_eager(

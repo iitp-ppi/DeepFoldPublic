@@ -31,12 +31,9 @@ class ExtraMSAStack(nn.Module):
         inf: Safe infinity value.
         eps: Epsilon to prevent division by zero.
         eps_opm: Epsilon to prevent division by zero in outer product mean.
-        chunk_size_msa_att: Optional chunk size for a batch-like dimension
-            in MSA attention.
-        chunk_size_opm: Optional chunk size for a batch-like dimension
-            in outer product mean.
-        chunk_size_tri_att: Optional chunk size for a batch-like dimension
-            in triangular attention.
+        chunk_size_msa_att: Optional chunk size for a batch-like dimension in MSA attention.
+        chunk_size_opm: Optional chunk size for a batch-like dimension in outer product mean.
+        chunk_size_tri_att: Optional chunk size for a batch-like dimension in triangular attention.
 
     """
 
@@ -60,6 +57,7 @@ class ExtraMSAStack(nn.Module):
         chunk_size_msa_att: Optional[int],
         chunk_size_opm: Optional[int],
         chunk_size_tri_att: Optional[int],
+        block_size_tri_mul: Optional[int],
         outer_product_mean_first: bool = False,
     ) -> None:
         super().__init__()
@@ -83,6 +81,7 @@ class ExtraMSAStack(nn.Module):
                     chunk_size_msa_att=chunk_size_msa_att,
                     chunk_size_opm=chunk_size_opm,
                     chunk_size_tri_att=chunk_size_tri_att,
+                    block_size_tri_mul=block_size_tri_mul,
                     outer_product_mean_first=outer_product_mean_first,
                 )
                 for _ in range(num_blocks)

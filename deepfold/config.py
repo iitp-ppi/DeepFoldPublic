@@ -66,6 +66,7 @@ class TemplatePairStackConfig:
     dropout_rate: float = 0.25
     inf: float = 1e9
     chunk_size_tri_att: Optional[int] = None
+    block_size_tri_mul: Optional[int] = None
     tri_att_first: bool = True  # False
 
 
@@ -111,6 +112,7 @@ class ExtraMSAStackConfig:
     chunk_size_msa_att: Optional[int] = None
     chunk_size_opm: Optional[int] = None
     chunk_size_tri_att: Optional[int] = None
+    block_size_tri_mul: Optional[int] = None
     outer_product_mean_first: bool = False  # True
 
 
@@ -134,6 +136,7 @@ class EvoformerStackConfig:
     chunk_size_msa_att: Optional[int] = None
     chunk_size_opm: Optional[int] = None
     chunk_size_tri_att: Optional[int] = None
+    block_size_tri_mul: Optional[int] = None
     outer_product_mean_first: bool = False  # True
 
 
@@ -399,7 +402,8 @@ class AlphaFoldConfig:
         precision: str = "fp32",
         enable_ptm: bool = False,
         enable_templates: bool = False,
-        inference_chunk_size: Optional[int] = 128,
+        inference_chunk_size: Optional[int] = 4,
+        inference_block_size: Optional[int] = 256,
         **additional_options,
     ) -> "AlphaFoldConfig":
         cfg = {
@@ -448,8 +452,8 @@ class AlphaFoldConfig:
                 },
             )
 
-        if inference_chunk_size is not None:
-            _update(cfg, _inference_stage(chunk_size=inference_chunk_size))
+        if inference_chunk_size is not None or inference_block_size is not None:
+            _update(cfg, _inference_stage(chunk_size=inference_chunk_size, block_size=inference_block_size))
 
         if enable_ptm:
             _update(cfg, _ptm_preset())
@@ -477,10 +481,14 @@ class AlphaFoldConfig:
         )
 
 
-def _inference_stage(chunk_size: Optional[int] = None) -> dict:
+def _inference_stage(
+    chunk_size: Optional[int] = None,
+    block_size: Optional[int] = None,
+) -> dict:
     return {
         "template_pair_stack_config": {
             "chunk_size_tri_att": chunk_size,
+            "block_size_tri_mul": block_size,
         },
         "template_pointwise_attention_config": {
             "chunk_size": chunk_size,
@@ -489,11 +497,13 @@ def _inference_stage(chunk_size: Optional[int] = None) -> dict:
             "chunk_size_msa_att": chunk_size,
             "chunk_size_opm": chunk_size,
             "chunk_size_tri_att": chunk_size,
+            "block_size_tri_mul": block_size,
         },
         "evoformer_stack_config": {
             "chunk_size_msa_att": chunk_size,
             "chunk_size_opm": chunk_size,
             "chunk_size_tri_att": chunk_size,
+            "block_size_tri_mul": block_size,
         },
     }
 

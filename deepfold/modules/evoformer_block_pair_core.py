@@ -31,8 +31,7 @@ class EvoformerBlockPairCore(nn.Module):
         msa_dropout: Dropout rate for MSA activations.
         pair_dropout: Dropout rate for pair activations.
         inf: Safe infinity value.
-        chunk_size_tri_att: Optional chunk size for a batch-like dimension
-            in triangular attention.
+        chunk_size_tri_att: Optional chunk size for a batch-like dimension in triangular attention.
 
     """
 
@@ -47,11 +46,13 @@ class EvoformerBlockPairCore(nn.Module):
         pair_dropout: float,
         inf: float,
         chunk_size_tri_att: Optional[int],
+        block_size_tri_mul: Optional[int],
     ) -> None:
         super().__init__()
         self.tri_mul_out = TriangleMultiplicationOutgoing(
             c_z=c_z,
             c_hidden=c_hidden_tri_mul,
+            block_size=block_size_tri_mul,
         )
         self.tmo_dropout_rowwise = DropoutRowwise(
             p=pair_dropout,
@@ -59,6 +60,7 @@ class EvoformerBlockPairCore(nn.Module):
         self.tri_mul_in = TriangleMultiplicationIncoming(
             c_z=c_z,
             c_hidden=c_hidden_tri_mul,
+            block_size=block_size_tri_mul,
         )
         self.tmi_dropout_rowwise = DropoutRowwise(
             p=pair_dropout,
