@@ -112,9 +112,18 @@ class AlphaFold(nn.Module):
 
         self.config = config
 
-    def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(
+        self,
+        batch: Dict[str, torch.Tensor],
+        trajectory: bool = False,
+    ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
+
+        self.trajectory = trajectory and not self.training
+        # Trajectory
+        if self.trajectory:
+            trajectory = []
 
         # Asym id for multimer
         asym_id = None
@@ -131,6 +140,9 @@ class AlphaFold(nn.Module):
                     prevs=prevs,
                     gradient_checkpointing=False,
                 )
+
+                if self.trajectory:
+                    trajectory.append(outputs["final_atom_positions"][..., None])
 
                 if not self.training:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
@@ -150,6 +162,11 @@ class AlphaFold(nn.Module):
             gradient_checkpointing=(self.training and ps.size() <= 1),
         )
         del prevs
+
+        if self.trajectory:
+            trajectory.append(outputs["final_atom_positions"][..., None])
+            outputs["trajectory"] = torch.cat(trajectory, dim=-1)
+            del trajectory
 
         outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
         outputs["pair"] = outputs["pair"].to(dtype=torch.float32)

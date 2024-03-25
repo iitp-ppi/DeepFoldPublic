@@ -1,3 +1,4 @@
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -20,7 +21,7 @@
 import dataclasses
 import io
 import string
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 import modelcif
 import modelcif.alignment
@@ -248,7 +249,29 @@ def add_pdb_headers(prot: Protein, pdb_str: str) -> str:
     return "\n".join(out_pdb_lines)
 
 
-def to_pdb(prot: Protein) -> str:
+def to_pdb(prots: Protein | Iterable[Protein]) -> str:
+    """Convert `Protein` instances to a PDB string."""
+
+    if isinstance(prots, Protein):
+        prots = [prots]
+    elif isinstance(prots, Iterable):
+        prots = list(prots)
+    else:
+        raise ValueError("Unknown type")
+
+    pdb_lines = []
+
+    for model_id, prot in enumerate(prots, start=1):
+        pdb_lines.extend(_single_protein_to_pdb(prot, model_id=model_id))
+
+    pdb_lines.append("END")
+
+    # Pad all lines to 80 characters
+    pdb_lines = [line.ljust(80) for line in pdb_lines]
+    return "\n".join(pdb_lines) + "\n"  # Add terminating newline.
+
+
+def _single_protein_to_pdb(prot: Protein, model_id: int = 1) -> List[str]:
     """Converts a `Protein` instance to a PDB string.
 
     Args:
@@ -284,7 +307,7 @@ def to_pdb(prot: Protein) -> str:
     if len(headers) > 0:
         pdb_lines.extend(headers)
 
-    pdb_lines.append("MODEL     1")
+    pdb_lines.append(f"MODEL{model_id:6d}")
     n = aatype.shape[0]
     atom_index = 1
     last_chain_index = chain_index[0]
@@ -354,11 +377,8 @@ def to_pdb(prot: Protein) -> str:
                 pdb_lines.extend(get_pdb_headers(prot, prev_chain_index))
 
     pdb_lines.append("ENDMDL")
-    pdb_lines.append("END")
 
-    # Pad all lines to 80 characters
-    pdb_lines = [line.ljust(80) for line in pdb_lines]
-    return "\n".join(pdb_lines) + "\n"  # Add terminating newline.
+    return pdb_lines
 
 
 def to_modelcif(prot: Protein) -> str:
@@ -514,10 +534,11 @@ def from_prediction(
     result: ModelOutput,
     b_factors: Optional[np.ndarray] = None,
     remove_leading_feature_dimension: bool = False,
+    trajectory: bool = False,
     remark: Optional[str] = None,
     parents: Optional[Sequence[str]] = None,
     parents_chain_index: Optional[Sequence[int]] = None,
-) -> Protein:
+) -> Protein | List[Protein]:
     """Assembles a protein from a prediction.
 
     Args:
@@ -544,14 +565,31 @@ def from_prediction(
     if b_factors.ndim == 1:
         b_factors = np.repeat(b_factors[..., None], rc.atom_type_num, axis=-1)
 
-    return Protein(
-        aatype=_maybe_remove_leading_dim(processed_features["aatype"]),
-        atom_positions=result["final_atom_positions"],
-        atom_mask=result["final_atom_mask"],
-        residue_index=_maybe_remove_leading_dim(processed_features["residue_index"]) + 1,
-        b_factors=b_factors,
-        chain_index=chain_index,
-        remark=remark,
-        parents=parents,
-        parents_chain_index=parents_chain_index,
-    )
+    if trajectory:
+        proteins = []
+        for i in range(result["trajectory"].shape[-1]):
+            prot = Protein(
+                aatype=_maybe_remove_leading_dim(processed_features["aatype"]),
+                atom_positions=result["trajectory"][..., i],
+                atom_mask=result["final_atom_mask"],
+                residue_index=_maybe_remove_leading_dim(processed_features["residue_index"]) + 1,
+                b_factors=b_factors,
+                chain_index=chain_index,
+                remark=f"recycle={i} {remark}",
+                parents=parents,
+                parents_chain_index=parents_chain_index,
+            )
+            proteins.append(prot)
+        return proteins
+    else:
+        return Protein(
+            aatype=_maybe_remove_leading_dim(processed_features["aatype"]),
+            atom_positions=result["final_atom_positions"],
+            atom_mask=result["final_atom_mask"],
+            residue_index=_maybe_remove_leading_dim(processed_features["residue_index"]) + 1,
+            b_factors=b_factors,
+            chain_index=chain_index,
+            remark=remark,
+            parents=parents,
+            parents_chain_index=parents_chain_index,
+        )
