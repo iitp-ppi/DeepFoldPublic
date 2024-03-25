@@ -8,7 +8,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import Colormap, ListedColormap
 
 from deepfold.common import protein
-from deepfold.runner.plot import PLDDT_CMAP, find_cluster_boundaries
+from deepfold.runner.plot import find_cluster_boundaries, plddt_cmap
 
 PYMOL_COLORS = [
     "#33ff33",
@@ -278,7 +278,7 @@ def plot_protein_bb(
         _plot_pseudo_3d(pos, linewidth=linewidth, ax=axes)
     elif coloring == "plddt":
         # Color by pLDDT
-        _plot_pseudo_3d(pos, c=plddt, cmap=PLDDT_CMAP, cmin=50, cmax=90, linewidth=linewidth, ax=axes)
+        _plot_pseudo_3d(pos, c=plddt, cmap=plddt_cmap, cmin=50, cmax=90, linewidth=linewidth, ax=axes)
     elif coloring == "chain":
         # Color by chain
         c = np.concatenate([[n] * l for n, l in enumerate(ls)])

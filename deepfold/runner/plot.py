@@ -126,7 +126,7 @@ PLDDT_COLORS = [
     (1.0, "#0053d6"),
 ]
 
-PLDDT_CMAP = LinearSegmentedColormap.from_list(name="plddt", colors=PLDDT_COLORS)
+plddt_cmap = LinearSegmentedColormap.from_list(name="plddt", colors=PLDDT_COLORS)
 
 
 def plot_plddt(
@@ -160,7 +160,7 @@ def plot_plddt(
             x=x,
             y=y,
             c=(y / 100),
-            cmap=PLDDT_CMAP,
+            cmap=plddt_cmap,
             marker=".",
             zorder=2,
         )
