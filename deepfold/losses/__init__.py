@@ -635,7 +635,7 @@ def lddt(
     dmat_true = torch.sqrt(
         eps
         + torch.sum(
-            (all_atom_positions[..., None, :] - all_atom_positions[..., None, :, :]) ** 2,
+            (all_atom_positions[..., :, None, :] - all_atom_positions[..., None, :, :]) ** 2,
             dim=-1,
         )
     )
