@@ -29,6 +29,28 @@ from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map
 logger = logging.getLogger(__name__)
 
 
+def _log_iter(
+    tag: str,
+    recycle_iter: int,
+    results: Dict[str, torch.Tensor],
+) -> str:
+    # Calculate mean plDDT
+    results["mean_plddt"] = torch.mean(results["plddt"])
+
+    print_line = ""
+    for k, v in [
+        ("mean_plddt", "pLDDT"),
+        ("ptm_score", "pTM"),
+        ("iptm_score", "ipTM"),
+        ("weighted_ptm_score", "Score"),
+        # ("max_predicted_aligned_error", "maxPAE"),
+    ]:
+        if k in results:
+            print_line += f" {v}={results[k]:.3g}"
+
+    logger.info(f"{tag} recycle={recycle_iter}{print_line}")
+
+
 class AlphaFold(nn.Module):
     """AlphaFold2 module.
 
@@ -37,7 +59,7 @@ class AlphaFold(nn.Module):
     """
 
     def __init__(self, config: AlphaFoldConfig) -> None:
-        super(AlphaFold, self).__init__()
+        super().__init__()
 
         if not config.is_multimer:
             self.input_embedder = InputEmbedder(
@@ -94,6 +116,11 @@ class AlphaFold(nn.Module):
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
 
+        # Asym id for multimer
+        asym_id = None
+        if "asym_id" in batch:  # NOTE: Multimer
+            asym_id = batch["asym_id"][..., -1].contiguous()
+
         # Forward iterations with autograd disabled:
         num_recycling_iters = batch["aatype"].shape[-1] - 1
         for j in range(num_recycling_iters):
@@ -104,6 +131,11 @@ class AlphaFold(nn.Module):
                     prevs=prevs,
                     gradient_checkpointing=False,
                 )
+
+                if not self.training:  # Inference
+                    aux_outputs = self.auxiliary_heads(outputs, asym_id)
+                    _log_iter(tag="Predict", recycle_iter=j, results=aux_outputs)
+
                 del outputs
 
         # https://github.com/pytorch/pytorch/issues/65766
@@ -119,16 +151,16 @@ class AlphaFold(nn.Module):
         )
         del prevs
 
-        # Run auxiliary heads:
         outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
         outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
 
-        asym_id = None
-        if "asym_id" in feats:  # NOTE: Multimer
-            asym_id = feats["asym_id"]
+        # Run auxiliary heads:
         aux_outputs = self.auxiliary_heads(outputs, asym_id)
         outputs.update(aux_outputs)
+
+        if not self.training:  # Inference
+            _log_iter(tag="Predict", recycle_iter=num_recycling_iters, results=aux_outputs)
 
         return outputs
 
