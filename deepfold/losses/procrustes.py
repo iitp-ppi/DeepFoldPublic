@@ -85,7 +85,7 @@ class Procrustes(torch.autograd.Function):
         dsk = ds[:, :, None, None, None]
         omega_klij = (usik_vjl - usil_vjk) * _pseudo_inverse_elem(dsk + dsl, gradient_eps)
 
-        grad_m = torch.einsum("bnm,bnk,bklij,bml->bij", grad_r, us, omega_klij, v)
+        grad_m = torch.einsum("bnm,bnk,bklij,bml->bij", grad_r, us, omega_klij, vt)
         grad_m += (us * grad_ds[:, None, :]) @ vt.transpose(-1, -2)
 
         if ctx.regularization != 0.0:
