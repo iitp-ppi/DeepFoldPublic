@@ -12,6 +12,7 @@
 FASTA_PATH=$1
 OUTPUT_DIR=$2
 DATABASE_BASE=${DATABASE_BASE:-"/scratch/database/casp16"}
+REFORMAT=${REFORMAT:-"$(which reformat.pl)"}
 
 date
 echo "IN=$FASTA_PATH"
@@ -70,12 +71,10 @@ function run_hhblits() {
 }
 
 function run_hmmsearch() {
-    local NAME=$1
-    local INPUT_FASTA_PATH=$2
-    local INPUT_STO_PATH=$3
-    local DB_PATH=$4
+    local INPUT_STO_PATH=$1
+    local DB_PATH=$2
     local HMM_PATH="${OUTPUT_DIR}/output.hmm"
-    local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
+    local STO_PATH="${OUTPUT_DIR}/pdb_hits.sto"
 
     echo "TOOL=HMMSEARCH"
     echo "QUERY=$INPUT_STO_PATH"
@@ -90,7 +89,34 @@ function run_hmmsearch() {
         --noali --cpu $NUM_CPUS \
         --F1 0.1 --F2 0.1 --F3 0.1 \
         --incE 100 -E 100 --domE 100 --incdomE 100 \
-        -A $STO_PATH $HMM_PATH $DB_PATH
+        -A $STO_PATH \
+        $HMM_PATH \
+        $DB_PATH
+
+    rm -f $HMM_PATH
+
+    echo
+}
+
+function run_hhsearch() {
+    local INPUT_STO_PATH=$1
+    local DB_PATH=$2
+    local HHR_PATH="${OUTPUT_DIR}/pdb_hits.hhr"
+    local A3M_PATH="${OUTPUT_DIR}/query.a3m"
+
+    echo "TOOL=HHSEARCH"
+    echo "DB=$DB_PATH"
+
+    $REFORMAT sto a3m $INPUT_STO_PATH $A3M_PATH
+
+    time hhsearch \
+        -i $A3M_PATH \
+        -o $HHR_PATH \
+        -maxseq 1000000 \
+        -cpu $NUM_CPUS \
+        -d $DB_PATH
+
+    rm -f $A3M_PATH
 
     echo
 }
@@ -141,9 +167,9 @@ run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_i
 run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
 
 # HMM
-run_hmmsearch "pdb" $FASTA_PATH "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
+run_hmmsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
 
 # PDB70
-run_hhblits "pdb70" $FASTA_PATH "${DATABASE_BASE}/pdb70/pdb70"
+run_hhsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb70/pdb70"
 
 exit 0
