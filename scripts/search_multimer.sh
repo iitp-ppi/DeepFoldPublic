@@ -139,7 +139,7 @@ run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_i
 run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
 
 # HMM
-run_hmmsearch "pdb" $FASTA_PATH "{DATABASE_BASE}/pdb/pdb_seqres.txt"
+run_hmmsearch "pdb" $FASTA_PATH "${DATABASE_BASE}/pdb/pdb_seqres.txt"
 
 # PDB70
 run_hhblits "pdb70" $FASTA_PATH "${DATABASE_BASE}/pdb70/pdb70"
