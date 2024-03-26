@@ -72,17 +72,19 @@ function run_hhblits() {
 function run_hmmsearch() {
     local NAME=$1
     local INPUT_FASTA_PATH=$2
-    local DB_PATH=$3
+    local INPUT_STO_PATH=$3
+    local DB_PATH=$4
     local HMM_PATH="${OUTPUT_DIR}/output.hmm"
-    local STO_PATH="${OUTPUT_DIR}/{$NAME}_hits.hmm"
+    local STO_PATH="${OUTPUT_DIR}/${NAME}_hits.sto"
 
-    echo "TOOL=HMMBUILD"
-    echo "DB=$DBPATH"
+    echo "TOOL=HMMSEARCH"
+    echo "QUERY=$INPUT_STO_PATH"
+    echo "DB=$DB_PATH"
 
     time hmmbuild \
         --hand --amino \
-        $HMMPATH \
-        $INPUT_FASTA_PATH
+        $HMM_PATH \
+        $INPUT_STO_PATH
 
     time hmmsearch \
         --noali --cpu $NUM_CPUS \
@@ -139,7 +141,7 @@ run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_i
 run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
 
 # HMM
-run_hmmsearch "pdb" $FASTA_PATH "${DATABASE_BASE}/pdb/pdb_seqres.txt"
+run_hmmsearch "pdb" $FASTA_PATH "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
 
 # PDB70
 run_hhblits "pdb70" $FASTA_PATH "${DATABASE_BASE}/pdb70/pdb70"
