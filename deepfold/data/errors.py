@@ -1,3 +1,4 @@
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -23,3 +24,11 @@ class Error(Exception):
 
 class MultipleChainsError(Error):
     """An error indicating that multiple chains were found for a given ID."""
+
+
+class PDBxError(Error):
+    """PDBx parsing errors."""
+
+
+class PDBxWarning(Warning):
+    """PDBx parsing warnings."""
