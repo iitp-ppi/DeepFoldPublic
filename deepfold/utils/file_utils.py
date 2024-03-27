@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def read_text(path: os.PathLike) -> str:
-    _read_text(str(path))
+    return _read_text(str(path))
 
 
 @functools.lru_cache(16, typed=False)
