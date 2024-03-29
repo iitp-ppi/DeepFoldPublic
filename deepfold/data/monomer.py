@@ -4,6 +4,7 @@
 import dataclasses
 import functools
 import os
+import re
 from typing import Dict, Set
 
 import networkx as nx
@@ -87,30 +88,55 @@ class AtomMap:
 
 @functools.lru_cache(maxsize=128)
 def get_atom_map(can: str, mod: str) -> AtomMap:
-    can = get_ligand(can)  # Canonical
-    mod = get_ligand(mod)  # Modified
+    can = get_ligand(can, noh=True)  # Canonical
+    mod = get_ligand(mod, noh=True)  # Modified
 
-    # print(can.graph.edges)
-    # print(mod.graph.edges)
+    cutoff = {
+        "ALA": 2,
+        "ARG": 6,
+        "ASN": 3,
+        "ASP": 3,
+        "CYS": 2,
+        "GLN": 4,
+        "GLU": 4,
+        "GLY": 2,
+        "HIS": 4,
+        "ILE": 3,
+        "LEU": 3,
+        "LYS": 5,
+        "MET": 4,
+        "PHE": 5,
+        "PRO": 2,
+        "SER": 2,
+        "THR": 2,
+        "TRP": 6,
+        "TYR": 6,
+        "VAL": 2,
+    }
 
-    ismags = nx.isomorphism.ISMAGS(can.graph, mod.graph)
-    subs = list(ismags.largest_common_subgraph())
+    k = cutoff[can]  # How far from CA?
+    shortest_paths = nx.single_source_shortest_path_length(mod.graph, "CA")
+    nodes_to_remove = [node for node, dist in shortest_paths.items() if dist > k]
+    mod.graph.remove_nodes_from(nodes_to_remove)
+
     scores = []  # Heuristic
-    for i, sub in enumerate(subs):
+    ismags = nx.isomorphism.ISMAGS(can.graph, mod.graph)
+    largest_common_subgraph = list(ismags.largest_common_subgraph())
+    for i, sub in enumerate(largest_common_subgraph):
         if "CA" not in sub:
             continue
         score = 0
         for k, v in sub.items():
             if k == v:
                 score += 10
-            elif k[:-1] == v[:-1]:
-                score += 5
+            elif k[0] != v[0]:
+                score -= 100
             else:
                 pass
         scores.append((i, score))
     scores.sort(key=lambda x: x[1], reverse=True)
-    e = subs[scores[0][0]]
-    mapping = {v: k for k, v in e.items()}
-    removed = set(mod.graph.nodes).difference(e.values())
+    e = largest_common_subgraph[scores[0][0]]
+    mapping = {v: k for k, v in e.items() if k[0] == v[0]}
+    removed = set(mod.graph.nodes).difference(mapping.keys())
 
     return AtomMap(mapping=mapping, removed=removed)
