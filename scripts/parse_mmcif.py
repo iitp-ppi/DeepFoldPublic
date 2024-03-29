@@ -56,7 +56,7 @@ def main():
     with open(input_file, "r") as fp:
         lines = fp.read().split("\n")
 
-    ch = logging.FileHandler(f"{input_file}.err")
+    ch = logging.FileHandler(f"{input_file}.err", mode="a")
     ch.setLevel(logging.INFO)
     fmt = logging.Formatter("%(message)s")
     ch.setFormatter(fmt)
