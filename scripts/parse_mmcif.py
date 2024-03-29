@@ -57,21 +57,20 @@ def main():
     ch.setFormatter(fmt)
     logger.addHandler(ch)
 
-    with open(sys.argv[2], "a") as fp:
-        for line in (pbar := tqdm.tqdm(lines)):
-            line = line.strip()
-            pbar.set_description_str(f"PDBx: {line}")
-            if line == "":
-                continue
-            try:
-                main_pdbx(line)
-            except Exception:
-                # raise
-                fp.write(f"{line}\n")
-                continue
-            except KeyboardInterrupt:
-                fp.write(f"{line}\n")
-                continue
+    for line in (pbar := tqdm.tqdm(lines)):
+        line = line.strip()
+        pbar.set_description_str(f"PDBx: {line}")
+        if line == "":
+            continue
+        try:
+            main_pdbx(line)
+        except Exception:
+            # raise
+            logger.error(f"{line}")
+            continue
+        except KeyboardInterrupt:
+            logger.error(f"{line}")
+            continue
 
 
 if __name__ == "__main__":
