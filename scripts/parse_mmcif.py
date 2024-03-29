@@ -17,7 +17,7 @@ def main_pdbx(entry_id: str):
     entry_id = entry_id.upper()
 
     out_dir = Path("out") / entry_id[1:3] / entry_id
-    if (out_dir / f"{entry_id}.fasta").exists():
+    if (out_dir / "DONE").exists():
         return
 
     mmcif_str = read_mmcif(entry_id, mmcif_path="./mmCIF")
@@ -25,6 +25,11 @@ def main_pdbx(entry_id: str):
     o = parser.parse(mmcif_str, entry_id=entry_id)
 
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Print only valid chains!
+    fasta_str = get_fasta(o.mmcif_object)
+    with open(out_dir / f"{entry_id}.fasta", "w") as fp:
+        fp.write(fasta_str)
 
     for model_num, chains in o.mmcif_object.models.items():
         for chain_id in chains.keys():
@@ -38,9 +43,8 @@ def main_pdbx(entry_id: str):
         with open(out_dir / f"{name}.json", "w") as fp:
             fp.write(assem_str)
 
-    fasta_str = get_fasta(o.mmcif_object)
-    with open(out_dir / f"{entry_id}.fasta", "w") as fp:
-        fp.write(fasta_str)
+    with open(out_dir / "DONE", "w") as fp:
+        fp.write("")
 
 
 def main():
