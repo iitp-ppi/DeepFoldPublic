@@ -10,7 +10,6 @@ from deepfold.data.pdbx_parsing import MMCIFParser, get_assembly_infos, get_chai
 from deepfold.utils.file_utils import dump_pickle
 
 warnings.filterwarnings("ignore")
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -47,8 +46,16 @@ def main():
     if len(sys.argv) != 3:
         sys.exit(1)
 
-    with open(sys.argv[1], "r") as fp:
+    input_file = sys.argv[1]
+
+    with open(input_file, "r") as fp:
         lines = fp.read().split("\n")
+
+    ch = logging.FileHandler(f"{input_file}.err")
+    ch.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(message)s")
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
 
     with open(sys.argv[2], "a") as fp:
         for line in (pbar := tqdm.tqdm(lines)):
