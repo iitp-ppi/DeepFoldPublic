@@ -28,8 +28,9 @@ def main_pdbx(entry_id: str):
 
     for model_num, chains in o.mmcif_object.models.items():
         for chain_id in chains.keys():
-            feats = get_chain_features(o.mmcif_object, model_num, chain_id)
-            dump_pickle(feats, out_dir / f"{entry_id}_{chain_id}.{model_num}.pkl")
+            if chain_id in o.mmcif_object.valid_chains:
+                feats = get_chain_features(o.mmcif_object, model_num, chain_id)
+                dump_pickle(feats, out_dir / f"{entry_id}_{chain_id}.{model_num}.pkl")
 
     assems = get_assembly_infos(o.mmcif_object)
     for name, assem in assems.items():
