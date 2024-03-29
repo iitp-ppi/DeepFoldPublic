@@ -43,7 +43,7 @@ def main_pdbx(entry_id: str):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         sys.exit(1)
 
     input_file = sys.argv[1]
