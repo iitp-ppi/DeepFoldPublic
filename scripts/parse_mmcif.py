@@ -21,7 +21,7 @@ def main_pdbx(entry_id: str):
     if (out_dir / f"{entry_id}.fasta").exists():
         return
 
-    mmcif_str = read_mmcif(entry_id, mmcif_path="/scratch/pdb/mmCIF")
+    mmcif_str = read_mmcif(entry_id, mmcif_path="./mmCIF")
     parser = MMCIFParser()
     o = parser.parse(mmcif_str, entry_id=entry_id)
 
