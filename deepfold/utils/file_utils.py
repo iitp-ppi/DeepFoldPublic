@@ -42,6 +42,6 @@ def load_pickle(path: os.PathLike) -> Any:
             return pickle.load(fp)
 
 
-def dump_pickle(obj: Any, path: os.PathLike) -> None:
-    with gzip.open(f"{path}.gz", "wb", compresslevel=6) as fp:
+def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
+    with gzip.open(f"{path}.gz", "wb", compresslevel=level) as fp:
         pickle.dump(obj, fp)
