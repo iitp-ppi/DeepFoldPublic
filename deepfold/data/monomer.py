@@ -88,8 +88,8 @@ class AtomMap:
 
 @functools.lru_cache(maxsize=128)
 def get_atom_map(can: str, mod: str) -> AtomMap:
-    can = get_ligand(can, noh=True)  # Canonical
-    mod = get_ligand(mod, noh=True)  # Modified
+    can_lig = get_ligand(can, noh=True)  # Canonical
+    mod_lig = get_ligand(mod, noh=True)  # Modified
 
     cutoff = {
         "ALA": 2,
@@ -115,12 +115,12 @@ def get_atom_map(can: str, mod: str) -> AtomMap:
     }
 
     k = cutoff[can]  # How far from CA?
-    shortest_paths = nx.single_source_shortest_path_length(mod.graph, "CA")
+    shortest_paths = nx.single_source_shortest_path_length(mod_lig.graph, "CA")
     nodes_to_remove = [node for node, dist in shortest_paths.items() if dist > k]
-    mod.graph.remove_nodes_from(nodes_to_remove)
+    mod_lig.graph.remove_nodes_from(nodes_to_remove)
 
     scores = []  # Heuristic
-    ismags = nx.isomorphism.ISMAGS(can.graph, mod.graph)
+    ismags = nx.isomorphism.ISMAGS(can_lig.graph, mod_lig.graph)
     largest_common_subgraph = list(ismags.largest_common_subgraph())
     for i, sub in enumerate(largest_common_subgraph):
         if "CA" not in sub:
@@ -137,6 +137,6 @@ def get_atom_map(can: str, mod: str) -> AtomMap:
     scores.sort(key=lambda x: x[1], reverse=True)
     e = largest_common_subgraph[scores[0][0]]
     mapping = {v: k for k, v in e.items() if k[0] == v[0]}
-    removed = set(mod.graph.nodes).difference(mapping.keys())
+    removed = set(mod_lig.graph.nodes).difference(mapping.keys())
 
     return AtomMap(mapping=mapping, removed=removed)
