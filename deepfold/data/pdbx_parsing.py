@@ -3,7 +3,6 @@
 
 import collections
 import gzip
-import json
 import logging
 import os
 import warnings
