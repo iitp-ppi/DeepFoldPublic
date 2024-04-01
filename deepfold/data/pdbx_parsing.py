@@ -575,6 +575,9 @@ class MMCIFParser:
         # Add missing residue information to seq_to_structure_mappings.
         for n in self._models:
             for chain_id, seq_info in self._valid_chains.items():
+                if chain_id not in seq_to_struct_mappings[n]:
+                    logger.info(f"Cannot find chain {chain_id} in the model")
+                    continue
                 current_mapping = seq_to_struct_mappings[n][chain_id]
                 for idx, monomer in enumerate(seq_info):
                     if idx not in current_mapping:
