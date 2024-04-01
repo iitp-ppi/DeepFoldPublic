@@ -32,6 +32,7 @@ class Monomer:
     entity_id: int
     num: int
     mon_id: str
+    parents: List[str] = field(default_factory=list)
 
 
 # _pdbx_struct_oper_list
@@ -143,7 +144,10 @@ class ParsingResult:
 class MMCIFParser:
     """Parse a mmCIF file."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        parents: Dict[str, List[str]] | None = None,
+    ):
         self._header: MMCIFHeader = None
         self._polymers = None
         self._entity_to_chains = None
@@ -165,6 +169,8 @@ class MMCIFParser:
         self._operations: Dict[str, StructOp] = None
 
         self._tqdm_kwargs = {"leave": False}
+
+        self._std_parents = parents if parents is not None else {}
 
     def parse(
         self,
@@ -346,7 +352,16 @@ class MMCIFParser:
         # Apply MODRES.
         for entity_id, chain in self._polymers.items():
             for i, mono in enumerate(chain):
-                if (entity_id, mono.num) in entity_modres_table:
+                # If the monomer name is in the predefined parents mapping:
+                if self._std_parents.get(mono.mon_id, None):
+                    chain[i] = Monomer(
+                        entity_id=entity_id,
+                        num=mono.num,
+                        mon_id=mon_id,
+                        parents=self._std_parents[mono.mon_id],
+                    )
+                # If the monomer name is in the modified residue section:
+                elif (entity_id, mono.num) in entity_modres_table:
                     comp_id, parent_id = entity_modres_table[(entity_id, mono.num)]
                     mon_id = mono.mon_id
                     if mon_id == comp_id:
@@ -360,8 +375,13 @@ class MMCIFParser:
         for chain_id, seq_info in self._valid_chains.items():
             seq = []
             for monomer in seq_info:
-                code = protein_letters_3to1.get(monomer.mon_id, "X")
-                seq.append(code if len(code) == 1 else "X")
+                if monomer.parents:
+                    for p in monomer.parents:
+                        code = protein_letters_3to1.get(p, "X")
+                        seq.append(code if len(code) == 1 else "X")
+                else:
+                    code = protein_letters_3to1.get(monomer.mon_id, "X")
+                    seq.append(code if len(code) == 1 else "X")
             seq = "".join(seq)
             chain_to_seqres[chain_id] = seq
         self._chain_to_seqres = chain_to_seqres

@@ -12,16 +12,22 @@ from deepfold.utils.file_utils import dump_pickle
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
+PARENTS_DICT = dict()
 
-def main_pdbx(entry_id: str):
+
+def main_pdbx(
+    entry_id: str,
+    seqres_only: bool = False,
+):
     entry_id = entry_id.upper()
 
     out_dir = Path("out") / entry_id[1:3] / entry_id
     if (out_dir / "DONE").exists():
         return
 
+    global PARENTS_DICT
     mmcif_str = read_mmcif(entry_id, mmcif_path="./mmCIF")
-    parser = MMCIFParser()
+    parser = MMCIFParser(parents=PARENTS_DICT)
     o = parser.parse(mmcif_str, entry_id=entry_id)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -30,6 +36,9 @@ def main_pdbx(entry_id: str):
     fasta_str = get_fasta(o.mmcif_object)
     with open(out_dir / f"{entry_id}.fasta", "w") as fp:
         fp.write(fasta_str)
+
+    if seqres_only:
+        return
 
     for model_num, chains in o.mmcif_object.models.items():
         for chain_id in chains.keys():
@@ -56,6 +65,10 @@ def main():
     with open(input_file, "r") as fp:
         lines = fp.read().split("\n")
 
+    global PARENTS_DICT
+    with open("std_parents.json", "r") as fp:
+        PARENTS_DICT = json.loads(fp.read())
+
     ch = logging.FileHandler(f"{input_file}.err", mode="a")
     ch.setLevel(logging.INFO)
     fmt = logging.Formatter("%(message)s")
@@ -68,14 +81,14 @@ def main():
         if line == "":
             continue
         try:
-            main_pdbx(line)
+            main_pdbx(line, seqres_only=True)
         except Exception:
             # raise
             logger.error(f"{line}")
             continue
-        except KeyboardInterrupt:
-            logger.error(f"{line}")
-            continue
+        # except KeyboardInterrupt:
+        #     logger.error(f"{line}")
+        #     continue
 
 
 if __name__ == "__main__":
