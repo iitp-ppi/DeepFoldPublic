@@ -263,8 +263,6 @@ class MMCIFParser:
             desc="_mod_residue",
             **self._tqdm_kwargs,
         ):
-            # if asym_id not in self._valid_chains:
-            #     continue  # Skip for non-valid chains.
             current = mod_residues.get(asym_id, {})
             current[seq_id] = ModRes(
                 asym_id=asym_id,
@@ -352,25 +350,25 @@ class MMCIFParser:
         # Apply MODRES.
         for entity_id, chain in self._polymers.items():
             for i, mono in enumerate(chain):
+                mon_id = mono.mon_id
+                parents = None
                 # If the monomer name is in the predefined parents mapping:
                 if self._std_parents.get(mono.mon_id, None):
-                    chain[i] = Monomer(
-                        entity_id=entity_id,
-                        num=mono.num,
-                        mon_id=mon_id,
-                        parents=self._std_parents[mono.mon_id],
-                    )
+                    parents = self._std_parents[mono.mon_id]
                 # If the monomer name is in the modified residue section:
                 elif (entity_id, mono.num) in entity_modres_table:
                     comp_id, parent_id = entity_modres_table[(entity_id, mono.num)]
-                    mon_id = mono.mon_id
                     if mon_id == comp_id:
                         mon_id = parent_id
                     elif mon_id == parent_id:
                         mon_id = parent_id
                     else:
-                        raise PDBxError(f"Conflict ouccurs between entity_poly ({mon_id}) and mod_residue ({comp_id})")
-                    chain[i] = Monomer(entity_id=entity_id, num=mono.num, mon_id=mon_id)
+                        pass  # Maybe has insertion code.
+                        # raise PDBxError(f"Conflict ouccurs between entity_poly ({mon_id}) and mod_residue ({comp_id})")
+                # SEC to CYS
+                if parents is not None:
+                    parents = [x if x != "SEC" else "CYS" for x in parents]
+                chain[i] = Monomer(entity_id=entity_id, num=mono.num, mon_id=mon_id, parents=parents)
 
         # Generate SEQRES for chains.
         chain_to_seqres = {}
