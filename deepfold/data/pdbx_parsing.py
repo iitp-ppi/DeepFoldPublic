@@ -93,7 +93,7 @@ class Residue:
 @dataclass(frozen=True)
 class ModRes:
     asym_id: str
-    seq_id: int
+    seq_id: int | None
     insertion_code: str
     comp_id: str
     parent_comp_id: str
@@ -244,7 +244,7 @@ class MMCIFParser:
         try:
             modres_asym_id = self._mmcif_dict["_pdbx_struct_mod_residue.label_asym_id"]
             modres_comp_id = self._mmcif_dict["_pdbx_struct_mod_residue.label_comp_id"]
-            modres_seq_id = [int(x) for x in self._mmcif_dict["_pdbx_struct_mod_residue.label_seq_id"]]
+            modres_seq_id = self._mmcif_dict["_pdbx_struct_mod_residue.label_seq_id"]  # NOTE: Left as str for now '?' and '.' will become `None`.
             modres_icode = self._mmcif_dict["_pdbx_struct_mod_residue.PDB_ins_code"]
             modres_parent_comp_id = self._mmcif_dict["_pdbx_struct_mod_residue.parent_comp_id"]
         except KeyError:
@@ -268,7 +268,7 @@ class MMCIFParser:
             current = mod_residues.get(asym_id, {})
             current[seq_id] = ModRes(
                 asym_id=asym_id,
-                seq_id=seq_id,
+                seq_id=(int(seq_id) if seq_id not in (".", "?") else None),
                 insertion_code=" " if icode in (".", "?") else icode,
                 comp_id=comp_id,
                 parent_comp_id=parent,
@@ -342,7 +342,7 @@ class MMCIFParser:
             chain_ids = self._entity_to_chains[entity_id]
 
             # Reject polymers without any peptide-like components, such as nucleic acids.
-            valid = all(["peptide linking" in self._chem_comps[monomer.mon_id] for monomer in seq_info])
+            valid = all(["peptide linking" in self._chem_comps[monomer.mon_id].lower() for monomer in seq_info])
 
             if valid:
                 for chain_id in chain_ids:
@@ -366,8 +366,10 @@ class MMCIFParser:
                     mon_id = mono.mon_id
                     if mon_id == comp_id:
                         mon_id = parent_id
+                    elif mon_id == parent_id:
+                        mon_id = parent_id
                     else:
-                        raise PDBxError(f"Conflict ouccurs between entity_poly and mod_residue")
+                        raise PDBxError(f"Conflict ouccurs between entity_poly ({mon_id}) and mod_residue ({comp_id})")
                     chain[i] = Monomer(entity_id=entity_id, num=mono.num, mon_id=mon_id)
 
         # Generate SEQRES for chains.
