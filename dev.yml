@@ -17,7 +17,7 @@ dependencies:
   - omegaconf=2.3.0
   - networkx=3.2.1
   - ply
-  - pytorch=2.2.1
+  - pytorch=2.2.2
   - torchaudio
   - torchvision
   - pytorch-cuda=11.8
@@ -29,7 +29,7 @@ dependencies:
   - hmmer=3.3.2
   - hhsuite=3.3.0
   - kalign2=2.04
-  - mmseqs2=v15.6f452
+  - mmseqs2=15.6f452
   - isort
   - black
   - pip:
