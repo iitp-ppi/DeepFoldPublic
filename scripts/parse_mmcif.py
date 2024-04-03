@@ -18,6 +18,7 @@ PARENTS_DICT = dict()
 def main_pdbx(
     entry_id: str,
     seqres_only: bool = False,
+    debug: bool = False,
 ):
     entry_id = entry_id.upper()
 
@@ -28,7 +29,12 @@ def main_pdbx(
     global PARENTS_DICT
     mmcif_str = read_mmcif(entry_id, mmcif_path="./mmCIF")
     parser = MMCIFParser(parents=PARENTS_DICT)
-    o = parser.parse(mmcif_str, entry_id=entry_id)
+    o = parser.parse(mmcif_str, entry_id=entry_id, catch_all_errors=debug)
+
+    if debug and len(o.errors):
+        for k, v in o.errors.items():
+            print(k, v)
+        return
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,6 +82,7 @@ def main():
     logger.addHandler(ch)
 
     for line in (pbar := tqdm.tqdm(lines)):
+        line = line.split("#")[0]
         line = line.strip()
         pbar.set_description_str(f"PDBx: {line}")
         if line == "":
@@ -83,7 +90,7 @@ def main():
         try:
             main_pdbx(line, seqres_only=True)
         except Exception:
-            # raise
+            raise
             logger.error(f"{line}")
             continue
         # except KeyboardInterrupt:
