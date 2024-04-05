@@ -151,25 +151,25 @@ echo
 # Prepare output directory
 mkdir -p $OUTPUT_DIR
 
-# UniRef90
-run_jackhmmer "uniref90" $FASTA_PATH "${DATABASE_BASE}/uniref90/uniref90.fasta"
-
-# MGnify
-run_jackhmmer "mgnify" $FASTA_PATH "${DATABASE_BASE}/mgnify/mgy_clusters_2022_05.fa"
-
-# UniProt
-run_jackhmmer "uniprot" $FASTA_PATH "${DATABASE_BASE}/uniprot/uniprot.fasta"
-
-# BFD
-run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
-
 # UniRef30
 run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
+
+# UniRef90
+run_jackhmmer "uniref90" $FASTA_PATH "${DATABASE_BASE}/uniref90/uniref90.fasta"
 
 # HMM
 run_hmmsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
 
 # PDB70
 run_hhsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb70/pdb70"
+
+# UniProt
+run_jackhmmer "uniprot" $FASTA_PATH "${DATABASE_BASE}/uniprot/uniprot.fasta"
+
+# MGnify
+run_jackhmmer "mgnify" $FASTA_PATH "${DATABASE_BASE}/mgnify/mgy_clusters_2022_05.fa"
+
+# BFD
+run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
 
 exit 0
