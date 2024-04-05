@@ -40,7 +40,7 @@ function run_jackhmmer() {
         -A $STO_PATH --noali \
         --incE 0.0001 --F1 0.0005 --F2 0.00005 --F3 0.0000005 \
         -N 1 -E 0.0001 \
-        $INPUT_FASTA_PATH $DB_PATH
+        $INPUT_FASTA_PATH $DB_PATH > /dev/null 2>&2
 
     echo
 }
@@ -65,7 +65,7 @@ function run_hhblits() {
         -min_prefilter_hits 1000 \
         -maxseq 1000000 \
         -cpu $NUM_CPUS \
-        -d $DB_PATH
+        -d $DB_PATH  > /dev/null 2>&2
 
     echo
 }
@@ -91,7 +91,7 @@ function run_hmmsearch() {
         --incE 100 -E 100 --domE 100 --incdomE 100 \
         -A $STO_PATH \
         $HMM_PATH \
-        $DB_PATH
+        $DB_PATH  > /dev/null 2>&2
 
     rm -f $HMM_PATH
 
@@ -114,7 +114,7 @@ function run_hhsearch() {
         -o $HHR_PATH \
         -maxseq 1000000 \
         -cpu $NUM_CPUS \
-        -d $DB_PATH
+        -d $DB_PATH  > /dev/null 2>&2
 
     rm -f $A3M_PATH
 
