@@ -6,8 +6,8 @@ from typing import Any, Tuple
 import torch
 import torch.distributed
 
-import deepfold.core.parallel_state as ps
-from deepfold.core.parallel_state import get_model_parallel_group, get_model_parallel_rank, get_model_parallel_world_size
+import deepfold.distributed.parallel_state as ps
+from deepfold.distributed.parallel_state import get_model_parallel_group, get_model_parallel_rank, get_model_parallel_world_size
 
 
 def _reduce(tensor: torch.Tensor) -> torch.Tensor:

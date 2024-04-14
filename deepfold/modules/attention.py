@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.modules.inductor as inductor
-from deepfold.core.ops import evoformer_attention_core
+from deepfold.ops import evoformer_attention_core
 from deepfold.modules.linear import Linear
 from deepfold.utils.iter_utils import slice_generator
 

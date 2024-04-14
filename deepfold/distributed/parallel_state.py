@@ -9,7 +9,7 @@ from typing import List, Optional
 import torch
 import torch.distributed
 
-from deepfold.core.utils import GlobalMemoryBuffer
+from deepfold.distributed.utils import GlobalMemoryBuffer
 
 # Model parallel group that the current rank belongs to
 _MODEL_PARALLEL_GROUP = None

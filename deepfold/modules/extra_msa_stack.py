@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 
-import deepfold.core.model_parallel.mappings as cc
-import deepfold.core.parallel_state as ps
+import deepfold.distributed.model_parallel.mappings as cc
+import deepfold.distributed.parallel_state as ps
 from deepfold.modules.extra_msa_block import ExtraMSABlock
 
 

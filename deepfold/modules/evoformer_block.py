@@ -3,8 +3,8 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 
-import deepfold.core.model_parallel.mappings as cc
-import deepfold.core.parallel_state as ps
+import deepfold.distributed.model_parallel.mappings as cc
+import deepfold.distributed.parallel_state as ps
 from deepfold.modules.dropout import DropoutRowwise
 from deepfold.modules.evoformer_block_pair_core import EvoformerBlockPairCore
 from deepfold.modules.msa_column_attention import MSAColumnAttention

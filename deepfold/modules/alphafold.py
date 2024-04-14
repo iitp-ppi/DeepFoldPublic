@@ -7,9 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
-
-# import deepfold.core.model_parallel.mappings as cc
-import deepfold.core.parallel_state as ps
+import deepfold.distributed.parallel_state as ps
 import deepfold.modules.inductor as inductor
 from deepfold.config import AlphaFoldConfig
 from deepfold.modules.auxiliary_heads import AuxiliaryHeads
