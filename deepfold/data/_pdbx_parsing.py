@@ -20,7 +20,7 @@ from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 
 from deepfold.common import residue_constants as rc
 from deepfold.data.errors import PDBxError, PDBxWarning
-from deepfold.data.monomer import get_atom_map
+from deepfold.data.monomer import build_atom_map
 from deepfold.utils.file_utils import read_text
 
 logger = logging.getLogger(__name__)
@@ -787,7 +787,7 @@ def get_chain_features(
                 mod, can = modres_table[key]
                 res.name = can  # Rename the residue
                 # logger.info(f"{model_num}:{chain_id}:{num_res+1} {mod} -> {can}")
-                atom_map = get_atom_map(can, mod)  # Get atom map
+                atom_map = build_atom_map(can, mod)  # Get atom map
 
                 # Rename keys
                 for before, after in atom_map.mapping.items():

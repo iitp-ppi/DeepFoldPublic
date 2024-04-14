@@ -32,3 +32,11 @@ class PDBxError(Error):
 
 class PDBxWarning(Warning):
     """PDBx parsing warnings."""
+
+
+class PDBxConstructionError(PDBxError):
+    pass
+
+
+class PDBxConstructionWarning(PDBxWarning):
+    pass

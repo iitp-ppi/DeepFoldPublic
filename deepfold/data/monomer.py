@@ -87,7 +87,7 @@ class AtomMap:
 
 
 @functools.lru_cache(maxsize=128)
-def get_atom_map(can: str, mod: str) -> AtomMap:
+def build_atom_map(can: str, mod: str) -> AtomMap:
     can_lig = get_ligand(can, noh=True)  # Canonical
     mod_lig = get_ligand(mod, noh=True)  # Modified
 
