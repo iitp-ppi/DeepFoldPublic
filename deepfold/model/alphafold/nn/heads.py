@@ -205,8 +205,7 @@ class MaskedMSAHead(nn.Module):
 
 class ExperimentallyResolvedHead(nn.Module):
     """
-    For use in computation of "experimentally resolved" loss, subsection
-    1.9.10
+    For use in computation of "experimentally resolved" loss, subsection 1.9.10.
     """
 
     def __init__(self, c_s, c_out, **kwargs):
