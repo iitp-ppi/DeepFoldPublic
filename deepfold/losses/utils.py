@@ -13,3 +13,10 @@ def sigmoid_cross_entropy(logits: torch.Tensor, labels: torch.Tensor) -> torch.T
     log_not_p = torch.nn.functional.logsigmoid(-logits)  # More numerically stable.
     loss = -labels * log_p - (1 - labels) * log_not_p
     return loss
+
+
+def calculate_bin_centers(boundaries: torch.Tensor) -> torch.Tensor:
+    step = boundaries[1] - boundaries[0]
+    bin_centers = boundaries + step / 2
+    bin_centers = torch.cat([bin_centers, (bin_centers[-1] + step).unsqueeze(-1)], dim=0)
+    return bin_centers
