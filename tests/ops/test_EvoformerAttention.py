@@ -4,7 +4,7 @@ from typing import List
 import torch
 import torch.nn.functional as F
 
-from deepfold.core.ops.evoformer_attention import evoformer_attention_core
+from deepfold.distributed.ops.evoformer_attention import evoformer_attention_core
 
 
 def attention_reference(
