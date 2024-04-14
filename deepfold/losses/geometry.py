@@ -401,3 +401,26 @@ def kabsch_rmsd(
     r, x = get_optimal_transform(true_atom_pos, pred_atom_pos, atom_mask)
     aligned_true_atom_pos = true_atom_pos @ r + x
     return compute_rmsd(aligned_true_atom_pos, pred_atom_pos, atom_mask=atom_mask)
+
+
+def superimpose(
+    src_atoms: torch.Tensor,
+    tgt_atoms: torch.Tensor,
+    mask: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Superimposes coordinates onto a `tgt_atoms` by minimizing RMSD using SVD.
+
+    Args:
+        src_atoms: reference tensor shaped [*, N, 3]
+        tgt_atoms: target tensor shaped [*, N, 3]
+        mask: mask tensor shaped [*, N]
+
+    Returns:
+        superimposed: superimposed coords [*, N, 3]
+        rmsds: final RMSDs [*]
+
+    """
+    r, t = kabsch(src_atoms, tgt_atoms, weights=mask)
+    superimposed = src_atoms @ r + t
+    rmsds = compute_rmsd(superimpose, tgt_atoms, atom_mask=mask)
+    return superimposed, rmsds
