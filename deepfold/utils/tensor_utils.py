@@ -30,9 +30,10 @@ def masked_mean(
     value: torch.Tensor,
     dim: Union[int, Tuple[int, ...]],
     eps: float = 1e-4,
+    keepdim: bool = False,
 ) -> torch.Tensor:
     mask = mask.expand(*value.shape)
-    return torch.sum(mask * value, dim=dim) / (eps + torch.sum(mask, dim=dim))
+    return torch.sum(mask * value, dim=dim, keepdim=keepdim) / (eps + torch.sum(mask, dim=dim, keepdim=keepdim))
 
 
 def one_hot(x: torch.Tensor, v_bins: torch.Tensor) -> torch.Tensor:
