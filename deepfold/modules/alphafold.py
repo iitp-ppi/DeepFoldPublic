@@ -39,11 +39,10 @@ def _log_iter(
 
     print_line = ""
     for k, v in [
-        ("mean_plddt", "pLDDT"),
+        ("mean_plddt", "plDDT"),
         ("ptm_score", "pTM"),
         ("iptm_score", "ipTM"),
-        ("weighted_ptm_score", "Score"),
-        # ("max_predicted_aligned_error", "maxPAE"),
+        ("weighted_ptm_score", "Confidence"),
     ]:
         if k in results:
             print_line += f" {v}={results[k]:.3g}"
