@@ -3,7 +3,7 @@ import unittest
 import torch
 import torch.distributed as dist
 
-from deepfold.core.model_parallel import mappings
+from deepfold.distributed.model_parallel import mappings
 from deepfold.testing import MultiProcessTestCase
 from tests.utils import Distributed
 
