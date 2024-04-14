@@ -3,6 +3,7 @@
 from functools import partial
 from typing import Any, Callable, Dict, List, Tuple, Type, TypeVar, Union, overload
 
+import numpy as np
 import torch
 
 
@@ -135,4 +136,5 @@ def tree_map(fn, tree, leaf_type):
         raise ValueError("Not supported")
 
 
+array_tree_map = partial(tree_map, leaf_type=np.ndarray)
 tensor_tree_map = partial(tree_map, leaf_type=torch.Tensor)
