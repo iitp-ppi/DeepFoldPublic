@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 
 from deepfold.common import residue_constants as rc
 from deepfold.losses.procrustes import kabsch
