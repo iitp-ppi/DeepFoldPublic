@@ -128,11 +128,8 @@ def make_mmcif_features(mmcif_object: mmcif_parsing.MmcifObject, chain_id: str) 
     all_atom_positions, all_atom_mask = mmcif_parsing.get_atom_coords(mmcif_object=mmcif_object, chain_id=chain_id)
     mmcif_feats["all_atom_positions"] = all_atom_positions
     mmcif_feats["all_atom_mask"] = all_atom_mask
-
     mmcif_feats["resolution"] = np.array([mmcif_object.header["resolution"]], dtype=np.float32)
-
     mmcif_feats["release_date"] = np.array([mmcif_object.header["release_date"].encode("utf-8")], dtype=object)
-
     mmcif_feats["is_distillation"] = np.array(0.0, dtype=np.float32)
 
     return mmcif_feats
