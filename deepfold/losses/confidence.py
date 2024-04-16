@@ -8,6 +8,23 @@ from deepfold.losses.utils import calculate_bin_centers, softmax_cross_entropy
 from deepfold.utils.rigid_utils import Rigid
 
 
+def compute_plddt(logits: torch.Tensor) -> torch.Tensor:
+    num_bins = logits.shape[-1]
+    bin_width = 1.0 / num_bins
+    bounds = torch.arange(
+        start=(0.5 * bin_width),
+        end=1.0,
+        step=bin_width,
+        device=logits.device,
+    )
+    probs = torch.softmax(logits, dim=-1)
+    pred_lddt_ca = torch.sum(
+        probs * bounds.view(*((1,) * (probs.ndim - 1)), *bounds.shape),
+        dim=-1,
+    )
+    return pred_lddt_ca * 100
+
+
 def lddt(
     all_atom_pred_pos: torch.Tensor,
     all_atom_positions: torch.Tensor,

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from deepfold.config import AuxiliaryHeadsConfig
-from deepfold.losses import compute_plddt, compute_predicted_aligned_error, compute_tm
+from deepfold.losses.confidence import compute_plddt, compute_predicted_aligned_error, compute_tm
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
 from deepfold.utils.precision import is_fp16_enabled
