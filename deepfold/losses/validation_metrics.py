@@ -39,7 +39,7 @@ def compute_validation_metrics(
 
     gt_coords_masked = gt_coords * all_atom_mask[..., None]
     pred_coords_masked = pred_coords * all_atom_mask[..., None]
-    ca_pos = rc.ATOM_ORDER["CA"]
+    ca_pos = rc.atom_order["CA"]
     gt_coords_masked_ca = gt_coords_masked[..., ca_pos, :]
     pred_coords_masked_ca = pred_coords_masked[..., ca_pos, :]
     all_atom_mask_ca = all_atom_mask[..., ca_pos]

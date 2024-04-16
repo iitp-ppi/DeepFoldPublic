@@ -228,11 +228,11 @@ def supervised_chi_loss(
 
     """
     pred_angles = angles_sin_cos[..., 3:, :]
-    residue_type_one_hot = F.one_hot(aatype, rc.RESTYPE_NUM + 1)
+    residue_type_one_hot = F.one_hot(aatype, rc.restype_num + 1)
     chi_pi_periodic = torch.einsum(
         "ijk,kl->ijl",
         residue_type_one_hot.type(angles_sin_cos.dtype),
-        angles_sin_cos.new_tensor(rc.CHI_PI_PERIODIC),
+        angles_sin_cos.new_tensor(rc.chi_pi_periodic),
     )
 
     true_chi = chi_angles_sin_cos[:, None]
