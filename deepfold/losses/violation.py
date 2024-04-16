@@ -55,9 +55,9 @@ def between_residue_bond_loss(
     c_n_bond_length = torch.sqrt(eps + torch.sum((this_c_pos - next_n_pos) ** 2, dim=-1))
 
     # The C-N bond to proline has slightly different length because of the ring.
-    next_is_proline = aatype[..., 1:] == rc.RESNAME_TO_IDX["PRO"]
-    gt_length = (~next_is_proline) * rc.BETWEEN_RES_BOND_LENGTH_C_N[0] + next_is_proline * rc.BETWEEN_RES_BOND_LENGTH_C_N[1]
-    gt_stddev = (~next_is_proline) * rc.BETWEEN_RES_BOND_LENGTH_STDDEV_C_N[0] + next_is_proline * rc.BETWEEN_RES_BOND_LENGTH_STDDEV_C_N[1]
+    next_is_proline = aatype[..., 1:] == rc.resname_to_idx["PRO"]
+    gt_length = (~next_is_proline) * rc.between_res_bond_length_c_n[0] + next_is_proline * rc.between_res_bond_length_c_n[1]
+    gt_stddev = (~next_is_proline) * rc.between_res_bond_length_stddev_c_n[0] + next_is_proline * rc.between_res_bond_length_stddev_c_n[1]
     c_n_bond_length_error = torch.sqrt(eps + (c_n_bond_length - gt_length) ** 2)
     c_n_loss_per_residue = torch.relu(c_n_bond_length_error - tolerance_factor_soft * gt_stddev)
     mask = this_c_mask * next_n_mask * has_no_gap_mask
@@ -73,8 +73,8 @@ def between_residue_bond_loss(
     n_ca_unit_vec = (next_ca_pos - next_n_pos) / n_ca_bond_length[..., None]
 
     ca_c_n_cos_angle = torch.sum(c_ca_unit_vec * c_n_unit_vec, dim=-1)
-    gt_angle = rc.BETWEEN_RES_COS_ANGLES_CA_C_N[0]
-    gt_stddev = rc.BETWEEN_RES_BOND_LENGTH_STDDEV_C_N[0]
+    gt_angle = rc.between_res_cos_angles_ca_c_n[0]
+    gt_stddev = rc.between_res_bond_length_stddev_c_n[0]
     ca_c_n_cos_angle_error = torch.sqrt(eps + (ca_c_n_cos_angle - gt_angle) ** 2)
     ca_c_n_loss_per_residue = torch.relu(ca_c_n_cos_angle_error - tolerance_factor_soft * gt_stddev)
     mask = this_ca_mask * this_c_mask * next_n_mask * has_no_gap_mask
@@ -82,8 +82,8 @@ def between_residue_bond_loss(
     ca_c_n_violation_mask = mask * (ca_c_n_cos_angle_error > (tolerance_factor_hard * gt_stddev))
 
     c_n_ca_cos_angle = torch.sum((-c_n_unit_vec) * n_ca_unit_vec, dim=-1)
-    gt_angle = rc.BETWEEN_RES_COS_ANGLES_C_N_CA[0]
-    gt_stddev = rc.BETWEEN_RES_COS_ANGLES_C_N_CA[1]
+    gt_angle = rc.between_res_cos_angles_c_n_ca[0]
+    gt_stddev = rc.between_res_cos_angles_c_n_ca[1]
     c_n_ca_cos_angle_error = torch.sqrt(eps + torch.square(c_n_ca_cos_angle - gt_angle))
     c_n_ca_loss_per_residue = torch.relu(c_n_ca_cos_angle_error - tolerance_factor_soft * gt_stddev)
     mask = this_c_mask * next_n_mask * next_ca_mask * has_no_gap_mask
@@ -190,7 +190,7 @@ def between_residue_clash_loss(
     dists_mask = dists_mask * (1.0 - c_n_bonds)
 
     # Disulfide bridge between two cysteines is no clash.
-    cys = rc.RESTYPE_NAME_TO_ATOM14_NAMES["CYS"]
+    cys = rc.restype_name_to_atom14_names["CYS"]
     cys_sg_idx = cys.index("SG")
     cys_sg_idx = residue_index.new_tensor(cys_sg_idx)
     cys_sg_idx = cys_sg_idx.reshape(*((1,) * len(residue_index.shape[:-1])), 1).squeeze(-1)
@@ -328,7 +328,7 @@ def find_structural_violations(
     # Compute the Van der Waals radius for every atom
     # (the first letter of the atom name is the element type).
     # Shape: (N, 14).
-    atomtype_radius = [rc.VAN_DER_WAALS_RADIUS[name[0]] for name in rc.ATOM_TYPES]
+    atomtype_radius = [rc.van_der_waals_radius[name[0]] for name in rc.atom_types]
     atomtype_radius = atom14_pred_positions.new_tensor(atomtype_radius)
     atom14_atom_radius = batch["atom14_atom_exists"] * atomtype_radius[batch["residx_atom14_to_atom37"]]
 
@@ -435,7 +435,7 @@ def extreme_ca_ca_distance_violations(
     next_ca_mask = pred_atom_mask[..., 1:, 1]
     has_no_gap_mask = (residue_index[..., 1:] - residue_index[..., :-1]) == 1.0
     ca_ca_distance = torch.sqrt(eps + torch.sum((this_ca_pos - next_ca_pos) ** 2, dim=-1))
-    violations = (ca_ca_distance - rc.CA_CA) > max_angstrom_tolerance
+    violations = (ca_ca_distance - rc.ca_ca) > max_angstrom_tolerance
     mask = this_ca_mask * next_ca_mask * has_no_gap_mask
     return masked_mean(mask, violations, -1)
 
