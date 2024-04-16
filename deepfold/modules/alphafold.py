@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
+import deepfold.distributed as dist
 import deepfold.modules.inductor as inductor
 from deepfold.config import AlphaFoldConfig
 from deepfold.modules.auxiliary_heads import AuxiliaryHeads

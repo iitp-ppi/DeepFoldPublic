@@ -55,6 +55,9 @@ _MODEL_PARALLEL_INITIALIZED = False
 # Whether model parallel is enabled or not
 _MODEL_PARALLEL_ENABLED = False
 
+# Model parallel size
+_MODEL_PARALLEL_SIZE = 0
+
 
 def get_nccl_options(pg_name, nccl_comm_cfgs):
     """Set the NCCL process group options.
@@ -120,6 +123,9 @@ def initialize_model_parallel(
         model_parallel_size (int, default = 1):
             The number of GPUs to split the model across.
     """
+    global _MODEL_PARALLEL_INITIALIZED
+    global _MODEL_PARALLEL_ENABLED
+    global _MODEL_PARALLEL_SIZE
 
     # Get world size and rank
     assert torch.distributed.is_initialized()
@@ -166,6 +172,7 @@ def initialize_model_parallel(
 
     _MODEL_PARALLEL_INITIALIZED = True
     _MODEL_PARALLEL_ENABLED = True
+    _MODEL_PARALLEL_SIZE = model_parallel_size
 
 
 def model_parallel_is_initialized() -> bool:
@@ -287,12 +294,19 @@ def num_nodes() -> Optional[int]:
     return _DIST_NUM_NODES
 
 
+def is_main_process() -> bool:
+    return not _DIST_INITIALIZED or bool(_DIST_RANK == 0)
+
+
 def is_model_parallel_initialized() -> bool:
     return _MODEL_PARALLEL_INITIALIZED
 
 
-def is_main_process() -> bool:
-    return not _DIST_INITIALIZED or bool(_DIST_RANK == 0)
+def model_parallel_size() -> int:
+    return _MODEL_PARALLEL_SIZE
+
+
+size = model_parallel_size
 
 
 def is_model_parallel_enabled() -> bool:
