@@ -11,6 +11,26 @@ import torch.distributed
 
 from deepfold.distributed.utils import GlobalMemoryBuffer
 
+
+# Whether torch distributed has been initialized or not
+_DIST_INITIALIZED = False
+
+# Distributed rank, from 0 to world_size-1
+_DIST_RANK = None
+
+# Distributed world size
+_DIST_WORLD_SIZE = None
+
+# Ranks (device count) per node
+_DIST_LOCAL_WORLD_SIZE = None
+
+# Rank inside node (device id)
+_DIST_LOCAL_RANK = None
+
+# Number of nodes
+_DIST_NUM_NODES = None
+
+
 # Model parallel group that the current rank belongs to
 _MODEL_PARALLEL_GROUP = None
 
@@ -54,6 +74,40 @@ def get_nccl_options(pg_name, nccl_comm_cfgs):
         return nccl_options
     else:
         return None
+
+
+def initialize() -> None:
+    global _DIST_INITIALIZED
+    global _DIST_RANK
+    global _DIST_WORLD_SIZE
+    global _DIST_LOCAL_WORLD_SIZE
+    global _DIST_LOCAL_RANK
+    global _DIST_NUM_NODES
+
+    assert not _DIST_INITIALIZED
+    assert torch.distributed.is_available()
+    assert not torch.distributed.is_initialized()
+    torch.distributed.init_process_group(backend="nccl", init_method="env://")
+    assert torch.distributed.is_initialized()
+
+    rank = int(torch.distributed.get_rank())
+    world_size = int(torch.distributed.get_world_size())
+
+    local_world_size = int(torch.cuda.device_count())
+    local_rank = rank % local_world_size
+
+    num_nodes = int(max(1, world_size // local_world_size))
+    if world_size >= local_world_size:
+        assert world_size % local_world_size == 0
+    else:
+        assert num_nodes == 1
+
+    _DIST_INITIALIZED = True
+    _DIST_RANK = rank
+    _DIST_WORLD_SIZE = world_size
+    _DIST_LOCAL_WORLD_SIZE = local_world_size
+    _DIST_LOCAL_RANK = local_rank
+    _DIST_NUM_NODES = num_nodes
 
 
 def initialize_model_parallel(
@@ -211,10 +265,38 @@ def destroy_model_parallel():
 
 
 def is_initialized() -> bool:
+    return _DIST_INITIALIZED
+
+
+def rank() -> Optional[int]:
+    return _DIST_RANK
+
+
+def world_size() -> Optional[int]:
+    return _DIST_WORLD_SIZE
+
+
+def local_world_size() -> Optional[int]:
+    return _DIST_LOCAL_WORLD_SIZE
+
+
+def local_rank() -> Optional[int]:
+    return _DIST_LOCAL_RANK
+
+
+def num_nodes() -> Optional[int]:
+    return _DIST_NUM_NODES
+
+
+def is_model_parallel_initialized() -> bool:
     return _MODEL_PARALLEL_INITIALIZED
 
 
-def is_enabled() -> bool:
+def is_main_process() -> bool:
+    return not _DIST_INITIALIZED or bool(_DIST_RANK == 0)
+
+
+def is_model_parallel_enabled() -> bool:
     return _MODEL_PARALLEL_ENABLED
 
 
@@ -263,8 +345,3 @@ def disable() -> None:
             Disable.apply()
         else:
             _disable()
-
-
-# Shortcuts
-rank = get_model_parallel_rank
-size = get_model_parallel_world_size
