@@ -23,7 +23,7 @@ def masked_msa_loss(
         Masked MSA loss
 
     """
-    errors = softmax_cross_entropy(logits=logits, targets=F.one_hot(true_msa, num_classes=23))
+    errors = softmax_cross_entropy(logits=logits, labels=F.one_hot(true_msa, num_classes=23))
 
     # FP16-friendly averaging.
     loss = errors * bert_mask

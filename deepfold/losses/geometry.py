@@ -295,7 +295,7 @@ def distogram_loss(
         num_bins=num_bins,
     )
 
-    errors = softmax_cross_entropy(logits=logits, targets=F.one_hot(true_bins, num_bins))
+    errors = softmax_cross_entropy(logits=logits, labels=F.one_hot(true_bins, num_bins))
 
     # FP16-friendly sum.
     denom = eps + torch.sum(square_mask, dim=(-1, -2))

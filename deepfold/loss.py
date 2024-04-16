@@ -55,8 +55,8 @@ class AlphaFoldLoss(nn.Module):
         """
         batch_size = batch["aatype"].size(0)
 
-        if "violation" not in outputs.keys():
-            outputs["violation"] = find_structural_violations(
+        if "violations" not in outputs.keys():
+            outputs["violations"] = find_structural_violations(
                 batch=batch,
                 atom14_pred_positions=outputs["sm_positions"][:, -1],
                 violation_tolerance_factor=self.violation_loss_config.violation_tolerance_factor,
@@ -173,7 +173,7 @@ class AlphaFoldLoss(nn.Module):
                 loss = torch.zeros_like(loss, requires_grad=True)
                 weighted_losses[name] = loss
 
-        weighted_total_loss = torch.sum(weighted_losses.values())
+        weighted_total_loss = sum(weighted_losses.values())  # Not torch.sum
 
         # To decrease the relative importance of short sequences, we multiply the final loss
         # of each training example by the square root of the number of residues after cropping.

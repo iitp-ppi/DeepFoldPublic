@@ -95,24 +95,21 @@ def plddt_loss(
 ) -> torch.Tensor:
     """Calculate plDDT loss."""
 
-    score = lddt_ca(
-        all_atom_pred_pos=all_atom_pred_pos,
-        all_atom_positions=all_atom_positions,
-        all_atom_mask=all_atom_mask,
-        cutoff=cutoff,
-        eps=eps,
-    )
+    ca_pos = rc.atom_order["CA"]
+    all_atom_pred_pos = all_atom_pred_pos[..., ca_pos, :]
+    all_atom_positions = all_atom_positions[..., ca_pos, :]
+    all_atom_mask = all_atom_mask[..., ca_pos : (ca_pos + 1)]  # keep dim
 
-    score = score.detach()
-
+    score = lddt(all_atom_pred_pos, all_atom_positions, all_atom_mask, cutoff=cutoff, eps=eps).detach()
     bin_index = torch.floor(score * num_bins).long()
     bin_index = torch.clamp(bin_index, max=(num_bins - 1))
     lddt_ca_one_hot = F.one_hot(bin_index, num_classes=num_bins)
 
-    errors = softmax_cross_entropy(logits=logits, targets=lddt_ca_one_hot)
+    errors = softmax_cross_entropy(logits=logits, labels=lddt_ca_one_hot)
     all_atom_mask = all_atom_mask.squeeze(-1)
     loss = torch.sum(errors * all_atom_mask, dim=-1) / (eps + torch.sum(all_atom_mask, dim=-1))
 
+    # High resolution only
     loss = loss * ((resolution >= min_resolution) & (resolution <= max_resolution))
 
     return loss
@@ -238,7 +235,7 @@ def tm_loss(
 
     errors = softmax_cross_entropy(
         logits=logits,
-        targets=F.one_hot(true_bins, num_bins),
+        labels=F.one_hot(true_bins, num_bins),
     )
 
     square_mask = backbone_rigid_mask[..., None] * backbone_rigid_mask[..., None, :]

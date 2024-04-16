@@ -31,7 +31,7 @@ def experimentally_resolved_loss(
         NMR and distillation examples have zero resolution.
     """
 
-    errors = sigmoid_cross_entropy(logits=logits, targets=all_atom_mask)
+    errors = sigmoid_cross_entropy(logits=logits, labels=all_atom_mask)
     loss = torch.sum(errors * atom37_atom_exists, dim=-1)
     loss = loss / (eps + torch.sum(atom37_atom_exists, dim=(-1, -2)).view(-1, 1))
     loss = torch.sum(loss, dim=-1)
