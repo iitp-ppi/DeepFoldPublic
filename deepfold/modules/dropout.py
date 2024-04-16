@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.distributed.model_parallel.mappings as cc
-import deepfold.distributed.parallel_state as ps
+import deepfold.distributed as dist
 import deepfold.modules.inductor as inductor
 
 
@@ -52,7 +51,7 @@ class Dropout(nn.Module):
         for d in self.share_dim:
             shape[d] = 1
         if scattered_dim is not None:
-            shape[scattered_dim] *= ps.rank()
+            shape[scattered_dim] *= dist.rank()
         mask = x.new_ones(shape)
         mask = F.dropout(
             input=mask,
@@ -61,7 +60,7 @@ class Dropout(nn.Module):
             inplace=self.inplace,
         )
         if scattered_dim is not None:
-            mask = cc.scatter(mask, dim=scattered_dim)
+            mask = dist.scatter(mask, dim=scattered_dim)
         x = _mul_add(x, mask, add_output_to)
         return x
 

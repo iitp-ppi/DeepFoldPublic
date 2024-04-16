@@ -11,7 +11,6 @@ import torch.distributed
 
 from deepfold.distributed.utils import GlobalMemoryBuffer
 
-
 # Whether torch distributed has been initialized or not
 _DIST_INITIALIZED = False
 

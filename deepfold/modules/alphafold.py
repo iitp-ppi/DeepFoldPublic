@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
-import deepfold.distributed.parallel_state as ps
 import deepfold.modules.inductor as inductor
 from deepfold.config import AlphaFoldConfig
 from deepfold.modules.auxiliary_heads import AuxiliaryHeads
@@ -156,7 +155,7 @@ class AlphaFold(nn.Module):
         outputs, prevs = self._forward_iteration(
             feats=feats,
             prevs=prevs,
-            gradient_checkpointing=(self.training and ps.size() <= 1),
+            gradient_checkpointing=(self.training and dist.size() <= 1),
         )
         del prevs
 

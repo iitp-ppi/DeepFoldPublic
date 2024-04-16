@@ -3,8 +3,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 
-import deepfold.distributed.model_parallel.mappings as cc
-import deepfold.distributed.parallel_state as ps
+import deepfold.distributed as dist
 from deepfold.modules.dropout import DropoutColumnwise, DropoutRowwise
 from deepfold.modules.pair_transition import PairTransition
 from deepfold.modules.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
@@ -110,7 +109,7 @@ class EvoformerBlockPairCore(nn.Module):
             z: [batch, N_res, N_res, c_z] updated pair representation
 
         """
-        if ps.is_enabled():
+        if dist.is_model_parallel_enabled():
             m, z = self._forward_dap(
                 m=m,
                 z=z,
@@ -159,29 +158,29 @@ class EvoformerBlockPairCore(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        m = cc.col_to_row(m)
-        pair_mask_row = cc.scatter(pair_mask, dim=-3)
-        pair_mask_col = cc.scatter(pair_mask, dim=-2)
+        m = dist.col_to_row(m)
+        pair_mask_row = dist.scatter(pair_mask, dim=-3)
+        pair_mask_col = dist.scatter(pair_mask, dim=-2)
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask_row),
             add_output_to=z,
         )
-        z = cc.row_to_col(z)
+        z = dist.row_to_col(z)
         z = self.tmi_dropout_rowwise(
             self.tri_mul_in(z=z, mask=pair_mask_col),
             dap_scattered_dim=-2,
             add_output_to=z,
         )
-        z = cc.col_to_row(z)
+        z = dist.col_to_row(z)
         z = self.tasn_dropout_rowwise(
             self.tri_att_start(z=z, mask=pair_mask_row),
             add_output_to=z,
         )
-        z = cc.row_to_col(z)
+        z = dist.row_to_col(z)
         z = self.taen_dropout_columnwise(
             self.tri_att_end(z=z, mask=pair_mask_col),
             add_output_to=z,
         )
         z = self.pair_transition(z, mask=pair_mask)
-        z = cc.col_to_row(z)
+        z = dist.col_to_row(z)
         return m, z
