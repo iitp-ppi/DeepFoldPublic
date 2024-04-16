@@ -752,7 +752,7 @@ def get_assemblies(mmcif_object: PDBxObject):
             "assembly_num_chains": len(asym_ids_needed),
             "generators": generators,
             "oper_list": {k: oper_list[k] for k in op_ids_needed},
-            "oligometric_state": dict(sorted((k, v) for k, v in entity_counter.items())),
+            "oligomeric_state": dict(sorted((k, v) for k, v in entity_counter.items())),
             "label_to_auth": {x: y for x, y in mmcif_object.label_to_auth.items() if x in asym_ids_needed},
         }
 
