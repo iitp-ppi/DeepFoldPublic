@@ -51,7 +51,7 @@ class AlphaFoldLRScheduler:
         )
         self.prev_lr_value = None
 
-    def __call__(self, iteration: int) -> None:
+    def step(self, iteration: int) -> None:
         if iteration <= self.warmup_lr_length:
             lr_value = self.warmup_linspace[iteration - 1].item()
             lr_value = round(lr_value, 10)
