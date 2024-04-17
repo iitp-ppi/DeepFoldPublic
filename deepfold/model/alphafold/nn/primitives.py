@@ -10,8 +10,11 @@ import torch
 import torch.nn as nn
 from scipy.stats import truncnorm
 
-from deepfold.utils.misc import prod
 from deepfold.utils.tensor_utils import flatten_final_dims, permute_final_dims
+
+
+def prod(x: Sequence[int]) -> int:
+    return math.prod(x)
 
 
 def _calculate_fan(linear_weight_shape: torch.Size, fan: str = "fan_in") -> float:
