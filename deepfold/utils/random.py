@@ -38,3 +38,17 @@ def numpy_seed(seed: Optional[int] = None, *additional_seeds, key: str = ""):
         yield
     finally:
         np.random.set_state(state)
+
+
+def get_seed_from_string(s: str) -> int:
+    """Hashes input string and returns uint64-like integer seed value."""
+    rng = random.Random(s)
+    seed = rng.getrandbits(64)
+    return seed
+
+
+def get_seed_randomly() -> int:
+    """Returns truly pseduorandom uint64-like integer seed value."""
+    rng = random.Random(None)
+    seed = rng.getrandbits(64)
+    return seed
