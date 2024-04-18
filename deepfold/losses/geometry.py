@@ -176,7 +176,6 @@ def fape_loss(
         loss_unit_distance=backbone_loss_unit_distance,
         eps=eps,
     )
-
     sidechain_loss_value = sidechain_loss(
         sidechain_frames=outputs["sm_sidechain_frames"],
         sidechain_atom_pos=outputs["sm_positions"],
@@ -190,7 +189,6 @@ def fape_loss(
         length_scale=sidechain_length_scale,
         eps=eps,
     )
-
     fape_loss_value = backbone_loss_value * backbone_weight + sidechain_loss_value * sidechain_weight
 
     return fape_loss_value
