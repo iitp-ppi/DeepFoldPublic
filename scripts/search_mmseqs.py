@@ -1,5 +1,5 @@
 # From ColabFold (https://github.com/sokrypton/ColabFold)
-# Requires mmseqs2
+# Requires MMseqs2
 
 
 import logging
@@ -926,10 +926,7 @@ def main():
                 query_seq_headername = 101 + j
                 f.write(f">{query_seq_headername}\n{seq}\n")
 
-    run_mmseqs(
-        args.mmseqs,
-        ["createdb", query_file, args.base.joinpath("qdb"), "--shuffle", "0"],
-    )
+    run_mmseqs(args.mmseqs, ["createdb", query_file, args.base.joinpath("qdb"), "--shuffle", "0"])
     with args.base.joinpath("qdb.lookup").open("w") as f:
         id = 0
         file_number = 0

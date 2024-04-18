@@ -631,8 +631,7 @@ class DataPipeline:
 
                 if ext == ".a3m":
                     msa = parsers.parse_a3m(read_msa(start, size))
-                # The "hmm_output" exception is a crude way to exclude
-                # multimer template hits.
+                # The "hmm_output" exception is a crude way to exclude multimer template hits.
                 # Multimer "uniprot_hits" processed separately.
                 elif ext == ".sto" and filename not in ["uniprot_hits", "hmm_output"]:
                     msa = parsers.parse_stockholm(read_msa(start, size))
