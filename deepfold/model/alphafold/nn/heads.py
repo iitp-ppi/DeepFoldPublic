@@ -2,15 +2,82 @@
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 
 from deepfold.distributed.legacy import gather, scatter
-from deepfold.model.alphafold.loss import compute_plddt, compute_predicted_aligned_error
 from deepfold.model.alphafold.nn.primitives import LayerNorm, Linear
 from deepfold.utils.precision import is_fp16_enabled
+
+
+def compute_plddt(logits: torch.Tensor) -> torch.Tensor:
+    num_bins = logits.shape[-1]
+    bin_width = 1.0 / num_bins
+    bounds = torch.arange(start=0.5 * bin_width, end=1.0, step=bin_width, device=logits.device)
+    probs = torch.nn.functional.softmax(logits, dim=-1)
+    pred_lddt_ca = torch.sum(
+        probs * bounds.view(*((1,) * len(probs.shape[:-1])), *bounds.shape),
+        dim=-1,
+    )
+    return pred_lddt_ca * 100
+
+
+def _calculate_bin_centers(boundaries: torch.Tensor):
+    step = boundaries[1] - boundaries[0]
+    bin_centers = boundaries + step / 2
+    bin_centers = torch.cat([bin_centers, (bin_centers[-1] + step).unsqueeze(-1)], dim=0)
+    return bin_centers
+
+
+def _calculate_expected_aligned_error(
+    alignment_confidence_breaks: torch.Tensor,
+    aligned_distance_error_probs: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    bin_centers = _calculate_bin_centers(alignment_confidence_breaks)
+    return (
+        torch.sum(aligned_distance_error_probs * bin_centers, dim=-1),
+        bin_centers[-1],
+    )
+
+
+def compute_predicted_aligned_error(
+    logits: torch.Tensor,
+    max_bin: int = 31,
+    no_bins: int = 64,
+    **kwargs,
+) -> Dict[str, torch.Tensor]:
+    """Computes aligned confidence metrics from logits.
+
+    Args:
+      logits: [*, num_res, num_res, num_bins] the logits output from
+        PredictedAlignedErrorHead.
+      max_bin: Maximum bin value
+      no_bins: Number of bins
+    Returns:
+      aligned_confidence_probs: [*, num_res, num_res, num_bins] the predicted
+        aligned error probabilities over bins for each residue pair.
+      predicted_aligned_error: [*, num_res, num_res] the expected aligned distance
+        error for each pair of residues.
+      max_predicted_aligned_error: [*] the maximum predicted error possible.
+    """
+    boundaries = torch.linspace(0, max_bin, steps=(no_bins - 1), device=logits.device)
+
+    aligned_confidence_probs = torch.nn.functional.softmax(logits, dim=-1)
+    (
+        predicted_aligned_error,
+        max_predicted_aligned_error,
+    ) = _calculate_expected_aligned_error(
+        alignment_confidence_breaks=boundaries,
+        aligned_distance_error_probs=aligned_confidence_probs,
+    )
+
+    return {
+        "aligned_confidence_probs": aligned_confidence_probs,
+        "predicted_aligned_error": predicted_aligned_error,
+        "max_predicted_aligned_error": max_predicted_aligned_error,
+    }
 
 
 class AuxiliaryHeads(nn.Module):
