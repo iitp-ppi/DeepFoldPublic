@@ -192,7 +192,7 @@ class PDBxParser:
         self.valid_chains = None
 
         #
-        self.mod_residue = None
+        self.modified_residues = None
 
         # Assembly
         self.assemblies: Dict[int, List[AssemblyGenerator]] = None
@@ -210,7 +210,7 @@ class PDBxParser:
                 header=self.header,
                 structure=self.structure,
                 # valid_chains=self.valid_chains,
-                modres=self.mod_residue,
+                modres=self.modified_residues,
                 label_to_auth=self.label_to_auth,
                 auth_to_label={y: x for x, y in self.label_to_auth.items()},
                 chain_to_entity=self.chain_to_entity,
@@ -237,13 +237,20 @@ class PDBxParser:
             self._get_protein_chains()  # valid_chains, entity_to_chains
 
             self.structure, self.label_to_auth, self.chain_to_structure = self._build_structure(self.mmcif_dict)
-            self.mod_residue = self._get_mod_residue(self.mmcif_dict)  # mod_residue
+            self._get_mod_residue()  # modified_residues
 
             self.assemblies, self.operations = self._get_assemblies(self.mmcif_dict, self.valid_chains)
 
     def _handle_missing_residues(self):
+        missing_chains = []
         for chain_id, seq_info in self.valid_chains.items():
-            current_mapping = self.chain_to_structure[chain_id]
+            try:
+                current_mapping = self.chain_to_structure[chain_id]
+            except KeyError as key:
+                logger.info(f"Chain {chain_id} has no structure. Remove...")
+                missing_chains.append(chain_id)
+                continue
+
             # Add missing residue information to seq_to_structure_mappings.
             for monomer in seq_info:
                 idx = monomer.num
@@ -256,15 +263,18 @@ class PDBxParser:
                         residue_index=idx,
                     )
 
+        for chain_id in missing_chains:
+            del self.valid_chains[chain_id]
+
     # Filter modres records which are used.
     def _process_modres(self):
         modres_processed = {}
         for chain_id, seq_info in self.valid_chains.items():
             seq_info = {m.num: m for m in seq_info}
-            for value in self.mod_residue.values():
+            for value in self.modified_residues.values():
                 if (value.label_asym_id == chain_id) and (value.label_comp_id == seq_info[value.label_seq_id].mon_id):
                     modres_processed[(chain_id, value.label_seq_id)] = value
-        self.mod_residue = modres_processed
+        self.modified_residues = modres_processed
 
     @staticmethod
     def _get_header(mmcif_dict):
@@ -342,9 +352,8 @@ class PDBxParser:
         self.chain_to_entity = chain_to_entity
         self.valid_chains = valid_chains
 
-    @staticmethod
-    def _get_mod_residue(mmcif_dict):
-        mod_residues = loop_to_list("_pdbx_struct_mod_residue.", mmcif_dict)
+    def _get_mod_residue(self):
+        mod_residues = loop_to_list("_pdbx_struct_mod_residue.", self.mmcif_dict)
 
         modified_residues = {}
         for modres in mod_residues:
@@ -353,6 +362,13 @@ class PDBxParser:
             comp_id = modres["_pdbx_struct_mod_residue.label_comp_id"]
             parent_comp_id = modres["_pdbx_struct_mod_residue.parent_comp_id"]
             insertion_code = modres["_pdbx_struct_mod_residue.PDB_ins_code"]
+
+            if asym_id in {".", "?"}:
+                asym_id = " "
+
+            if asym_id not in self.valid_chains:
+                logger.debug(f"Skip {asym_id}:{seq_id}{insertion_code} {comp_id}...")
+                continue
 
             seq_id = int(seq_id)
 
@@ -376,7 +392,7 @@ class PDBxParser:
 
             modified_residues[key] = row
 
-        return modified_residues
+        self.modified_residues = modified_residues
 
     @staticmethod
     def _build_structure(mmcif_dict):
