@@ -19,7 +19,9 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 import numpy as np
 import requests
-from Bio.Data.PDBData import protein_letters_3to1
+from Bio.Data.PDBData import protein_letters_3to1_extended as protein_letters_3to1
+
+# from Bio.Data.PDBData import protein_letters_3to1
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 from Bio.PDB.PDBExceptions import PDBConstructionException, PDBConstructionWarning
 from Bio.PDB.Structure import Structure
@@ -40,6 +42,10 @@ class CategoryNotFoundError(PDBxError):
 
 UNASSIGNED = {".", "?"}
 LATIN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+DEFAULT_ATOM_MAP = {
+    ("MSE", "MET"): {"N": "N", "CA": "CA", "C": "C", "O": "O", "OXT": "OXT", "CB": "CB", "CG": "CG", "SE": "SD", "CE": "CE"},
+    ("UNK", "UNK"): {"N": "N", "CA": "CA", "C": "C", "O": "O", "OXT": "OXT", "CB": "CB"},
+}  # TODO: Implement ATOM_MAP
 
 
 def loop_to_list(prefix: str, dic: Mapping[str, Sequence[str]]) -> Sequence[Mapping[str, str]]:
@@ -302,7 +308,7 @@ class PDBxParser:
 
         return PDBxHeader(**header)
 
-    def _get_protein_chains(self):
+    def _get_protein_chains(self, only_valid: bool = True):
         mmcif_dict = self.mmcif_dict
 
         # _entity_poly
@@ -346,7 +352,8 @@ class PDBxParser:
         chain_to_entity = {}
         for k, v in entity_to_chains.items():
             for x in v:
-                chain_to_entity[x] = k
+                if x in valid_chains:
+                    chain_to_entity[x] = k
 
         self.entity_to_chains = entity_to_chains
         self.chain_to_entity = chain_to_entity
@@ -699,7 +706,7 @@ def read_mmcif(
 
 
 def get_fasta(mmcif_object: PDBxObject) -> str:
-    entry_id = mmcif_object.header.entry_id
+    entry_id = mmcif_object.header.entry_id.lower()
     seqres = mmcif_object.chain_to_structure
     label_to_auth = mmcif_object.label_to_auth
     modres = mmcif_object.modres
@@ -720,7 +727,7 @@ def get_fasta(mmcif_object: PDBxObject) -> str:
 
         seq = "".join(seq)
         auth_id = label_to_auth[asym_id]
-        fasta_str += f">>{entry_id}_{asym_id}|{entry_id}_{auth_id}\n"
+        fasta_str += f">>{entry_id}_{asym_id} | {entry_id}_{auth_id}\n"
         fasta_str += f"{seq}\n"
 
     return fasta_str
@@ -764,6 +771,7 @@ def get_assemblies(mmcif_object: PDBxObject):
             entity_counter[entity_id] += num
 
         assemblies[name] = {
+            **common,
             "assembly_id": name,
             "assembly_num_chains": len(asym_ids_needed),
             "generators": generators,
@@ -782,7 +790,9 @@ def get_chain_features(
     override_id: str | None = None,
 ) -> Tuple[Dict[str, np.ndarray], Structure]:
     """Get atom positions and mask from a list of Biopython Residues."""
+
     builder = StructureBuilder()
+    builder.set_header(f"{mmcif_object.header}")
     builder.init_structure(structure_id=f"{mmcif_object.header.entry_id}_{chain_id}")
     builder.init_model(model_id=model_num)
     builder.init_seg(" ")
@@ -821,25 +831,26 @@ def get_chain_features(
 
             for atom in res.get_atoms():
                 atom_name = atom.get_name()
-                # atom_name = atom_name if atom_map is None else atom_map[atom_name]
                 if atom_map is not None:
                     if atom_name in atom_map:
-                        atom_name = atom_name[atom_name]
+                        atom_name = atom_map[atom_name]
                     else:
-                        continue
+                        continue  # TODO: Really?
 
-                x, y, z = atom.get_coord()
+                # Get only canonical atoms
                 if atom_name in rc.atom_order.keys():
+                    x, y, z = atom.get_coord()
                     pos[rc.atom_order[atom_name]] = [x, y, z]
                     mask[rc.atom_order[atom_name]] = 1.0
-                builder.init_atom(
-                    name=atom_name,
-                    coord=[x, y, z],
-                    b_factor=atom.get_bfactor(),
-                    occupancy=atom.get_occupancy(),
-                    altloc=atom.get_altloc(),
-                    fullname=f"{atom_name:^4s}",
-                )
+                    builder.init_atom(
+                        name=atom_name,
+                        coord=[x, y, z],
+                        b_factor=atom.get_bfactor(),
+                        occupancy=atom.get_occupancy(),
+                        altloc=atom.get_altloc(),
+                        fullname=f"{atom_name:^4s}",
+                        element=atom_name[0],
+                    )
 
             # Fixing naming errors in arginine residues where NH2 is incorrectly assigned to be closer to CD than NH1.
             if res.get_resname() == "ARG":
@@ -853,19 +864,23 @@ def get_chain_features(
             assert rap.position is not None
             key = (rap.hetflag, rap.position.label_seq_id, rap.position.insertion_code)
             res = chain[key]
+            resname = res.get_resname()
 
             if key[1] in modres:  # Modified residues
                 mr = modres[key[1]]
                 offset = len(mr.parent_comp_id)
-                for i, resname in enumerate(mr.parent_comp_id):
-                    atom_map = {}  # TODO: Implement ATOM_MAP
-                    aatype[aid + i] = rc.resname_to_idx.get(resname, rc.unk_restype_index)
-                    icode = " " if offset == 1 else LATIN[i]
-                    builder.init_residue(resname=resname, field=" ", resseq=rid, icode=icode)
+                for i, resname_parent in enumerate(mr.parent_comp_id):
+                    aatype[aid + i] = rc.resname_to_idx.get(resname_parent, rc.unk_restype_index)
+                    # icode = " " if offset == 1 else LATIN[i]
+                    icode = LATIN[i]
+                    builder.init_residue(resname=resname_parent, field=" ", resseq=rid, icode=icode)
+                    atom_map = DEFAULT_ATOM_MAP.get((resname, resname_parent), None)
+                    if atom_map is None:
+                        atom_map = DEFAULT_ATOM_MAP[("UNK", "UNK")]
                     fill_features(res, aid + i, builder, atom_map=atom_map)
             else:  # Otherwise
-                aatype[aid] = rc.resname_to_idx.get(res.get_resname(), rc.unk_restype_index)
-                builder.init_residue(res.get_resname(), field=" ", resseq=rid, icode=" ")
+                aatype[aid] = rc.resname_to_idx.get(resname, rc.unk_restype_index)
+                builder.init_residue(resname, field=" ", resseq=rid, icode=" ")
                 fill_features(res, aid, builder)
         else:  # Missing residues
             aatype[aid] = rc.resname_to_idx.get(rap.name, rc.unk_restype_index)
@@ -876,15 +891,14 @@ def get_chain_features(
         rid += 1
         aid += offset
 
-    # Shift residue index
-
+    # Casting for saving storage:
     return {
-        "aatype": aatype,
-        "residue_index": residue_index,
-        "seq_length": seq_length,
-        "seq_mask": seq_mask,
-        "all_atom_positions": all_atom_positions,
-        "all_atom_mask": all_atom_mask,
+        "aatype": aatype.astype(np.int8),
+        "residue_index": residue_index.astype(np.int32),
+        "seq_length": seq_length.astype(np.int32),
+        "seq_mask": seq_mask.astype(np.int8),
+        "all_atom_positions": all_atom_positions.astype(np.float32),
+        "all_atom_mask": all_atom_mask.astype(np.int8),
     }, builder.get_structure()
 
 
@@ -926,21 +940,9 @@ def print_chain_features(feats, file=sys.stdout):
 
 
 def print_amap(mmcif_object: PDBxObject, auth_asym_id: str, file=sys.stdout):
-    raise NotImplementedError()
+    # raise NotImplementedError()
 
     chain_id = mmcif_object.auth_to_label[auth_asym_id]
-    residues = [(i, r) for i, r in mmcif_object.chain_to_structure[chain_id].items()]
-    residues.sort()
-
-    residue_names = [r.name for _, r in residues]
-
-    # Non-standard residues
-    sequence = []
-    for aaa in residue_names:
-        a = protein_letters_3to1.get(aaa, "X")
-        sequence.append(a)
-    sequence = "".join(sequence)
-
     feats, structure = get_chain_features(mmcif_object, model_num=1, chain_id=chain_id, override_id=auth_asym_id)
     chain = next(structure.get_models())[chain_id]
     mask = feats["all_atom_mask"]
@@ -954,27 +956,18 @@ def print_amap(mmcif_object: PDBxObject, auth_asym_id: str, file=sys.stdout):
     ca = 0
     b1 = 0
 
-    print(chain.child_dict.keys())
-
     ca_order = rc.atom_order["CA"]
-    for i, (_, rap) in enumerate(residues):
-        resname = residue_names[i]
+    # for i, (_, rap) in enumerate(residues):
+    for i, res in enumerate(chain.get_residues()):
 
-        if rap.ordinal > 0:
-            continue
-
-        if rap.is_missing:
-            resnum = "-"
-            ins_code = " "
-        else:
-            key = (rap.hetflag, rap.position.auth_seq_id, rap.position.insertion_code)
-            res = chain[key]
-            _, resnum, ins_code = res.id
+        _, resnum, ins_code = res.id
+        resname = res.get_resname()
+        one = protein_letters_3to1.get(resname, "X")
 
         nbb = sum(mask[i][bb_mask])
 
         if nbb == 0:  # No backbone
-            print(f"{i+1:>5} {sequence[i]:1}    -    -    - 0       -   -   - - {mask[i]}", file=file)
+            print(f"{i+1:>5} {one:1}    -    -    - 0       -   -   - - {mask[i]}", file=file)
             continue
 
         bb_count = 0
@@ -983,27 +976,27 @@ def print_amap(mmcif_object: PDBxObject, auth_asym_id: str, file=sys.stdout):
             bb_str = f"{bb:4}"
             bb_count += 1
         else:
-            bb_str = "   _"
+            bb_str = "   -"
 
         if mask[i][ca_order]:  # If CA exists
             ca += 1
             ca_str = f"{ca:4}"
             bb_count += 1
         else:
-            ca_str = "   _"
+            ca_str = "   -"
 
         if nbb > 0:  # If atom exists
             b1 += 1
             b1_str = f"{b1:4}"
             bb_count += 1
         else:
-            b1_str = "   _"
+            b1_str = "   -"
 
         a = resname  # SEQRES
         b = protein_letters_3to1.get(a, a)
         if len(b) == 1 or len(b) == 4:
             b = a
-        c = sequence[i]
+        c = one
 
-        line = f"{i+1:>5} {sequence[i]} {bb_str} {ca_str} {b1_str} {bb_count:1}   {resnum:>4}{ins_code} {a:3} {b:>3} {c:1} {mask[i]}"
+        line = f"{i+1:>5} {one} {bb_str} {ca_str} {b1_str} {bb_count:1}   {resnum:>4}{ins_code} {a:3} {b:>3} {c:1} {mask[i]}"
         print(line, file=file)
