@@ -1,0 +1,15 @@
+name: clone-private-to-public
+on: workflow_dispatch
+jobs:
+  clone:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: wearerequired/git-mirror-action@v1
+          env:
+            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          with:
+            source_repository: 'https://github.com/iitp-ppi/DeepFold.git'
+            destination_repository: 'https://github.com/iitp-ppi/DeepFoldPublic.git'
