@@ -138,3 +138,17 @@ def tree_map(fn, tree, leaf_type):
 
 array_tree_map = partial(tree_map, leaf_type=np.ndarray)
 tensor_tree_map = partial(tree_map, leaf_type=torch.Tensor)
+
+
+def collate(samples: List[dict]) -> dict:
+    """Converts list of samples into a batch dict."""
+    assert isinstance(samples, list)
+    assert len(samples) > 0
+    sample_0 = samples[0]
+    assert isinstance(sample_0, dict)
+    batch = {}
+    for key in list(sample_0.keys()):
+        batch[key] = [sample[key] for sample in samples]
+        if isinstance(sample_0[key], torch.Tensor):
+            batch[key] = torch.stack(batch[key], dim=0)
+    return batch
