@@ -11,5 +11,5 @@ jobs:
           env:
             SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           with:
-            source-repo: 'https://github.com/iitp-ppi/DeepFold.git'
-            destination-repo: 'https://github.com/iitp-ppi/DeepFoldPublic.git'
+            source-repo: 'git@github.com:iitp-ppi/DeepFold.git'
+            destination-repo: 'git@github.com:iitp-ppi/DeepFoldPublic.git'
