@@ -787,7 +787,7 @@ def get_chain_features(
     mmcif_object: PDBxObject,
     model_num: int,
     chain_id: str,
-    override_id: str | None = None,
+    out_chain_id: str | None = None,
 ) -> Tuple[Dict[str, np.ndarray], Structure]:
     """Get atom positions and mask from a list of Biopython Residues."""
 
@@ -796,7 +796,7 @@ def get_chain_features(
     builder.init_structure(structure_id=f"{mmcif_object.header.entry_id}_{chain_id}")
     builder.init_model(model_id=model_num)
     builder.init_seg(" ")
-    builder.init_chain(chain_id=chain_id if override_id is None else override_id)
+    builder.init_chain(chain_id=chain_id if out_chain_id is None else out_chain_id)
 
     model_iter = mmcif_object.structure.get_models()
     for _ in range(model_num):
@@ -885,7 +885,7 @@ def get_chain_features(
         else:  # Missing residues
             aatype[aid] = rc.resname_to_idx.get(rap.name, rc.unk_restype_index)
             builder.init_residue(rap.name, field=" ", resseq=rid, icode=" ")
-            seq_mask[aid] = 0.0  # Useless
+            seq_mask[aid] = 0.0  # Initially one.
             residue_index[aid] = aid + shift
 
         rid += 1
@@ -943,7 +943,7 @@ def print_amap(mmcif_object: PDBxObject, auth_asym_id: str, file=sys.stdout):
     # raise NotImplementedError()
 
     chain_id = mmcif_object.auth_to_label[auth_asym_id]
-    feats, structure = get_chain_features(mmcif_object, model_num=1, chain_id=chain_id, override_id=auth_asym_id)
+    feats, structure = get_chain_features(mmcif_object, model_num=1, chain_id=chain_id, out_chain_id=auth_asym_id)
     chain = next(structure.get_models())[chain_id]
     mask = feats["all_atom_mask"]
 
