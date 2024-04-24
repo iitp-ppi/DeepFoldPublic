@@ -4,7 +4,7 @@ import sys
 import warnings
 from pathlib import Path
 
-from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, read_mmcif
+from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, get_fasta, read_mmcif
 
 
 def main_pdbx(
@@ -40,7 +40,11 @@ def main_pdbx(
     for v in assemblies.values():
         name = v["assembly_id"]
         with open(out_dir / f"{name}.json", "w") as fp:
-            fp.write(json.dumps(v, indent=2))
+            fp.write(json.dumps(v))
+
+    with open(out_dir / "seqres.fasta", "w") as fp:
+        fasta_string = get_fasta(o.mmcif_object)
+        fp.write(fasta_string)
 
 
 def main():
