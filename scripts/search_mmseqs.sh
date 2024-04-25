@@ -19,6 +19,8 @@ DBBASE="/gpfs/database/colabfold"
 BASE="$1"
 INPUT="$2"
 UNIREF_DB="uniref30_2302_db"
+# TEMPLATE_DB
+METAGENOMIC_DB="colabfold_envdb_202108_db"
 MMSEQS="$(which mmseqs)"
 
 FILTER="1" # 0 for False
@@ -77,8 +79,30 @@ $MMSEQS rmdb $BASE/res_exp || exit 1
 $MMSEQS rmdb $BASE/res || exit 1
 $MMSEQS rmdb $BASE/res_exp_realign_filter || exit 1
 
-#MMSEQS mergedbs ...
+if [-z $METAGENOMIC_DB]; then
+    USE_ENV="1"
+fi
+
+if USE_ENV; then
+    $MMSEQS search $BASE/prof_res $DBBASE/$METAGENOMIC_DB $BASE/res_env $BASE/tmp3 --threads $THREADS $SEARCH_PARAM || exit 1
+    $MMSEQS expandaln $BASE/prof_res $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_2 $BASE/res_env_exp -e $EXPAND_EVAL --expansion-mode 0 --db-load-mode $DB_LOAD_MODE --threads $THREADS || exit 1
+    $MMSEQS align $BASE/tmp3/latest/profile_1 $DBBASE/METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp $BASE/res_env_exp_realign --db-load-mode $DB_LOAD_MODE -e $ALIGN_EVAL --max-accept $MAX_ACCEPT --threads $THREADS --alt-ali 10 -a || exit 1
+    $MMSEQS filterresult $BASE/qdb $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp_realign $BASE/res_env_exp_realign_filter --db-load-mode $DB_LOAD_MODE --qid 0 --qsc $QSC --diff 0 --max-seq-id 1.0 --threads $THREADS --filter-min-enable 100 || exit 1
+    $MMSEQS result2msa $BASE/qdb $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp_realign_filter $BASE/bfd.mgnify30.metaeuk30.smag30.a3m --msa-format-mode 6 --db-load-mode $DB_LOAD_MODE --threads $THREADS $FILTER_PARAM || exit 1
+
+    $MMSEQS rmdb $BASE/res_env_exp_realign_filter || exit 1
+    $MMSEQS rmdb $BASE/res_env_exp_realign || exit 1
+    $MMSEQS rmdb $BASE/res_env_exp || exit 1
+    $MMSEQS rmdb $BASE/res_env || exit 1
+
+    $MMSEQS mergedbs $BASE/qdb $BASE/final.a3m $BASE/uniref.a3m BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
+    $MMSEQS rmdb $BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
+else
+    mmseqs mvdb $BASE/uniref.a3m $BASE/final.a3m || exit 1
+fi
+
 $MMSEQS unpackdb $BASE/uniref.a3m $BASE/msas --unpack-name-mode 0 --unpack-suffix ".a3m" || exit 1
+$MMSEQS rmdb $BASE/final.a3m || exit 1
 $MMSEQS rmdb $BASE/uniref.a3m || exit 1
 $MMSEQS rmdb $BASE/res || exit 1
 
@@ -86,5 +110,7 @@ for FILE in $BASE/prof_res*; do
     rm $FILE
 done
 rm -rf $BASE/tmp
-rm -rf $BASE/tmp2
-rm -rf $BASE/tmp3
+# rm -rf $BASE/tmp2
+if USE_ENV; then
+    rm -rf $BASE/tmp3
+fi
