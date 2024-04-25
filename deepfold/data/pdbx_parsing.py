@@ -872,6 +872,7 @@ def get_chain_features(
                 builder.init_residue(rap.name, field=" ", resseq=rid, icode=" ")
                 seq_mask[aid] = 0.0  # Initially one.
                 residue_index[aid] = aid + shift
+                continue
 
             resname = res.get_resname()
 
