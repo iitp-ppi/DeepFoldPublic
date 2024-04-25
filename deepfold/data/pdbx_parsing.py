@@ -866,7 +866,7 @@ def get_chain_features(
             try:
                 res = chain[key]
             except KeyError as e:
-                logger.error(f"Model {model_num} does not have residue {key}")
+                logger.error(f"Model {model_num} does not have residue {key} in chain {chain_id}")
                 # Missing residues
                 aatype[aid] = rc.resname_to_idx.get(rap.name, rc.unk_restype_index)
                 builder.init_residue(rap.name, field=" ", resseq=rid, icode=" ")
