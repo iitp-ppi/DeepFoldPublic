@@ -79,11 +79,11 @@ $MMSEQS rmdb $BASE/res_exp || exit 1
 $MMSEQS rmdb $BASE/res || exit 1
 $MMSEQS rmdb $BASE/res_exp_realign_filter || exit 1
 
-if [-z $METAGENOMIC_DB]; then
+if [[ ! -z $METAGENOMIC_DB ]]; then
     USE_ENV="1"
 fi
 
-if USE_ENV; then
+if [[ ! -z $USE_ENV ]]; then
     $MMSEQS search $BASE/prof_res $DBBASE/$METAGENOMIC_DB $BASE/res_env $BASE/tmp3 --threads $THREADS $SEARCH_PARAM || exit 1
     $MMSEQS expandaln $BASE/prof_res $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_2 $BASE/res_env_exp -e $EXPAND_EVAL --expansion-mode 0 --db-load-mode $DB_LOAD_MODE --threads $THREADS || exit 1
     $MMSEQS align $BASE/tmp3/latest/profile_1 $DBBASE/METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp $BASE/res_env_exp_realign --db-load-mode $DB_LOAD_MODE -e $ALIGN_EVAL --max-accept $MAX_ACCEPT --threads $THREADS --alt-ali 10 -a || exit 1
@@ -98,10 +98,10 @@ if USE_ENV; then
     $MMSEQS mergedbs $BASE/qdb $BASE/final.a3m $BASE/uniref.a3m BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
     $MMSEQS rmdb $BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
 else
-    mmseqs mvdb $BASE/uniref.a3m $BASE/final.a3m || exit 1
+    $MMSEQS mvdb $BASE/uniref.a3m $BASE/final.a3m || exit 1
 fi
 
-$MMSEQS unpackdb $BASE/uniref.a3m $BASE/msas --unpack-name-mode 0 --unpack-suffix ".a3m" || exit 1
+$MMSEQS unpackdb $BASE/final.a3m $BASE/msas --unpack-name-mode 0 --unpack-suffix ".a3m" || exit 1
 $MMSEQS rmdb $BASE/final.a3m || exit 1
 $MMSEQS rmdb $BASE/uniref.a3m || exit 1
 $MMSEQS rmdb $BASE/res || exit 1
@@ -111,6 +111,6 @@ for FILE in $BASE/prof_res*; do
 done
 rm -rf $BASE/tmp
 # rm -rf $BASE/tmp2
-if USE_ENV; then
+if [[ ! -z $USE_ENV ]]; then
     rm -rf $BASE/tmp3
 fi
