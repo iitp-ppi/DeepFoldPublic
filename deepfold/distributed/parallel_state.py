@@ -33,14 +33,11 @@ _DIST_NUM_NODES = None
 # Model parallel group that the current rank belongs to
 _MODEL_PARALLEL_GROUP = None
 
-
 # Data parallel group that the current rank belongs to
 _DATA_PARALLEL_GROUP = None
 
-
-# A list of global ranks for each data parallel group
+# A lizt of global ranks for each data parallel group
 _DATA_PARALLEL_GLOBAL_RANKS: List[int] = None
-
 
 # Model parallel group and data parallel group combined
 _MODEL_AND_DATA_PARALLEL_GROUP = None
@@ -57,6 +54,9 @@ _MODEL_PARALLEL_ENABLED = False
 
 # Model parallel size
 _MODEL_PARALLEL_SIZE = 0
+
+# Model parallel group rank: from 0 to NUM_DATA_PARALLEL_SIZE - 1
+_MODEL_PARALLEL_GROUP_RANK = None
 
 
 def get_nccl_options(pg_name, nccl_comm_cfgs):
@@ -126,6 +126,7 @@ def initialize_model_parallel(
     global _MODEL_PARALLEL_INITIALIZED
     global _MODEL_PARALLEL_ENABLED
     global _MODEL_PARALLEL_SIZE
+    global _MODEL_PARALLEL_GROUP_RANK
 
     # Get world size and rank
     assert torch.distributed.is_initialized()
@@ -148,6 +149,7 @@ def initialize_model_parallel(
         group = torch.distributed.new_group(ranks)
         if rank in ranks:
             _MODEL_PARALLEL_GROUP = group
+            _MODEL_PARALLEL_GROUP_RANK = i
 
     # Build the data-parallel groups
     global _DATA_PARALLEL_GROUP
@@ -203,6 +205,11 @@ def get_model_and_data_parallel_group():
 def get_model_parallel_rank() -> int:
     """Returns my rank for the model parallel group."""
     return torch.distributed.get_rank(group=get_model_parallel_group())
+
+
+def get_model_parallel_group_rank() -> int:
+    assert _MODEL_PARALLEL_ENABLED
+    return _MODEL_PARALLEL_GROUP_RANK
 
 
 def get_model_parallel_world_size() -> int:
