@@ -52,7 +52,7 @@ def main_pdbx(
     for chain_id in o.mmcif_object.chain_ids:
         feats, struct = get_chain_features(
             mmcif_object=o.mmcif_object,
-            model_num=0,
+            model_num=1,
             chain_id=chain_id,
         )
 
