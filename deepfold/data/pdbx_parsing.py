@@ -155,7 +155,7 @@ class PDBxHeader:
 class PDBxObject:
     header: PDBxHeader
     structure: Structure
-    # valid_chains: Dict[str, List[Monomer]]
+    chain_ids: List[str]
     modres: Dict[Tuple[str, str, str], ModResidue]
     label_to_auth: Dict[str, str]
     auth_to_label: Dict[str, str]
@@ -215,7 +215,7 @@ class PDBxParser:
             pdbx_object = PDBxObject(
                 header=self.header,
                 structure=self.structure,
-                # valid_chains=self.valid_chains,
+                chain_ids=sorted(list(self.valid_chains.keys())),
                 modres=self.modified_residues,
                 label_to_auth=self.label_to_auth,
                 auth_to_label={y: x for x, y in self.label_to_auth.items()},

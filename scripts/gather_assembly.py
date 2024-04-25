@@ -4,7 +4,9 @@ import sys
 import warnings
 from pathlib import Path
 
-from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, get_fasta, read_mmcif
+from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, get_fasta, read_mmcif, get_chain_features
+from deepfold.data.io import PDBIO
+from deepfold.utils.file_utils import dump_pickle
 
 
 def main_pdbx(
@@ -24,8 +26,8 @@ def main_pdbx(
     if not debug:
         warnings.filterwarnings("ignore")
 
-    # mmcif_str = read_mmcif(entry_id, mmcif_path="/gpfs/database/casp16/pdb/mmCIF")
-    mmcif_str = read_mmcif(entry_id, mmcif_path="/runs/database/pdb/mmCIF")
+    mmcif_str = read_mmcif(entry_id, mmcif_path="/gpfs/database/casp16/pdb/mmCIF")
+    # mmcif_str = read_mmcif(entry_id, mmcif_path="/runs/database/pdb/mmCIF")
     parser = PDBxParser()
     o = parser.parse(mmcif_str, catch_all_errors=debug)
 
@@ -45,6 +47,23 @@ def main_pdbx(
     with open(out_dir / "seqres.fasta", "w") as fp:
         fasta_string = get_fasta(o.mmcif_object)
         fp.write(fasta_string)
+
+    pdb_io = PDBIO()
+    for chain_id in o.mmcif_object.chain_ids:
+        feats, struct = get_chain_features(
+            mmcif_object=o.mmcif_object,
+            model_num=0,
+            chain_id=chain_id,
+        )
+
+        name = f"{entry_id}_{chain_id}"
+
+        dump_pickle(feats, out_dir / f"{name}.pkl")
+
+        pdb_io.set_structure(struct)
+        with open(out_dir / f"{name}.pdb", "w") as fp:
+            remark = f"{entry_id}_{chain_id} [auth {o.mmcif_object.label_to_auth[chain_id]}]"
+            pdb_io.save(fp, remarks=remark)
 
 
 def main():

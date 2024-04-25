@@ -54,15 +54,9 @@ class IO:
 class PDBIO(IO):
     """Write a Structure object as a PDB file."""
 
-    def __init__(self, use_model_flag: int = 0, remarks: str | Iterable[str] = "") -> None:
+    def __init__(self, use_model_flag: int = 0) -> None:
         super().__init__()
-
-        if isinstance(remarks, str):
-            remarks = [remarks]
-        remarks = list(remarks)
-
         self.use_model_flag = use_model_flag
-        self.remarks = remarks
 
     def _get_atom_line(
         self,
@@ -152,8 +146,18 @@ class PDBIO(IO):
         )
         return _ATOM_FORMAT_STRING % args
 
-    def save(self, file, write_end: bool = True, preserve_atom_numbering: bool = False):
+    def save(
+        self,
+        file,
+        write_end: bool = True,
+        preserve_atom_numbering: bool = False,
+        remarks: str | Iterable[str] = "",
+    ):
         """Save structure to a file."""
+
+        if isinstance(remarks, str):
+            remarks = [remarks]
+        remarks = list(remarks)
 
         if isinstance(file, str):
             fhandle = open(file, "w")
@@ -163,7 +167,7 @@ class PDBIO(IO):
         get_atom_line = self._get_atom_line
 
         # Remarks
-        for remark in self.remarks:
+        for remark in remarks:
             fhandle.write(_REMARK_FORMAT_STRING.format(remark))
 
         # multiple models?
