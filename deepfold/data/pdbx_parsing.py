@@ -727,7 +727,7 @@ def get_fasta(mmcif_object: PDBxObject) -> str:
 
         seq = "".join(seq)
         auth_id = label_to_auth[asym_id]
-        fasta_str += f">>{entry_id}_{asym_id} | {entry_id}_{auth_id}\n"
+        fasta_str += f">{entry_id}_{asym_id} | {entry_id}_{auth_id}\n"
         fasta_str += f"{seq}\n"
 
     return fasta_str
