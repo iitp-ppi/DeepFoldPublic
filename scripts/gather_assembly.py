@@ -4,8 +4,8 @@ import sys
 import warnings
 from pathlib import Path
 
-from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, get_fasta, read_mmcif, get_chain_features
 from deepfold.data.io import PDBIO
+from deepfold.data.pdbx_parsing import PDBxParser, get_assemblies, get_chain_features, get_fasta, read_mmcif
 from deepfold.utils.file_utils import dump_pickle
 
 
