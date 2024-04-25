@@ -863,7 +863,11 @@ def get_chain_features(
         if not rap.is_missing:
             assert rap.position is not None
             key = (rap.hetflag, rap.position.label_seq_id, rap.position.insertion_code)
-            res = chain[key]
+            try:
+                res = chain[key]
+            except KeyError as e:
+                logger.error(f"Model {model_num} does not have residue {key}")
+
             resname = res.get_resname()
 
             if key[1] in modres:  # Modified residues
@@ -915,8 +919,8 @@ def print_chain_features(feats, file=sys.stdout):
     first_col_width = 7 + int(math.log10(len(feats["aatype"])))
     header = [f"{x:>3s}" for x in rc.atom_types]
     for i in range(3):
-        print(" " * first_col_width, *[f"{s[i]}" for s in header], sep="|", end="|\n")
-    print("-" * first_col_width, *["-" for _ in range(len(header))], sep="+", end="+\n")
+        print(" " * first_col_width, *[f"{s[i]}" for s in header], sep="|", end="|\n", file=file)
+    print("-" * first_col_width, *["-" for _ in range(len(header))], sep="+", end="+\n", file=file)
     for resid, aatype, mask, flag in zip(
         feats["residue_index"],
         feats["aatype"],
