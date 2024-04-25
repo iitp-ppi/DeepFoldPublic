@@ -60,10 +60,13 @@ def main_pdbx(
 
         dump_pickle(feats, out_dir / f"{name}.pkl")
 
-        pdb_io.set_structure(struct)
-        with open(out_dir / f"{name}.pdb", "w") as fp:
-            remark = f"{entry_id}_{chain_id} [auth {o.mmcif_object.label_to_auth[chain_id]}]"
-            pdb_io.save(fp, remarks=remark)
+        try:
+            pdb_io.set_structure(struct)
+            with open(out_dir / f"{name}.pdb", "w") as fp:
+                remark = f"{entry_id}_{chain_id} [auth {o.mmcif_object.label_to_auth[chain_id]}]"
+                pdb_io.save(fp, remarks=remark)
+        except RuntimeError as e:
+            print(e)
 
 
 def main():
