@@ -14,6 +14,7 @@
 
 CONDA_HOME="${HOME}/conda"
 source "${CONDA_HOME}/etc/profile.d/conda.sh"
+conda activate align
 
 DBBASE="/gpfs/database/colabfold"
 BASE="$1"
