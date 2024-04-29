@@ -63,3 +63,42 @@ class AlphaFoldLRScheduler:
         if lr_value != self.prev_lr_value:
             set_learning_rate(optimzer=self.optimizer, lr_value=lr_value)
             self.prev_lr_value = lr_value
+
+
+class OpenFoldBenchmarkLRScheduler:
+
+    def __init__(
+        self,
+        base_lr: float,
+        warmup_lr_init: float,
+        warmup_lr_iters: int,
+        optimizer: torch.optim.Optimizer,
+    ) -> None:
+        self.base_lr = base_lr
+        self.warmup_lr_init = warmup_lr_init
+        self.warmup_lr_iters = warmup_lr_iters
+        self.optimizer = optimizer
+        # create LR values for the warm-up:
+        assert warmup_lr_iters >= 0
+        self._warmup_linspace = torch.linspace(
+            start=warmup_lr_init,
+            end=base_lr,
+            steps=warmup_lr_iters,
+            dtype=torch.float64,
+        )
+        self._prev_lr_value = None
+
+    def __call__(self, iteration: int) -> None:
+        # Determine lr_value for given iteration:
+        if iteration <= self.warmup_lr_iters:
+            lr_value = self._warmup_linspace[iteration - 1].item()
+            lr_value = round(lr_value, 10)
+        else:
+            lr_value = self.base_lr
+        # Set only if differs from the previous call:
+        if lr_value != self._prev_lr_value:
+            set_learning_rate(
+                optimizer=self.optimizer,
+                lr_value=lr_value,
+            )
+            self._prev_lr_value = lr_value
