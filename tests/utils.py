@@ -5,7 +5,7 @@ from typing import Optional
 import torch
 import torch.distributed as dist
 
-import deepfold.distributed.parallel_state as ps
+import deepfold.distributed.main as ps
 
 logger = logging.getLogger(__name__)
 
