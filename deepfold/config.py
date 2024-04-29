@@ -392,9 +392,6 @@ class AlphaFoldConfig:
     template_pair_feat_inf: float = 1e5
     template_pair_feat_eps: float = 1e-6
 
-    # CUDA Graphs configuration:
-    cuda_graphs: bool = False
-
     @classmethod
     def from_preset(
         cls,
