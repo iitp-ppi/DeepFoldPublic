@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 import deepfold.common.residue_constants as rc
 import deepfold.distributed as dist
+import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.config import AlphaFoldConfig
 from deepfold.modules.auxiliary_heads import AuxiliaryHeads
@@ -156,7 +157,7 @@ class AlphaFold(nn.Module):
         outputs, prevs = self._forward_iteration(
             feats=feats,
             prevs=prevs,
-            gradient_checkpointing=(self.training and dist.size() <= 1),
+            gradient_checkpointing=(self.training and mp.size() <= 1),
         )
         del prevs
 
@@ -455,6 +456,34 @@ class AlphaFold(nn.Module):
             template_embeds["template_angle_embedding"] = a
 
         return template_embeds
+
+    def register_dap_gradient_scaling_hooks(self, dap_size: int) -> None:
+        num_registered_hooks = {
+            "evoformer_stack": 0,
+            "extra_msa_stack": 0,
+            "template_pair_stack": 0,
+        }
+
+        evoformer_stack = self.evoformer_stack
+
+        for name, param in evoformer_stack.named_parameters():
+            if name.startswith("blocks."):
+                param.register_hook(lambda grad: grad * dap_size)
+                num_registered_hooks["evoformer_stack"] += 1
+
+        for name, param in self.extra_msa_stack.named_parameters():
+            if name.startswith("blocks."):
+                param.register_hook(lambda grad: grad * dap_size)
+                num_registered_hooks["extra_msa_stack"] += 1
+
+        if hasattr(self, "template_pair_stack"):
+            for name, param in self.template_pair_stack.named_parameters():
+                if name.startswith("blocks."):
+                    param.register_hook(lambda grad: grad * dap_size)
+                    num_registered_hooks["template_pair_stack"] += 1
+
+        if dist.is_main_process():
+            logger.info("register_dap_gradient_scaling_hooks: " f"num_registered_hooks={num_registered_hooks}")
 
 
 def _pseudo_beta_eager(

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 
-import deepfold.distributed as dist
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.evoformer_block import EvoformerBlock
 from deepfold.modules.linear import Linear
 
@@ -140,16 +140,16 @@ class EvoformerStack(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        if dist.is_model_parallel_enabled():
-            m = dist.scatter(m, dim=-3)
-            z = dist.scatter(z, dim=-3)
+        if mp.is_enabled():
+            m = mp.scatter(m, dim=-3)
+            z = mp.scatter(z, dim=-3)
 
         for block in self.blocks:
             m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
 
-        if dist.is_model_parallel_enabled():
-            m = dist.gather(m, dim=-3)
-            z = dist.gather(z, dim=-3)
+        if mp.is_enabled():
+            m = mp.gather(m, dim=-3)
+            z = mp.gather(z, dim=-3)
 
         return m, z
 
@@ -169,15 +169,15 @@ class EvoformerStack(nn.Module):
             for block in self.blocks
         ]
 
-        if dist.is_model_parallel_enabled():
-            m = dist.scatter(m, dim=-3)
-            z = dist.scatter(z, dim=-3)
+        if mp.is_enabled():
+            m = mp.scatter(m, dim=-3)
+            z = mp.scatter(z, dim=-3)
 
         for block in blocks:
             m, z = gradient_checkpointing_fn(block, m, z, use_reentrant=True)
 
-        if dist.is_model_parallel_enabled():
-            m = dist.gather(m, dim=-3)
-            z = dist.gather(z, dim=-3)
+        if mp.is_enabled():
+            m = mp.gather(m, dim=-3)
+            z = mp.gather(z, dim=-3)
 
         return m, z

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.distributed as dist
+import deepfold.distributed as mp
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
@@ -82,11 +82,11 @@ class TriangleMultiplicativeUpdate(nn.Module):
             self.linear_ab_p.bias,
         )  # .chunk(2, dim=-1)
 
-        if dist.is_model_parallel_enabled():
+        if mp.is_enabled():
             if self._is_outgoing:
-                b = dist.gather(b, dim=-3, bwd="all_reduce_sum_split")
+                b = mp.gather(b, dim=-3, bwd="all_reduce_sum_split")
             else:
-                a = dist.gather(a, dim=-2, bwd="all_reduce_sum_split")
+                a = mp.gather(a, dim=-2, bwd="all_reduce_sum_split")
 
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
@@ -197,22 +197,22 @@ class TriangleMultiplicativeUpdate(nn.Module):
                         )  # a_chunk: [B, K, I', C], b_chunk: [B, K, J', C]
                         a_chunk = a_chunk.swapdims(-1, -3)  # [B, C, I', K]
 
-                        if dist.is_model_parallel_enabled():
-                            for r in range(dist.size()):
+                        if mp.is_enabled():
+                            for r in range(mp.size()):
                                 if self._is_outgoing:
-                                    if r == dist.rank():
+                                    if r == mp.rank():
                                         buf = b_chunk.clone()
                                     else:
                                         buf = torch.empty_like(b_chunk)
-                                    buf = dist.broadcast(buf, r)
+                                    buf = mp.broadcast(buf, r)
                                     x_chunk = torch.matmul(a_chunk, buf)
                                     del buf
                                 else:
-                                    if r == dist.rank():
+                                    if r == mp.rank():
                                         buf = a_chunk.clone()
                                     else:
                                         buf = torch.empty_like(a_chunk)
-                                    buf = dist.broadcast(buf, r)
+                                    buf = mp.broadcast(buf, r)
                                     x_chunk = torch.matmul(buf, b_chunk)
                                     del buf
                                 x_chunk = x_chunk.movedim(-3, -1)

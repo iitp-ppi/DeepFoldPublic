@@ -351,7 +351,7 @@ class Disable(torch.autograd.Function):
         return _enable()
 
 
-def enable() -> None:
+def enable_mp() -> None:
     if is_initialized():
         if torch.is_grad_enabled():
             Enable.apply()
@@ -359,7 +359,7 @@ def enable() -> None:
             _enable()
 
 
-def disable() -> None:
+def disable_mp() -> None:
     if is_initialized():
         if torch.is_grad_enabled():
             Disable.apply()

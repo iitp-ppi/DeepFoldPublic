@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-import deepfold.distributed as dist
+import deepfold.distributed as mp
 from deepfold.modules.attention import SelfAttentionWithGate
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
@@ -75,8 +75,8 @@ class TriangleAttention(nn.Module):
         triangle_bias = self.linear(z)
         # triangle_bias: [batch, N_res, N_res, num_heads]
 
-        if dist.is_model_parallel_enabled():
-            triangle_bias = dist.gather(triangle_bias, dim=-3, bwd="all_reduce_sum_split")
+        if mp.is_enabled():
+            triangle_bias = mp.gather(triangle_bias, dim=-3, bwd="all_reduce_sum_split")
 
         triangle_bias = triangle_bias.movedim(-1, -3).unsqueeze(-4).contiguous()
         # triangle_bias: [batch, 1, num_heads, N_res, N_res]

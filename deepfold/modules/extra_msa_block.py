@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 
-import deepfold.distributed as dist
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.dropout import DropoutRowwise
 from deepfold.modules.evoformer_block_pair_core import EvoformerBlockPairCore
 from deepfold.modules.msa_column_global_attention import MSAColumnGlobalAttention
@@ -126,11 +126,11 @@ class ExtraMSABlock(nn.Module):
             z: [batch, N_res, N_res, c_z] updated pair representation
 
         """
-        if dist.is_model_parallel_enabled():
-            msa_mask_row = dist.scatter(msa_mask, dim=1)
-            msa_mask_col = dist.scatter(msa_mask, dim=2)
+        if mp.is_enabled():
+            msa_mask_row = mp.scatter(msa_mask, dim=1)
+            msa_mask_col = mp.scatter(msa_mask, dim=2)
             m = self.msa_dropout_rowwise(self.msa_att_row(m=m, z=z, mask=msa_mask_row), add_output_to=m)
-            m = dist.row_to_col(m)
+            m = mp.row_to_col(m)
             m = self.msa_att_col(m=m, mask=msa_mask_col)
 
             # TODO: Implement DAP

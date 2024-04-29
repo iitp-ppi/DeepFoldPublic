@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-import deepfold.distributed as dist
+import deepfold.distributed as mp
 from deepfold.modules.attention import SelfAttentionWithGate
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
@@ -68,8 +68,8 @@ class MSARowAttentionWithPairBias(nn.Module):
 
         z = self.layer_norm_z(z)
         z = self.linear_z(z)
-        if dist.is_model_parallel_enabled():
-            z = dist.gather(z, dim=-3, bwd="all_reduce_sum_split")
+        if mp.is_enabled():
+            z = mp.gather(z, dim=-3, bwd="all_reduce_sum_split")
         # z: [batch, N_res, N_res, num_heads]
 
         z = z.movedim(-1, -3).unsqueeze(-4)

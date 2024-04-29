@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.distributed as dist
+import deepfold.distributed as mp
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
@@ -81,8 +81,8 @@ class OuterProductMean(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_seq, N_res, 1]
 
-        if dist.is_model_parallel_enabled():
-            mask_s = dist.scatter(mask, dim=2)
+        if mp.is_enabled():
+            mask_s = mp.scatter(mask, dim=2)
             a, b = _forward_linear_a_b(
                 m,
                 self.linear_1.weight,
@@ -91,7 +91,7 @@ class OuterProductMean(nn.Module):
                 self.linear_2.bias,
                 mask_s,
             )
-            b = dist.gather(b, dim=-2, bwd="all_reduce_sum_split")
+            b = mp.gather(b, dim=-2, bwd="all_reduce_sum_split")
         else:
             a, b = _forward_linear_a_b(
                 m,
@@ -127,8 +127,8 @@ class OuterProductMean(nn.Module):
         norm = torch.einsum("...abc,...adc->...bdc", mask, mask)
         # norm: [batch, N_res, N_res, 1]
 
-        if dist.is_model_parallel_enabled():
-            norm = dist.scatter(norm, dim=-3)
+        if mp.is_enabled():
+            norm = mp.scatter(norm, dim=-3)
 
         outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
         # outer: [batch, N_res, N_res, c_z]
