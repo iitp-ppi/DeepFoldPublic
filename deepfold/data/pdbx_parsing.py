@@ -496,7 +496,7 @@ class PDBxParser:
                 if resname == "HOH" or resname == "WAT":
                     hetatm_flag = "W"
                 else:
-                    hetatm_flag = " "  # "H"
+                    hetatm_flag = "H"  # "H"
             else:
                 hetatm_flag = " "
 
