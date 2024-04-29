@@ -984,7 +984,7 @@ class HhsearchHitFeaturizer(TemplateHitFeaturizer):
         hits: Sequence[parsers.TemplateHit],
     ) -> TemplateSearchResult:
         """Computes the templates for given query sequence (more details above)."""
-        logging.info("Searching for template for: %s", query_sequence)
+        # logging.info("Searching for template for: %s", query_sequence)
 
         template_features = {}
         for template_feature_name in TEMPLATE_FEATURES:
@@ -1080,7 +1080,7 @@ class HmmsearchHitFeaturizer(TemplateHitFeaturizer):
         query_sequence: str,
         hits: Sequence[parsers.TemplateHit],
     ) -> TemplateSearchResult:
-        logging.info("Searching for template for: %s", query_sequence)
+        # logging.info("Searching for template for: %s", query_sequence)
 
         template_features = {}
         for template_feature_name in TEMPLATE_FEATURES:
