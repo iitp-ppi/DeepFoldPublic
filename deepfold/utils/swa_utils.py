@@ -7,11 +7,11 @@ from deepfold.modules.alphafold import AlphaFold
 class AlphaFoldSWA(nn.Module):
     """Weight averaging wrapper."""
 
-    def __init__(self, model: AlphaFold, enabled: bool, decay_rate: float) -> None:
+    def __init__(self, alphafold: AlphaFold, enabled: bool, decay_rate: float) -> None:
         super().__init__()
 
         if enabled:
-            self.averaged_model = torch.optim.swa_utils.AveragedModel(model=model, avg_fn=swa_avg_fn(decay_rate=decay_rate))
+            self.averaged_model = torch.optim.swa_utils.AveragedModel(model=alphafold, avg_fn=swa_avg_fn(decay_rate=decay_rate))
             self.enabled = True
         else:
             self.averaged_model = None
