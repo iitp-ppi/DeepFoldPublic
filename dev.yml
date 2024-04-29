@@ -41,3 +41,4 @@ dependencies:
       - jax[cpu]==0.4.20
       - dm-haiku==0.0.11
       - dm-tree==0.1.8
+      - wandb
