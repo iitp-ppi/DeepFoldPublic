@@ -7,6 +7,8 @@ from typing import Optional
 
 import numpy as np
 
+NUMPY_SEED_MODULUS = 0xFFFF_FFFF + 1
+
 
 def str_hash(string: str):
     hash = 0
