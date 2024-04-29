@@ -563,7 +563,7 @@ class FeaturePipelineConfig:
 
     # Recycling (last dimension in the batch dict):
     max_recycling_iters: int = 3
-    uniform_recycling: bool = False
+    # uniform_recycling: bool = False
 
     # Resample MSA in recycling:
     resample_msa_in_recycling: bool = True
@@ -598,7 +598,7 @@ class FeaturePipelineConfig:
     max_templates: int = 4  # Number of templates (N_templ)
     max_template_hits: int = 4
     shuffle_top_k_prefiltered: int = 20
-    subsample_templates: bool = False
+    subsample_templates: bool = False  # OpenFold
 
     # Template related raw features names:
     template_raw_feature_names: List[str] = field(
@@ -710,7 +710,7 @@ def _predict_mode(is_multimer: bool = False) -> dict:
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": False,
-        "uniform_recycling": False,
+        # "uniform_recycling": False,
     }
     if is_multimer:
         dic.update(
@@ -735,7 +735,7 @@ def _eval_mode(is_multimer: bool = False) -> dict:
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": True,
-        "uniform_recycling": False,
+        # "uniform_recycling": False,
     }
     if is_multimer:
         dic.update(
@@ -762,7 +762,7 @@ def _train_mode(is_multimer: bool = False) -> dict:
         "residue_cropping_enabled": True,
         "crop_size": 256,
         "supervised_features_enabled": True,
-        "uniform_recycling": True,
+        # "uniform_recycling": True,
         "clamp_fape_prob": 0.9,
         "sample_msa_distillation_enabled": True,
         "max_distillation_msa_clusters": 1000,
