@@ -96,7 +96,7 @@ if [[ ! -z $USE_ENV ]]; then
     $MMSEQS rmdb $BASE/res_env_exp || exit 1
     $MMSEQS rmdb $BASE/res_env || exit 1
 
-    $MMSEQS mergedbs $BASE/qdb $BASE/final.a3m $BASE/uniref.a3m BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
+    $MMSEQS mergedbs $BASE/qdb $BASE/final.a3m $BASE/uniref.a3m $BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
     $MMSEQS rmdb $BASE/bfd.mgnify30.metaeuk30.smag30.a3m || exit 1
 else
     $MMSEQS mvdb $BASE/uniref.a3m $BASE/final.a3m || exit 1
@@ -110,8 +110,7 @@ $MMSEQS rmdb $BASE/res || exit 1
 for FILE in $BASE/prof_res*; do
     rm $FILE
 done
+
 rm -rf $BASE/tmp
 # rm -rf $BASE/tmp2
-if [[ ! -z $USE_ENV ]]; then
-    rm -rf $BASE/tmp3
-fi
+rm -rf $BASE/tmp3
