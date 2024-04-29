@@ -616,88 +616,44 @@ class DataPipeline:
     ):
         self.template_featurizer = template_featurizer
 
-    def _parse_msa_data(self, alignment_dir: str, alignment_index: Optional[Any] = None) -> Mapping[str, Any]:
+    def _parse_msa_data(self, alignment_dir: str) -> Mapping[str, Any]:
         msa_data = {}
-        if alignment_index is not None:
-            fp = open(os.path.join(alignment_dir, alignment_index["db"]), "rb")
 
-            def read_msa(start, size):
-                fp.seek(start)
-                msa = fp.read(size).decode("utf-8")
-                return msa
+        for f in os.listdir(alignment_dir):
+            path = os.path.join(alignment_dir, f)
+            filename, ext = os.path.splitext(f)
 
-            for name, start, size in alignment_index["files"]:
-                filename, ext = os.path.splitext(name)
+            if ext == ".a3m":
+                with open(path, "r") as fp:
+                    msa = parsers.parse_a3m(fp.read())
+            elif ext == ".sto" and filename not in ["uniprot_hits", "hmm_output"]:
+                with open(path, "r") as fp:
+                    msa = parsers.parse_stockholm(fp.read())
+            else:
+                continue
 
-                if ext == ".a3m":
-                    msa = parsers.parse_a3m(read_msa(start, size))
-                # The "hmm_output" exception is a crude way to exclude multimer template hits.
-                # Multimer "uniprot_hits" processed separately.
-                elif ext == ".sto" and filename not in ["uniprot_hits", "hmm_output"]:
-                    msa = parsers.parse_stockholm(read_msa(start, size))
-                else:
-                    continue
-
-                msa_data[name] = msa
-
-            fp.close()
-        else:
-            for f in os.listdir(alignment_dir):
-                path = os.path.join(alignment_dir, f)
-                filename, ext = os.path.splitext(f)
-
-                if ext == ".a3m":
-                    with open(path, "r") as fp:
-                        msa = parsers.parse_a3m(fp.read())
-                elif ext == ".sto" and filename not in ["uniprot_hits", "hmm_output"]:
-                    with open(path, "r") as fp:
-                        msa = parsers.parse_stockholm(fp.read())
-                else:
-                    continue
-
-                msa_data[f] = msa
+            msa_data[f] = msa
 
         return msa_data
 
-    def _parse_template_hit_files(self, alignment_dir: str, input_sequence: str, alignment_index: Optional[Any] = None) -> Mapping[str, Any]:
+    def _parse_template_hit_files(self, alignment_dir: str, input_sequence: str) -> Mapping[str, Any]:
         all_hits = {}
-        if alignment_index is not None:
-            fp = open(os.path.join(alignment_dir, alignment_index["db"]), "rb")
 
-            def read_template(start, size):
-                fp.seek(start)
-                return fp.read(size).decode("utf-8")
+        for f in os.listdir(alignment_dir):
+            path = os.path.join(alignment_dir, f)
+            ext = os.path.splitext(f)[-1]
 
-            for name, start, size in alignment_index["files"]:
-                ext = os.path.splitext(name)[-1]
-
-                if ext == ".hhr":
-                    hits = parsers.parse_hhr(read_template(start, size))
-                    all_hits[name] = hits
-                elif name == "hmmsearch_output.sto":
+            if ext == ".hhr":
+                with open(path, "r") as fp:
+                    hits = parsers.parse_hhr(fp.read())
+                all_hits[f] = hits
+            elif f == "hmm_output.sto":
+                with open(path, "r") as fp:
                     hits = parsers.parse_hmmsearch_sto(
-                        read_template(start, size),
+                        fp.read(),
                         input_sequence,
                     )
-                    all_hits[name] = hits
-
-            fp.close()
-        else:
-            for f in os.listdir(alignment_dir):
-                path = os.path.join(alignment_dir, f)
-                ext = os.path.splitext(f)[-1]
-
-                if ext == ".hhr":
-                    with open(path, "r") as fp:
-                        hits = parsers.parse_hhr(fp.read())
-                    all_hits[f] = hits
-                elif f == "hmm_output.sto":
-                    with open(path, "r") as fp:
-                        hits = parsers.parse_hmmsearch_sto(
-                            fp.read(),
-                            input_sequence,
-                        )
-                    all_hits[f] = hits
+                all_hits[f] = hits
 
         return all_hits
 
@@ -705,9 +661,8 @@ class DataPipeline:
         self,
         alignment_dir: str,
         input_sequence: Optional[str] = None,
-        alignment_index: Optional[Any] = None,
     ):
-        msa_data = self._parse_msa_data(alignment_dir, alignment_index)
+        msa_data = self._parse_msa_data(alignment_dir)
         if len(msa_data) == 0:
             if input_sequence is None:
                 raise ValueError(
@@ -725,10 +680,9 @@ class DataPipeline:
         self,
         alignment_dir: str,
         input_sequence: Optional[str] = None,
-        alignment_index: Optional[Any] = None,
     ) -> Mapping[str, Any]:
 
-        msas = self._get_msas(alignment_dir, input_sequence, alignment_index)
+        msas = self._get_msas(alignment_dir, input_sequence)
         msa_features = make_msa_features(msas=msas)
 
         return msa_features
@@ -737,14 +691,21 @@ class DataPipeline:
         self,
         fasta_path: str,
         alignment_dir: str,
-        alignment_index: Optional[Any] = None,
+    ) -> FeatureDict:
+        with open(fasta_path) as f:
+            fasta_string = f.read()
+        return self.process_fasta_string(fasta_string=fasta_string, alignment_dir=alignment_dir)
+
+    def process_fasta_string(
+        self,
+        fasta_string: str,
+        alignment_dir: str,
     ) -> FeatureDict:
         """Assembles features for a single sequence in a FASTA file"""
-        with open(fasta_path) as f:
-            fasta_str = f.read()
-        input_seqs, input_descs = parsers.parse_fasta(fasta_str)
+
+        input_seqs, input_descs = parsers.parse_fasta(fasta_string)
         if len(input_seqs) != 1:
-            raise ValueError(f"More than one input sequence found in {fasta_path}.")
+            raise ValueError(f"More than one input sequence found")
         input_sequence = input_seqs[0]
         input_description = input_descs[0]
         num_res = len(input_sequence)
@@ -752,7 +713,6 @@ class DataPipeline:
         hits = self._parse_template_hit_files(
             alignment_dir=alignment_dir,
             input_sequence=input_sequence,
-            alignment_index=alignment_index,
         )
 
         template_features = make_template_features(
@@ -767,7 +727,7 @@ class DataPipeline:
             num_res=num_res,
         )
 
-        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence)
 
         return {**sequence_features, **msa_features, **template_features}
 
@@ -776,7 +736,6 @@ class DataPipeline:
         mmcif: mmcif_parsing.MmcifObject,  # parsing is expensive, so no path
         alignment_dir: str,
         chain_id: Optional[str] = None,
-        alignment_index: Optional[Any] = None,
     ) -> FeatureDict:
         """
         Assembles features for a specific chain in an mmCIF object.
@@ -797,12 +756,11 @@ class DataPipeline:
         hits = self._parse_template_hit_files(
             alignment_dir=alignment_dir,
             input_sequence=input_sequence,
-            alignment_index=alignment_index,
         )
 
         template_features = make_template_features(input_sequence, hits, self.template_featurizer)
 
-        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence)
 
         return {**mmcif_feats, **template_features, **msa_features}
 
@@ -813,7 +771,6 @@ class DataPipeline:
         is_distillation: bool = True,
         chain_id: Optional[str] = None,
         _structure_index: Optional[str] = None,
-        alignment_index: Optional[Any] = None,
     ) -> FeatureDict:
         """
         Assembles features for a protein in a PDB file.
@@ -839,7 +796,6 @@ class DataPipeline:
         hits = self._parse_template_hit_files(
             alignment_dir=alignment_dir,
             input_sequence=input_sequence,
-            alignment_index=alignment_index,
         )
 
         template_features = make_template_features(
@@ -848,7 +804,7 @@ class DataPipeline:
             self.template_featurizer,
         )
 
-        msa_features = self._process_msa_feats(alignment_dir, input_sequence, alignment_index)
+        msa_features = self._process_msa_feats(alignment_dir, input_sequence)
 
         return {**pdb_feats, **template_features, **msa_features}
 
@@ -915,7 +871,7 @@ class DataPipeline:
         template_feature_list = []
         for seq, desc in zip(input_seqs, input_descs):
             alignment_dir = os.path.join(super_alignment_dir, desc)
-            hits = self._parse_template_hit_files(alignment_dir=alignment_dir, input_sequence=seq, alignment_index=None)
+            hits = self._parse_template_hit_files(alignment_dir=alignment_dir, input_sequence=seq)
 
             template_features = make_template_features(
                 seq,
@@ -958,60 +914,46 @@ class DataPipelineMultimer:
         sequence: str,
         description: str,
         chain_alignment_dir: str,
-        chain_alignment_index: Optional[Any],
         is_homomer_or_monomer: bool,
     ) -> FeatureDict:
         """Runs the monomer pipeline on a single chain."""
         chain_fasta_str = f">{chain_id}\n{sequence}\n"
 
-        if chain_alignment_index is None and not os.path.exists(chain_alignment_dir):
+        if not os.path.exists(chain_alignment_dir):
             raise ValueError(f"Alignments for {chain_id} not found...")
 
         with temp_fasta_file(chain_fasta_str) as chain_fasta_path:
             chain_features = self._monomer_data_pipeline.process_fasta(
                 fasta_path=chain_fasta_path,
                 alignment_dir=chain_alignment_dir,
-                alignment_index=chain_alignment_index,
             )
 
             # We only construct the pairing features if there are 2 or more unique
             # sequences.
             if not is_homomer_or_monomer:
-                all_seq_msa_features = self._all_seq_msa_features(chain_alignment_dir, chain_alignment_index)
+                all_seq_msa_features = self._all_seq_msa_features(chain_alignment_dir)
                 chain_features.update(all_seq_msa_features)
         return chain_features
 
     @staticmethod
-    def _all_seq_msa_features(alignment_dir, alignment_index):
+    def _all_seq_msa_features(alignment_dir):
         """Get MSA features for unclustered uniprot, for pairing."""
-        if alignment_index is not None:
-            fp = open(os.path.join(alignment_dir, alignment_index["db"]), "rb")
 
-            def read_msa(start, size):
-                fp.seek(start)
-                msa = fp.read(size).decode("utf-8")
-                return msa
+        uniprot_msa_path = os.path.join(alignment_dir, "uniprot_hits.sto")
+        if not os.path.exists(uniprot_msa_path):
+            chain_id = os.path.basename(os.path.normpath(alignment_dir))
+            raise ValueError(f"Missing 'uniprot_hits.sto' for {chain_id}. " f"This is required for Multimer MSA pairing.")
 
-            start, size = next(iter((start, size) for name, start, size in alignment_index["files"] if name == "uniprot_hits.sto"))
-
-            msa = parsers.parse_stockholm(read_msa(start, size))
-            fp.close()
-        else:
-            uniprot_msa_path = os.path.join(alignment_dir, "uniprot_hits.sto")
-            if not os.path.exists(uniprot_msa_path):
-                chain_id = os.path.basename(os.path.normpath(alignment_dir))
-                raise ValueError(f"Missing 'uniprot_hits.sto' for {chain_id}. " f"This is required for Multimer MSA pairing.")
-
-            with open(uniprot_msa_path, "r") as fp:
-                uniprot_msa_string = fp.read()
-            msa = parsers.parse_stockholm(uniprot_msa_string)
+        with open(uniprot_msa_path, "r") as fp:
+            uniprot_msa_string = fp.read()
+        msa = parsers.parse_stockholm(uniprot_msa_string)
 
         all_seq_features = make_msa_features([msa])
         valid_feats = msa_pairing.MSA_FEATURES + ("msa_species_identifiers",)
         feats = {f"{k}_all_seq": v for k, v in all_seq_features.items() if k in valid_feats}
         return feats
 
-    def process_fasta(self, fasta_path: str, alignment_dir: str, alignment_index: Optional[Any] = None) -> FeatureDict:
+    def process_fasta(self, fasta_path: str, alignment_dir: str) -> FeatureDict:
         """Creates features."""
         with open(fasta_path) as f:
             input_fasta_str = f.read()
@@ -1026,19 +968,13 @@ class DataPipelineMultimer:
                 all_chain_features[desc] = copy.deepcopy(sequence_features[seq])
                 continue
 
-            if alignment_index is not None:
-                chain_alignment_index = alignment_index.get(desc)
-                chain_alignment_dir = alignment_dir
-            else:
-                chain_alignment_index = None
-                chain_alignment_dir = os.path.join(alignment_dir, desc)
+            chain_alignment_dir = os.path.join(alignment_dir, desc)
 
             chain_features = self._process_single_chain(
                 chain_id=desc,
                 sequence=seq,
                 description=desc,
                 chain_alignment_dir=chain_alignment_dir,
-                chain_alignment_index=chain_alignment_index,
                 is_homomer_or_monomer=is_homomer_or_monomer,
             )
 
@@ -1076,7 +1012,6 @@ class DataPipelineMultimer:
         self,
         mmcif: mmcif_parsing.MmcifObject,  # parsing is expensive, so no path
         alignment_dir: str,
-        alignment_index: Optional[Any] = None,
     ) -> FeatureDict:
 
         all_chain_features = {}
@@ -1089,19 +1024,13 @@ class DataPipelineMultimer:
                 all_chain_features[desc] = copy.deepcopy(sequence_features[seq])
                 continue
 
-            if alignment_index is not None:
-                chain_alignment_index = alignment_index.get(desc)
-                chain_alignment_dir = alignment_dir
-            else:
-                chain_alignment_index = None
-                chain_alignment_dir = os.path.join(alignment_dir, desc)
+            chain_alignment_dir = os.path.join(alignment_dir, desc)
 
             chain_features = self._process_single_chain(
                 chain_id=desc,
                 sequence=seq,
                 description=desc,
                 chain_alignment_dir=chain_alignment_dir,
-                chain_alignment_index=chain_alignment_index,
                 is_homomer_or_monomer=is_homomer_or_monomer,
             )
 
