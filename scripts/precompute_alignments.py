@@ -88,12 +88,11 @@ def generate_feature_dict(
     elif len(seqs) == 1:
         tag = tags[0]
         seq = seqs[0]
-        with open(tmp_fasta_path, "w") as fp:
-            fp.write(f">{tag}\n{seq}")
+        fasta_string = f">{tag}\n{seq}"
 
         local_alignment_dir = os.path.join(alignment_dir, tag)
-        feature_dict = data_processor.process_fasta(
-            fasta_path=tmp_fasta_path,
+        feature_dict = data_processor.process_fasta_string(
+            fasta_string=fasta_string,
             alignment_dir=local_alignment_dir,
         )
     else:
