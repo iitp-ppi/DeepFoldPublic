@@ -8,7 +8,7 @@ class TqdmHandler(logging.StreamHandler):
         logging.StreamHandler.__init__(self)
 
     def emit(self, record: logging.LogRecord) -> None:
-        from tqdm import tqdm
+        from tqdm.auto import tqdm
 
         msg = self.format(record)
         tqdm.write(msg)

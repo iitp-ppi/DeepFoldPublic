@@ -26,7 +26,7 @@ from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 from Bio.PDB.PDBExceptions import PDBConstructionException, PDBConstructionWarning
 from Bio.PDB.Structure import Structure
 from Bio.PDB.StructureBuilder import StructureBuilder
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from deepfold.common import residue_constants as rc
 from deepfold.data.errors import PDBxConstructionError, PDBxConstructionWarning, PDBxError, PDBxWarning
