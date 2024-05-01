@@ -113,14 +113,15 @@ class AlphaFold(nn.Module):
     def forward(
         self,
         batch: Dict[str, torch.Tensor],
-        trajectory: bool = False,
+        save_trajectory: bool = False,
+        verbose: bool = False,
     ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
 
-        self.trajectory = trajectory and not self.training
+        self.save_trajectory = save_trajectory and not self.training
         # Trajectory
-        if self.trajectory:
+        if self.save_trajectory:
             trajectory = []
 
         # Asym id for multimer
@@ -139,10 +140,10 @@ class AlphaFold(nn.Module):
                     gradient_checkpointing=False,
                 )
 
-                if self.trajectory:
+                if self.save_trajectory:
                     trajectory.append(outputs["final_atom_positions"][..., None])
 
-                if not self.training:  # Inference
+                if verbose:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
                     _log_iter(tag="Predict", recycle_iter=j, results=aux_outputs)
 
@@ -161,7 +162,7 @@ class AlphaFold(nn.Module):
         )
         del prevs
 
-        if self.trajectory:
+        if self.save_trajectory:
             trajectory.append(outputs["final_atom_positions"][..., None])
             outputs["trajectory"] = torch.cat(trajectory, dim=-1)
             del trajectory
@@ -174,7 +175,7 @@ class AlphaFold(nn.Module):
         aux_outputs = self.auxiliary_heads(outputs, asym_id)
         outputs.update(aux_outputs)
 
-        if not self.training:  # Inference
+        if verbose:  # Inference
             _log_iter(tag="Predict", recycle_iter=num_recycling_iters, results=aux_outputs)
 
         return outputs
