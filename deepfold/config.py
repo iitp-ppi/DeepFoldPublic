@@ -400,7 +400,7 @@ class AlphaFoldConfig:
         enable_ptm: bool = False,
         enable_templates: bool = False,
         inference_chunk_size: Optional[int] = 4,
-        inference_block_size: Optional[int] = 256,
+        inference_block_size: Optional[int] = None,
         **additional_options,
     ) -> "AlphaFoldConfig":
         cfg = {
@@ -596,7 +596,7 @@ class FeaturePipelineConfig:
     templates_enabled: bool = True
     embed_template_torsion_angles: bool = True
     max_templates: int = 4  # Number of templates (N_templ)
-    max_template_hits: int = 4
+    # max_template_hits: int = 4
     shuffle_top_k_prefiltered: int = 20
     subsample_templates: bool = False  # OpenFold
 
@@ -624,11 +624,9 @@ class FeaturePipelineConfig:
         ]
     )
 
-    # FAPE loss clamp probability
-    clamp_fape_prob: float = 0.9
-
-    # Distillation
-    distillation_prob: float = 0.75
+    # Training loss configuration:
+    use_clamped_fape_probability: float = 0.9
+    self_distillation_plddt_threshold: float = 50.0
 
     def feature_names(self) -> List[str]:
         names = self.primary_raw_feature_names.copy()
@@ -706,7 +704,7 @@ def _predict_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": False,
         "max_msa_clusters": 512,
         "max_extra_msa": 1024,
-        "max_template_hits": 4,
+        # "max_template_hits": 4,
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": False,
@@ -731,7 +729,7 @@ def _eval_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": False,
         "max_msa_clusters": 128,
         "max_extra_msa": 1024,
-        "max_template_hits": 4,
+        # "max_template_hits": 4,
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": True,
@@ -756,7 +754,7 @@ def _train_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": True,
         "max_msa_clusters": 128,
         "max_extra_msa": 1024,
-        "max_template_hits": 4,
+        # "max_template_hits": 4,
         "max_templates": 4,
         "shuffle_top_k_prefiltered": 20,
         "residue_cropping_enabled": True,
@@ -917,3 +915,47 @@ def _update(left: dict, right: dict) -> dict:
         else:
             left[k] = v
     return left
+
+
+@dataclass
+class TrainingConfig:
+
+    # Adam optimizer constants:
+    optimizer_adam_beta_1 = 0.9
+    optimizer_adam_beta_2 = 0.999
+    optimizer_adam_eps = 1e-6
+    optimizer_adam_weight_decay = 0.0
+    optimizer_adam_amsgrad = False
+
+    # Whether to enable gradient clipping by the max norm value:
+    gradient_clipping: bool = True
+    clip_grad_max_nrom: float = 0.1
+
+    # Whether to enable Stochastic Weight Averaging (SWA):
+    swa_enabled: bool = True
+    swa_decay_rate: float = 0.9
+
+    # Sequence crop & pad size:
+    # train_sequence_crop_size: int = 256 # N_res
+
+    # Recycling (last dimension in the batch dict):
+    # num_recycling_iters: int = 3
+
+    @classmethod
+    def from_preset(cls, **additional_options) -> TrainingConfig:
+        cfg = {}
+
+        cfg.update(additional_options)
+
+        return cls.from_dict(cfg)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, cfg: dict) -> "AlphaFoldConfig":
+        return config_utils.from_dict(
+            data_class=AlphaFoldConfig,
+            data=cfg,
+            config=config_utils.Config(check_types=True, strict=True),
+        )
