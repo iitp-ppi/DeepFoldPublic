@@ -18,7 +18,6 @@ class EvoformerBlockPairCore(nn.Module):
     - Supplementary '1.7.2 Unclustered MSA stack': Algorithm 18
 
     Args:
-        c_m: MSA (or Extra MSA) representation dimension (channels).
         c_z: Pair representation dimension (channels).
         c_hidden_msa_att: Hidden dimension in MSA attention.
         c_hidden_opm: Hidden dimension in outer product mean.
@@ -36,7 +35,6 @@ class EvoformerBlockPairCore(nn.Module):
 
     def __init__(
         self,
-        c_m: int,
         c_z: int,
         c_hidden_tri_mul: int,
         c_hidden_tri_att: int,
@@ -91,11 +89,9 @@ class EvoformerBlockPairCore(nn.Module):
 
     def forward(
         self,
-        m: torch.Tensor,
         z: torch.Tensor,
-        msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         """Evoformer Block Core forward pass.
 
         Args:
@@ -110,28 +106,16 @@ class EvoformerBlockPairCore(nn.Module):
 
         """
         if mp.is_enabled():
-            m, z = self._forward_dap(
-                m=m,
-                z=z,
-                msa_mask=msa_mask,
-                pair_mask=pair_mask,
-            )
+            z = self._forward_dap(z=z, pair_mask=pair_mask)
         else:
-            m, z = self._forward(
-                m=m,
-                z=z,
-                msa_mask=msa_mask,
-                pair_mask=pair_mask,
-            )
-        return m, z
+            z = self._forward(z=z, pair_mask=pair_mask)
+        return z
 
     def _forward(
         self,
-        m: torch.Tensor,
         z: torch.Tensor,
-        msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask),
             add_output_to=z,
@@ -149,16 +133,13 @@ class EvoformerBlockPairCore(nn.Module):
             add_output_to=z,
         )
         z = self.pair_transition(z, mask=pair_mask)
-        return m, z
+        return z
 
     def _forward_dap(
         self,
-        m: torch.Tensor,
         z: torch.Tensor,
-        msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        m = mp.col_to_row(m)
+    ) -> torch.Tensor:
         pair_mask_row = mp.scatter(pair_mask, dim=-3)
         pair_mask_col = mp.scatter(pair_mask, dim=-2)
         z = self.tmo_dropout_rowwise(
@@ -183,4 +164,4 @@ class EvoformerBlockPairCore(nn.Module):
         )
         z = self.pair_transition(z, mask=pair_mask)
         z = mp.col_to_row(z)
-        return m, z
+        return z

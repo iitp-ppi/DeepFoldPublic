@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-import deepfold.distributed as mp
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.dropout import DropoutColumnwise, DropoutRowwise
 from deepfold.modules.pair_transition import PairTransition
 from deepfold.modules.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
@@ -111,6 +111,7 @@ class TemplatePairBlock(nn.Module):
             if mp.is_enabled():
                 mask_row = mp.scatter(mask, dim=-3)
                 mask_col = mp.scatter(mask, dim=-2)
+                
                 if self.tri_att_first:
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask_row),
@@ -135,8 +136,27 @@ class TemplatePairBlock(nn.Module):
                     t = self.pair_transition(z=t, mask=mask_col)
                     t = mp.col_to_row(t)
                 else:
-                    # TODO: Implement DAP
-                    raise NotImplementedError("Template pair block with DAP is not implemented yet")
+                    t = self.tmo_dropout_rowwise(
+                        self.tri_mul_out(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = mp.row_to_col(t)
+                    t = self.tmi_dropout_rowwise(
+                        self.tri_mul_in(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = mp.col_to_row(t)
+                    t = self.tasn_dropout_rowwise(
+                        self.tri_att_start(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = mp.row_to_col(t)
+                    t = self.taen_dropout_columnwise(
+                        self.tri_att_end(z=t, mask=mask),
+                        add_output_to=t,
+                    )
+                    t = self.pair_transition(z=t, mask=mask)
+                    t = mp.col_to_row(t)
             else:
                 if self.tri_att_first:
                     t = self.tasn_dropout_rowwise(

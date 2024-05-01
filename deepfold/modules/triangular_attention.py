@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-import deepfold.distributed as mp
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.attention import SelfAttentionWithGate
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear

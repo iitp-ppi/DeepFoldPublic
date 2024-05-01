@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 
-import deepfold.distributed as mp
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.extra_msa_block import ExtraMSABlock
 
 
@@ -60,6 +60,7 @@ class ExtraMSAStack(nn.Module):
         outer_product_mean_first: bool = False,
     ) -> None:
         super().__init__()
+        self.opm_first = outer_product_mean_first
         self.blocks = nn.ModuleList(
             [
                 ExtraMSABlock(
@@ -133,7 +134,10 @@ class ExtraMSAStack(nn.Module):
         pair_mask: torch.Tensor,
     ) -> torch.Tensor:
         if mp.is_enabled():
-            m = mp.scatter(m, dim=-3)
+            if self.opm_first:
+                m = mp.scatter(m, dim=-2)
+            else:
+                m = mp.scatter(m, dim=-3)
             z = mp.scatter(z, dim=-3)
 
         for block in self.blocks:
@@ -151,17 +155,13 @@ class ExtraMSAStack(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> torch.Tensor:
-        blocks = [
-            partial(
-                block,
-                msa_mask=msa_mask,
-                pair_mask=pair_mask,
-            )
-            for block in self.blocks
-        ]
+        blocks = [partial(block, msa_mask=msa_mask, pair_mask=pair_mask) for block in self.blocks]
 
         if mp.is_enabled():
-            m = mp.scatter(m, dim=-3)
+            if self.opm_first:
+                m = mp.scatter(m, dim=-2)
+            else:
+                m = mp.scatter(m, dim=-3)
             z = mp.scatter(z, dim=-3)
 
         for block in blocks:

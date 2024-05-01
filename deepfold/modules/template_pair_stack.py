@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 
-import deepfold.distributed as mp
+import deepfold.distributed.model_parallel as mp
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.template_pair_block import TemplatePairBlock
 
@@ -94,13 +94,19 @@ class TemplatePairStack(nn.Module):
         mask: torch.Tensor,
     ) -> torch.Tensor:
         if mp.is_enabled():
-            t = mp.scatter(t, dim=-2)
+            if self.tri_att_first:
+                t = mp.scatter(t, dim=-2)
+            else:
+                t = mp.scatter(t, dim=-3)
 
         for block in self.blocks:
             t = block(t=t, mask=mask)
 
         if mp.is_enabled():
-            t = mp.gather(t, dim=-2)
+            if self.tri_att_first:
+                t = mp.gather(t, dim=-2)
+            else:
+                t = mp.gather(t, dim=-3)
 
         return t
 
@@ -109,21 +115,21 @@ class TemplatePairStack(nn.Module):
         t: torch.Tensor,
         mask: torch.Tensor,
     ) -> torch.Tensor:
-        blocks = [
-            partial(
-                block,
-                mask=mask,
-            )
-            for block in self.blocks
-        ]
+        blocks = [partial(block, mask=mask) for block in self.blocks]
 
         if mp.is_enabled():
-            t = mp.scatter(t, dim=-2)
+            if self.tri_att_first:
+                t = mp.scatter(t, dim=-2)
+            else:
+                t = mp.scatter(t, dim=-3)
 
         for block in blocks:
             t = gradient_checkpointing_fn(block, t, use_reentrant=True)
 
         if mp.is_enabled():
-            t = mp.gather(t, dim=-2)
+            if self.tri_att_first:
+                t = mp.gather(t, dim=-2)
+            else:
+                t = mp.gather(t, dim=-3)
 
         return t

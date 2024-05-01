@@ -64,6 +64,7 @@ class EvoformerStack(nn.Module):
         outer_product_mean_first: bool = False,
     ) -> None:
         super().__init__()
+        self.opm_first = outer_product_mean_first
         self.blocks = nn.ModuleList(
             [
                 EvoformerBlock(
@@ -141,14 +142,20 @@ class EvoformerStack(nn.Module):
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if mp.is_enabled():
-            m = mp.scatter(m, dim=-3)
+            if self.opm_first:
+                m = mp.scatter(m, dim=-2)
+            else:
+                m = mp.scatter(m, dim=-3)
             z = mp.scatter(z, dim=-3)
 
         for block in self.blocks:
             m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
 
         if mp.is_enabled():
-            m = mp.gather(m, dim=-3)
+            if self.opm_first:
+                m = mp.gather(m, dim=-2)
+            else:
+                m = mp.gather(m, dim=-3)
             z = mp.gather(z, dim=-3)
 
         return m, z
@@ -160,24 +167,23 @@ class EvoformerStack(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        blocks = [
-            partial(
-                block,
-                msa_mask=msa_mask,
-                pair_mask=pair_mask,
-            )
-            for block in self.blocks
-        ]
+        blocks = [partial(block, msa_mask=msa_mask, pair_mask=pair_mask) for block in self.blocks]
 
         if mp.is_enabled():
-            m = mp.scatter(m, dim=-3)
+            if self.opm_first:
+                m = mp.scatter(m, dim=-2)
+            else:
+                m = mp.scatter(m, dim=-3)
             z = mp.scatter(z, dim=-3)
 
         for block in blocks:
             m, z = gradient_checkpointing_fn(block, m, z, use_reentrant=True)
 
         if mp.is_enabled():
-            m = mp.gather(m, dim=-3)
+            if self.opm_first:
+                m = mp.gather(m, dim=-2)
+            else:
+                m = mp.gather(m, dim=-3)
             z = mp.gather(z, dim=-3)
 
         return m, z

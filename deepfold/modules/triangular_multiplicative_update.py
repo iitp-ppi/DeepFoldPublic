@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import deepfold.distributed as mp
+import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
