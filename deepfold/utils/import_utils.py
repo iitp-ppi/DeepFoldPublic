@@ -373,11 +373,11 @@ def import_jax_weights_(
             col_att_name: msa_col_att_params,
             "msa_transition": MSATransitionParams(b.msa_transition),
             "outer_product_mean": OuterProductMeanParams(b.outer_product_mean),
-            "triangle_multiplication_outgoing": TriMulOutParams(b.core.tri_mul_out),
-            "triangle_multiplication_incoming": TriMulInParams(b.core.tri_mul_in),
-            "triangle_attention_starting_node": TriAttParams(b.core.tri_att_start),
-            "triangle_attention_ending_node": TriAttParams(b.core.tri_att_end),
-            "pair_transition": PairTransitionParams(b.core.pair_transition),
+            "triangle_multiplication_outgoing": TriMulOutParams(b.pair_core.tri_mul_out),
+            "triangle_multiplication_incoming": TriMulInParams(b.pair_core.tri_mul_in),
+            "triangle_attention_starting_node": TriAttParams(b.pair_core.tri_att_start),
+            "triangle_attention_ending_node": TriAttParams(b.pair_core.tri_att_end),
+            "pair_transition": PairTransitionParams(b.pair_core.pair_transition),
         }
 
         return d
