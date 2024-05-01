@@ -147,7 +147,7 @@ def import_jax_weights_(
     if "arr_0" in data:
         data = data["arr_0"].flat[0]
         global _NPZ_KEY_PREFIX
-        _NPZ_KEY_PREFIX = "unifold/unifold_iteration/"
+        _NPZ_KEY_PREFIX = "deepfold_batch/deepfold/deepfold_iteration/"
         keys = list(data.keys())
         for key in keys:
             for subkey in data[key]:
