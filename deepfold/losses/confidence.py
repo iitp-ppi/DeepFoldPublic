@@ -168,6 +168,8 @@ def compute_predicted_aligned_error(
 def compute_tm(
     logits: torch.Tensor,
     residue_weights: Optional[torch.Tensor] = None,
+    asym_id: Optional[torch.Tensor] = None,
+    interface: bool = False,
     max_bin: int = 31,
     num_bins: int = 64,
     eps: float = 1e-8,
@@ -185,9 +187,7 @@ def compute_tm(
     )
 
     bin_centers = calculate_bin_centers(boundaries)
-
-    num_res = logits.shape[-2]
-    clipped_n = max(num_res, 19)
+    clipped_n = max(torch.sum(residue_weights), 19)
 
     d0 = 1.24 * (clipped_n - 15) ** (1.0 / 3) - 1.8
 
@@ -196,7 +196,20 @@ def compute_tm(
     tm_per_bin = 1.0 / (1 + (bin_centers**2) / (d0**2))
     predicted_tm_term = torch.sum(probs * tm_per_bin, dim=-1)
 
-    normed_residue_mask = residue_weights / (eps + residue_weights.sum())
+    n = residue_weights.shape[-1]
+    pair_mask = residue_weights.new_ones((n, n), dtype=torch.int32)
+    if interface and (asym_id is not None):
+        if len(asym_id.shape) > 1:
+            assert len(asym_id.shape) <= 2
+            batch_size = asym_id.shape[0]
+            pair_mask = residue_weights.new_ones((batch_size, n, n), dtype=torch.int32)
+        pair_mask *= (asym_id[..., None] != asym_id[..., None, :]).to(dtype=pair_mask.dtype)
+
+    predicted_tm_term *= pair_mask
+
+    pair_residue_weights = pair_mask * (residue_weights[..., None, :] * residue_weights[..., :, None])
+    denom = eps + torch.sum(pair_residue_weights, dim=-1, keepdims=True)
+    normed_residue_mask = pair_residue_weights / denom
     per_alignment = torch.sum(predicted_tm_term * normed_residue_mask, dim=-1)
 
     weighted = per_alignment * residue_weights
