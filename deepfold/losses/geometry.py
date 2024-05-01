@@ -75,7 +75,7 @@ def backbone_loss(
         pred_aff.get_trans(),
     )
 
-    # DISCREPANCY: DeepMind somehow gets a hold of a tensor_7 version of backbone tensor,
+    # NOTE: DeepMind somehow gets a hold of a tensor_7 version of backbone tensor,
     # normalizes it, and then turns it back to a rotation matrix.
     gt_aff = Rigid.from_tensor_4x4(backbone_rigid_tensor)
 
