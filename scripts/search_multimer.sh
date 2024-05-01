@@ -146,8 +146,8 @@ function run_hhsearch() {
 }
 
 # Check arguments
-if [ $# -ne 1 ]; then
-    echo "Illegal number of parameters: $# != 1"
+if [ $# -ne 2 ]; then
+    echo "Illegal number of parameters: $# != 2"
 fi
 
 if ! command -v hhblits &>/dev/null; then
@@ -191,6 +191,8 @@ run_jackhmmer "mgnify" $FASTA_PATH "${DATABASE_BASE}/mgnify/mgy_clusters_2022_05
 
 # BFD
 run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
+
+wait
 
 # HMM
 run_hmmsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
