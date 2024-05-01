@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 import warnings
 from pathlib import Path
@@ -16,9 +15,6 @@ def main_pdbx(
     entry_id = entry_id.lower()
     dv = entry_id[1:3]
     out_dir = Path("assembly") / dv / entry_id
-
-    if (out_dir / "DONE").exists():
-        return
 
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
