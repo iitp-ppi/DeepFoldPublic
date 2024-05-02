@@ -77,7 +77,6 @@ def generate_feature_dict(
     args,
 ):
     if args.is_multimer:
-
         feature_dict = data_processor.process_fasta_string(
             fasta_string="\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]),
             alignment_dir=alignment_dir,
@@ -93,12 +92,13 @@ def generate_feature_dict(
             alignment_dir=local_alignment_dir,
         )
     else:
-        with open(tmp_fasta_path, "w") as fp:
-            fp.write("\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]))
-        feature_dict = data_processor.process_multiseq_fasta(
-            fasta_path=tmp_fasta_path,
-            super_alignment_dir=alignment_dir,
-        )
+        raise NotImplementedError("Don't support multi-sequencial FASTA files")
+        # with open(tmp_fasta_path, "w") as fp:
+        #     fp.write("\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]))
+        # feature_dict = data_processor.process_multiseq_fasta(
+        #     fasta_path=tmp_fasta_path,
+        #     super_alignment_dir=alignment_dir,
+        # )
 
     return feature_dict
 
