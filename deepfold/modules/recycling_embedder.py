@@ -103,7 +103,7 @@ class RecyclingEmbedder(nn.Module):
 
     def _msa_update(self, m: torch.Tensor, m0_update: torch.Tensor) -> torch.Tensor:
         m = m.clone()
-        m[:, 0] += m0_update
+        m[..., 0, :, :] += m0_update
         return m
 
     def _pair_update(self, z: torch.Tensor, z_update: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
