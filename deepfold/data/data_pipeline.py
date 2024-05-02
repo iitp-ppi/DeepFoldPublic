@@ -922,17 +922,17 @@ class DataPipelineMultimer:
         if not os.path.exists(chain_alignment_dir):
             raise ValueError(f"Alignments for {chain_id} not found...")
 
-        with temp_fasta_file(chain_fasta_str) as chain_fasta_path:
-            chain_features = self._monomer_data_pipeline.process_fasta(
-                fasta_path=chain_fasta_path,
-                alignment_dir=chain_alignment_dir,
-            )
+        # with temp_fasta_file(chain_fasta_str) as chain_fasta_path:
+        chain_features = self._monomer_data_pipeline.process_fasta_string(
+            fasta_string=chain_fasta_str,
+            alignment_dir=chain_alignment_dir,
+        )
 
-            # We only construct the pairing features if there are 2 or more unique
-            # sequences.
-            if not is_homomer_or_monomer:
-                all_seq_msa_features = self._all_seq_msa_features(chain_alignment_dir)
-                chain_features.update(all_seq_msa_features)
+        # We only construct the pairing features if there are 2 or more unique
+        # sequences.
+        if not is_homomer_or_monomer:
+            all_seq_msa_features = self._all_seq_msa_features(chain_alignment_dir)
+            chain_features.update(all_seq_msa_features)
         return chain_features
 
     @staticmethod
@@ -954,11 +954,14 @@ class DataPipelineMultimer:
         return feats
 
     def process_fasta(self, fasta_path: str, alignment_dir: str) -> FeatureDict:
-        """Creates features."""
         with open(fasta_path) as f:
             input_fasta_str = f.read()
+        return self.process_fasta_string(fasta_string=input_fasta_str, alignment_dir=alignment_dir)
 
-        input_seqs, input_descs = parsers.parse_fasta(input_fasta_str)
+    def process_fasta_string(self, fasta_string: str, alignment_dir: str) -> FeatureDict:
+        """Creates features."""
+
+        input_seqs, input_descs = parsers.parse_fasta(fasta_string)
 
         all_chain_features = {}
         sequence_features = {}
