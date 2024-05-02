@@ -16,7 +16,7 @@ from deepfold.modules.evoformer_stack import EvoformerStack
 from deepfold.modules.extra_msa_embedder import ExtraMSAEmbedder
 from deepfold.modules.extra_msa_stack import ExtraMSAStack
 from deepfold.modules.input_embedder import InputEmbedder, InputEmbedderMultimer
-from deepfold.modules.recycling_embedder import RecyclingEmbedder
+from deepfold.modules.recycling_embedder import RecyclingEmbedder  # OpenFoldRecyclingEmbedder
 from deepfold.modules.structure_module import StructureModule
 from deepfold.modules.template_angle_embedder import TemplateAngleEmbedder
 from deepfold.modules.template_pair_embedder import TemplatePairEmbedder, TemplatePairEmbedderMultimer
@@ -145,7 +145,7 @@ class AlphaFold(nn.Module):
 
                 if verbose:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
-                    _log_iter(tag="Inference", recycle_iter=j, results=aux_outputs)
+                    _log_iter(tag="Pred", recycle_iter=j, results=aux_outputs)
 
                 del outputs
 
@@ -176,7 +176,7 @@ class AlphaFold(nn.Module):
         outputs.update(aux_outputs)
 
         if verbose:  # Inference
-            _log_iter(tag="Predict", recycle_iter=num_recycling_iters, results=aux_outputs)
+            _log_iter(tag="Last", recycle_iter=num_recycling_iters, results=aux_outputs)
 
         return outputs
 
