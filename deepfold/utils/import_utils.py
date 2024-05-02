@@ -330,9 +330,9 @@ def import_jax_weights_(
             "q_scalar_projection": {"weights": LinearWeightMHA(ipa.linear_q.weight)},
             "k_scalar_projection": {"weights": LinearWeightMHA(ipa.linear_k.weight)},
             "v_scalar_projection": {"weights": LinearWeightMHA(ipa.linear_v.weight)},
-            "q_point_projection": {"point_projection": LinearMHAParams(ipa.linear_q_points)},
-            "k_point_projection": {"point_projection": LinearMHAParams(ipa.linear_k_points)},
-            "v_point_projection": {"point_projection": LinearMHAParams(ipa.linear_v_points)},
+            "q_point_projection": {"point_projection": LinearMHAParams(ipa.linear_q_points.linear)},
+            "k_point_projection": {"point_projection": LinearMHAParams(ipa.linear_k_points.linear)},
+            "v_point_projection": {"point_projection": LinearMHAParams(ipa.linear_v_points.linear)},
             "trainable_point_weights": Param(param=ipa.head_weights, param_type=ParamType.Other),
             "attention_2d": LinearParams(ipa.linear_b),
             "output_projection": LinearParams(ipa.linear_out),
@@ -430,7 +430,8 @@ def import_jax_weights_(
     template_pair_ln = None
     template_angle_emb = None
     template_angle_proj = None
-    if model.template_pair_stack is not None:
+    # if model.template_pair_stack is not None:
+    if enable_templates:
         tps_blocks = model.template_pair_stack.blocks
         tps_blocks_params = stacked([TemplatePairBlockParams(b) for b in tps_blocks])
         template_pair_ln = LayerNormParams(model.template_pair_stack.layer_norm)
