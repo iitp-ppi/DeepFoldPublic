@@ -111,7 +111,7 @@ class TemplatePairBlock(nn.Module):
             if mp.is_enabled():
                 mask_row = mp.scatter(mask, dim=-3)
                 mask_col = mp.scatter(mask, dim=-2)
-                
+
                 if self.tri_att_first:
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask_row),
