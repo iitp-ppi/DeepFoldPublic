@@ -149,7 +149,7 @@ class StructureModuleConfig:
     num_heads_ipa: int = 12
     num_qk_points: int = 4
     num_v_points: int = 8
-    separate_kv: bool = False
+    is_multimer: bool = False
     dropout_rate: float = 0.1
     num_blocks: int = 8
     num_ang_res_blocks: int = 2
@@ -435,7 +435,7 @@ class AlphaFoldConfig:
                     "extra_msa_stack_config": {
                         "outer_product_mean_first": True,
                     },
-                    "structure_module_config": {"scale_factor": 20.0, "separate_kv": True},
+                    "structure_module_config": {"scale_factor": 20.0, "is_multimer": True},
                     "auxiliary_heads_config": {
                         "masked_msa_head_config": {
                             "c_out": 22,
