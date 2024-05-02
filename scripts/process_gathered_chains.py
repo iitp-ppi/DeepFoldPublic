@@ -6,13 +6,13 @@ import multiprocessing
 import pickle
 import shutil
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 logging.basicConfig(
     level=logging.INFO,
