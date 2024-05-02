@@ -7,10 +7,12 @@ import torch.nn.functional as F
 import deepfold.common.residue_constants as rc
 from deepfold.modules.angle_resnet import AngleResnet
 from deepfold.modules.backbone_update import BackboneUpdate
-from deepfold.modules.invariant_point_attention import InvariantPointAttention
+from deepfold.modules.invariant_point_attention import InvariantPointAttention, InvariantPointAttentionMultimer
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
 from deepfold.modules.single_transition import SingleTransition
+from deepfold.utils.geometry import Rigid3Array, Vec3Array, square_euclidean_distance
+from deepfold.utils.geometry.quat_rigid import QuatRigid
 from deepfold.utils.rigid_utils import Rigid, Rotation
 
 
@@ -46,7 +48,7 @@ class StructureModule(nn.Module):
         num_heads_ipa: int,
         num_qk_points: int,
         num_v_points: int,
-        separate_kv: bool,
+        is_multimer: bool,
         dropout_rate: float,
         num_blocks: int,
         num_ang_res_blocks: int,
@@ -68,31 +70,47 @@ class StructureModule(nn.Module):
         self.num_ang_res_blocks = num_ang_res_blocks
         self.num_angles = num_angles
         self.scale_factor = scale_factor
+        self.is_multimer = is_multimer  # is_multimer
         self.inf = inf
         self.eps = eps
+
         self.layer_norm_s = LayerNorm(c_s)
         self.layer_norm_z = LayerNorm(c_z)
         self.linear_in = Linear(c_s, c_s, bias=True, init="default")
-        self.ipa = InvariantPointAttention(
-            c_s=c_s,
-            c_z=c_z,
-            c_hidden=c_hidden_ipa,
-            num_heads=num_heads_ipa,
-            num_qk_points=num_qk_points,
-            num_v_points=num_v_points,
-            separate_kv=separate_kv,
-            inf=inf,
-            eps=eps,
-        )
+        if not self.is_multimer:
+            self.ipa = InvariantPointAttention(
+                c_s=c_s,
+                c_z=c_z,
+                c_hidden=c_hidden_ipa,
+                num_heads=num_heads_ipa,
+                num_qk_points=num_qk_points,
+                num_v_points=num_v_points,
+                separate_kv=self.is_multimer,  # is_multimer
+                inf=inf,
+                eps=eps,
+            )
+        else:
+            self.ipa = InvariantPointAttentionMultimer(
+                c_s=c_s,
+                c_z=c_z,
+                c_hidden=c_hidden_ipa,
+                num_heads=num_heads_ipa,
+                num_qk_points=num_qk_points,
+                num_v_points=num_v_points,
+                inf=inf,
+                eps=eps,
+            )
+
         self.ipa_dropout = nn.Dropout(dropout_rate)
         self.layer_norm_ipa = LayerNorm(c_s)
         self.transition = SingleTransition(
             c_s=c_s,
             dropout_rate=dropout_rate,
         )
-        self.bb_update = BackboneUpdate(
-            c_s=c_s,
-        )
+        if self.is_multimer:  # is_multimer
+            self.bb_update = QuatRigid(c_hidden=c_s, full_quat=False)
+        else:
+            self.bb_update = BackboneUpdate(c_s=c_s)
         self.angle_resnet = AngleResnet(
             c_s=c_s,
             c_hidden=c_hidden_ang_res,
@@ -107,6 +125,19 @@ class StructureModule(nn.Module):
         # self.lit_positions
 
     def forward(
+        self,
+        s: torch.Tensor,
+        z: torch.Tensor,
+        mask: torch.Tensor,
+        aatype: torch.Tensor,
+    ) -> Dict[str, torch.Tensor]:
+        if self.is_multimer:  # is_multimer
+            outputs = self._forward_multimer(s, z, mask, aatype)
+        else:
+            outputs = self._forward_monomer(s, z, mask, aatype)
+        return outputs
+
+    def _forward_monomer(
         self,
         s: torch.Tensor,
         z: torch.Tensor,
@@ -276,20 +307,95 @@ class StructureModule(nn.Module):
             )
         return stacked
 
+    def _forward_multimer(
+        self,
+        s: torch.Tensor,
+        z: torch.Tensor,
+        mask: torch.Tensor,
+        aatype: torch.Tensor,
+    ):
+        self._initialize_buffers(dtype=s.dtype, device=s.device)
+
+        # [*, N, C_s]
+        s = self.layer_norm_s(s)
+
+        # [*, N, N, C_z]
+        z = self.layer_norm_z(z)
+
+        # [*, N, C_s]
+        s_initial = s
+
+        s = self.linear_in(s)
+
+        # [*, N]
+        rigids = Rigid3Array.identity(s.shape[:-1], s.device)
+
+        outputs = []
+
+        for _ in range(self.num_blocks):
+            # [*, N, C_s]
+            s = s + self.ipa(s=s, z=z, r=rigids, mask=mask)
+            s = self.ipa_dropout(s)
+            s = self.layer_norm_ipa(s)
+
+            s = self.transition(s)
+
+            # [*, N]
+            rigids = rigids @ self.bb_update(s)
+
+            # [*, N, 7, 2]
+            unnormalized_angles, angles = self.angle_resnet(s, s_initial)
+
+            all_frames_to_global = _torsion_angles_to_frames(
+                r=rigids.scale_translation(self.scale_factor),
+                alpha=angles,
+                aatype=aatype,
+                rrgdf=self.default_frames,
+            )
+
+            pred_xyz = _frames_and_literature_positions_to_atom14_pos(
+                r=all_frames_to_global,
+                aatype=aatype,
+                default_frames=self.default_frames,
+                group_idx=self.group_idx,
+                atom_mask=self.atom_mask,
+                lit_positions=self.lit_positions,
+            )
+
+            output = {
+                "sm_frames": rigids.scale_translation(self.scale_factor).to_tensor(),
+                "sm_sidechain_frames": all_frames_to_global.to_tensor_4x4(),
+                "sm_unnormalized_angles": unnormalized_angles,
+                "sm_angles": angles,
+                "sm_positions": pred_xyz,
+                "sm_states": s,
+            }
+
+            outputs.append(output)
+
+            rigids = rigids.stop_rot_gradient()
+
+        outputs = self._stack_tensors(outputs, dim=1)
+        outputs["sm_single"] = s
+
+        return outputs
+
 
 def _torsion_angles_to_frames(
-    r: Rigid,
+    r: Rigid | Rigid3Array,
     alpha: torch.Tensor,
     aatype: torch.Tensor,
     rrgdf: torch.Tensor,
-) -> Rigid:
+) -> Rigid | Rigid3Array:
+    rigid_type = type(r)
+
     # [*, N, 8, 4, 4]
     default_4x4 = rrgdf[aatype, ...]
 
     # [*, N, 8] transformations, i.e.
     #   One [*, N, 8, 3, 3] rotation matrix and
     #   One [*, N, 8, 3]    translation matrix
-    default_r = r.from_tensor_4x4(default_4x4)
+    default_r = rigid_type.from_tensor_4x4(default_4x4)
 
     bb_rot = alpha.new_zeros((*((1,) * len(alpha.shape[:-1])), 2))
     bb_rot[..., 1] = 1
@@ -307,26 +413,33 @@ def _torsion_angles_to_frames(
     # This follows the original code rather than the supplement,
     # which uses different indices.
 
-    all_rots = alpha.new_zeros(default_r.get_rots().get_rot_mats().shape)
+    # all_rots = alpha.new_zeros(default_r.get_rots().get_rot_mats().shape)
+    all_rots = alpha.new_zeros(default_r.shape + (4, 4))
     all_rots[..., 0, 0] = 1
     all_rots[..., 1, 1] = alpha[..., 1]
     all_rots[..., 1, 2] = -alpha[..., 0]
-    all_rots[..., 2, 1:] = alpha
+    # all_rots[..., 2, 1:] = alpha
+    all_rots[..., 2, 1:3] = alpha
 
-    all_rots = Rigid(Rotation(rot_mats=all_rots), None)
+    # all_rots = Rigid(Rotation(rot_mats=all_rots), None)
+    all_rots = rigid_type.from_tensor_4x4(all_rots)
 
-    all_frames = default_r.compose_jit(all_rots)
+    # all_frames = default_r.compose_jit(all_rots)
+    all_frames = default_r.compose(all_rots)
 
     chi2_frame_to_frame = all_frames[..., 5]
     chi3_frame_to_frame = all_frames[..., 6]
     chi4_frame_to_frame = all_frames[..., 7]
 
     chi1_frame_to_bb = all_frames[..., 4]
-    chi2_frame_to_bb = chi1_frame_to_bb.compose_jit(chi2_frame_to_frame)
-    chi3_frame_to_bb = chi2_frame_to_bb.compose_jit(chi3_frame_to_frame)
-    chi4_frame_to_bb = chi3_frame_to_bb.compose_jit(chi4_frame_to_frame)
+    chi2_frame_to_bb = chi1_frame_to_bb.compose(chi2_frame_to_frame)
+    chi3_frame_to_bb = chi2_frame_to_bb.compose(chi3_frame_to_frame)
+    chi4_frame_to_bb = chi3_frame_to_bb.compose(chi4_frame_to_frame)
+    # chi2_frame_to_bb = chi1_frame_to_bb.compose_jit(chi2_frame_to_frame)
+    # chi3_frame_to_bb = chi2_frame_to_bb.compose_jit(chi3_frame_to_frame)
+    # chi4_frame_to_bb = chi3_frame_to_bb.compose_jit(chi4_frame_to_frame)
 
-    all_frames_to_bb = Rigid.cat(
+    all_frames_to_bb = rigid_type.cat(
         [
             all_frames[..., :5],
             chi2_frame_to_bb.unsqueeze(-1),
@@ -336,7 +449,8 @@ def _torsion_angles_to_frames(
         dim=-1,
     )
 
-    all_frames_to_global = r[..., None].compose_jit(all_frames_to_bb)
+    # all_frames_to_global = r[..., None].compose_jit(all_frames_to_bb)
+    all_frames_to_global = r[..., None].compose(all_frames_to_bb)
 
     return all_frames_to_global
 
