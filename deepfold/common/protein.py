@@ -307,7 +307,7 @@ def _single_protein_to_pdb(prot: Protein, model_id: int = 1) -> List[str]:
     if len(headers) > 0:
         pdb_lines.extend(headers)
 
-    pdb_lines.append(f"MODEL{model_id:6d}")
+    pdb_lines.append(f"MODEL     {model_id:4d}")
     n = aatype.shape[0]
     atom_index = 1
     last_chain_index = chain_index[0]
