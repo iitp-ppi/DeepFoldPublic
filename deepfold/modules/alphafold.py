@@ -145,7 +145,7 @@ class AlphaFold(nn.Module):
 
                 if verbose:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
-                    _log_iter(tag="Predict", recycle_iter=j, results=aux_outputs)
+                    _log_iter(tag="Inference", recycle_iter=j, results=aux_outputs)
 
                 del outputs
 
