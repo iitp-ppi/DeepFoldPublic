@@ -156,3 +156,80 @@ def _pair_update_eager(
 
 
 _pair_update_jit = torch.compile(_pair_update_eager)
+
+
+class OpenFoldRecyclingEmbedder(nn.Module):
+
+    def __init__(
+        self,
+        c_m: int,
+        c_z: int,
+        min_bin: float,
+        max_bin: float,
+        num_bins: int,
+        inf: float = 1e8,
+    ):
+        """
+        Args:
+            c_m:
+                MSA channel dimension
+            c_z:
+                Pair embedding channel dimension
+            min_bin:
+                Smallest distogram bin (Angstroms)
+            max_bin:
+                Largest distogram bin (Angstroms)
+            no_bins:
+                Number of distogram bins
+        """
+        super(OpenFoldRecyclingEmbedder, self).__init__()
+
+        self.c_m = c_m
+        self.c_z = c_z
+        self.min_bin = min_bin
+        self.max_bin = max_bin
+        self.no_bins = num_bins
+        self.inf = inf
+
+        self.linear = Linear(self.no_bins, self.c_z, bias=True, init="default")
+        self.layer_norm_m = LayerNorm(self.c_m)
+        self.layer_norm_z = LayerNorm(self.c_z)
+
+    def forward(
+        self,
+        m: torch.Tensor,
+        z: torch.Tensor,
+        m0_prev: torch.Tensor,
+        z_prev: torch.Tensor,
+        x_prev: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        # [*, N, C_m]
+        m0_update = self.layer_norm_m(m0_prev)
+
+        m[..., 0, :, :] += m0_update
+
+        # [*, N, N, C_z]
+        z_update = self.layer_norm_z(z_prev)
+
+        # This squared method might become problematic in FP16 mode.
+        bins = torch.linspace(
+            self.min_bin,
+            self.max_bin,
+            self.no_bins,
+            dtype=x_prev.dtype,
+            device=x_prev.device,
+            requires_grad=False,
+        )
+        squared_bins = bins**2
+        upper = torch.cat([squared_bins[1:], squared_bins.new_tensor([self.inf])], dim=-1)
+        d = torch.sum((x_prev[..., :, None, :] - x_prev[..., None, :, :]) ** 2, dim=-1, keepdims=True)
+
+        # [*, N, N, no_bins]
+        d = ((d > squared_bins) * (d < upper)).type(x_prev.dtype)
+
+        # [*, N, N, C_z]
+        d = self.linear(d)
+        z = z + z_update + d
+
+        return m, z
