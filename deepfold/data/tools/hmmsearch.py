@@ -14,14 +14,15 @@
 
 """A Python wrapper for hmmsearch - search profile against a sequence db."""
 
+import logging
 import os
 import subprocess
 from typing import Optional, Sequence
 
-from absl import logging
-
 from deepfold.data import parsers
 from deepfold.data.tools import hmmbuild, utils
+
+logger = logging.getLogger(__name__)
 
 
 class Hmmsearch(object):
@@ -71,7 +72,7 @@ class Hmmsearch(object):
         self.flags = flags
 
         if not os.path.exists(self.database_path):
-            logging.error("Could not find hmmsearch database %s", database_path)
+            logger.error("Could not find hmmsearch database %s", database_path)
             raise ValueError(f"Could not find hmmsearch database {database_path}")
 
     @property
@@ -114,7 +115,7 @@ class Hmmsearch(object):
                 ]
             )
 
-            logging.info("Launching sub-process %s", cmd)
+            logger.info("Launching sub-process %s", cmd)
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             with utils.timing(f"hmmsearch ({os.path.basename(self.database_path)}) query"):
                 stdout, stderr = process.communicate()

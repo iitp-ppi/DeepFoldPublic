@@ -14,13 +14,14 @@
 # limitations under the License.
 
 """A Python wrapper for Kalign."""
+import logging
 import os
 import subprocess
 from typing import Sequence
 
-from absl import logging
-
 from deepfold.data.tools import utils
+
+logger = logging.getLogger(__name__)
 
 
 def _to_a3m(sequences: Sequence[str]) -> str:
@@ -63,7 +64,7 @@ class Kalign:
           RuntimeError: If Kalign fails.
           ValueError: If any of the sequences is less than 6 residues long.
         """
-        logging.info("Aligning %d sequences", len(sequences))
+        logger.info("Aligning %d sequences", len(sequences))
 
         for s in sequences:
             if len(s) < 6:
@@ -86,13 +87,13 @@ class Kalign:
                 "fasta",
             ]
 
-            logging.info('Launching subprocess "%s"', " ".join(cmd))
+            logger.info('Launching subprocess "%s"', " ".join(cmd))
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             with utils.timing("Kalign query"):
                 stdout, stderr = process.communicate()
                 retcode = process.wait()
-                logging.info(
+                logger.info(
                     "Kalign stdout:\n%s\n\nstderr:\n%s\n",
                     stdout.decode("utf-8"),
                     stderr.decode("utf-8"),

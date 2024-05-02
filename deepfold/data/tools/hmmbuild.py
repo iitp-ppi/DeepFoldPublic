@@ -14,13 +14,14 @@
 
 """A Python wrapper for hmmbuild - construct HMM profiles from MSA."""
 
+import logging
 import os
 import re
 import subprocess
 
-from absl import logging
-
 from deepfold.data.tools import utils
+
+logger = logging.getLogger(__name__)
 
 
 class Hmmbuild(object):
@@ -116,13 +117,13 @@ class Hmmbuild(object):
                 ]
             )
 
-            logging.info("Launching subprocess %s", cmd)
+            logger.info("Launching subprocess %s", cmd)
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             with utils.timing("hmmbuild query"):
                 stdout, stderr = process.communicate()
                 retcode = process.wait()
-                logging.info(
+                logger.info(
                     "hmmbuild stdout:\n%s\n\nstderr:\n%s\n",
                     stdout.decode("utf-8"),
                     stderr.decode("utf-8"),
