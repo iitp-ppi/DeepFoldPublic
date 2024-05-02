@@ -76,13 +76,10 @@ def generate_feature_dict(
     data_processor,
     args,
 ):
-    tmp_fasta_path = os.path.join(args.output_dir, f"tmp_{os.getpid()}.fasta")
-
     if args.is_multimer:
-        with open(tmp_fasta_path, "w") as fp:
-            fp.write("\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]))
-        feature_dict = data_processor.process_fasta(
-            fasta_path=tmp_fasta_path,
+
+        feature_dict = data_processor.process_fasta_string(
+            fasta_string="\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]),
             alignment_dir=alignment_dir,
         )
     elif len(seqs) == 1:
@@ -102,9 +99,6 @@ def generate_feature_dict(
             fasta_path=tmp_fasta_path,
             super_alignment_dir=alignment_dir,
         )
-
-    # Remove temporary FASTA file
-    os.remove(tmp_fasta_path)
 
     return feature_dict
 
