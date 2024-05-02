@@ -2,10 +2,13 @@
 
 #SBATCH --job-name=msa
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=64
 #SBATCH --nodes=1
 #SBATCH --time=1-00:00:00
 #SBATCH --partition=normal
+
+source "${HOME}/conda/etc/profile.d/conda.sh"
+conda activate align
 
 FASTA_PATH=$1
 OUTPUT_DIR=$2
@@ -20,7 +23,7 @@ echo "HOSTNAME=$(hostname)"
 echo
 
 NUM_CPUS=16
-NUM_CPUS=${SLURM_CPUS_PER_TASK:-$NUM_CPUS}
+# NUM_CPUS=${SLURM_CPUS_PER_TASK:-$NUM_CPUS}
 OMP_NUM_THREADS=$NUM_CPUS
 
 echo "NUM_CPUS=$NUM_CPUS"
@@ -52,13 +55,24 @@ function run_jackhmmer() {
 }
 
 function run_hhblits() {
+    if [[ $# -lt 3 ]]; then
+        return 1
+    fi
+
     local NAME=$1
     local INPUT_FASTA_PATH=$2
-    local DB_PATH=$3
     local A3M_PATH="${OUTPUT_DIR}/${NAME}_hits.a3m"
 
     echo "TOOL=HHBLITS"
-    echo "DB=$DB_PATH"
+
+    shift 2
+
+    DB_CMD=""
+    while [[ $# -gt 0 ]]; do
+        echo "DB=${1}"
+        DB_CMD="${DB_CMD} -d ${1}"
+        shift 1
+    done
 
     if [ -s $A3M_PATH ]; then
         echo "File exists and is not empty: $A3M_PATH"
@@ -77,7 +91,7 @@ function run_hhblits() {
         -min_prefilter_hits 1000 \
         -maxseq 1000000 \
         -cpu $NUM_CPUS \
-        -d $DB_PATH >/dev/null 2>&1
+        $DB_CMD >/dev/null 2>&1
 
     echo
 }
@@ -119,7 +133,7 @@ function run_hmmsearch() {
 function run_hhsearch() {
     local INPUT_STO_PATH=$1
     local DB_PATH=$2
-    local HHR_PATH="${OUTPUT_DIR}/pdb_hits.hhr"
+    local HHR_PATH="${OUTPUT_DIR}/pdb70_hits.hhr"
     local A3M_PATH="${OUTPUT_DIR}/query.a3m"
 
     echo "TOOL=HHSEARCH"
@@ -177,27 +191,29 @@ if [ ! -d $OUTPUT_DIR ]; then
     mkdir -p $OUTPUT_DIR
 fi
 
-# UniRef30
-run_hhblits "uniref30" $FASTA_PATH "${DATABASE_BASE}/uniref30/UniRef30_2021_03/UniRef30_2021_03"
+# MGnify
+run_jackhmmer "mgnify" $FASTA_PATH "${DATABASE_BASE}/mgnify/mgy_clusters_2022_05.fa" &
+
+# BFD & UniRef30
+run_hhblits "bfd_uniclust" $FASTA_PATH \
+    "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt" \
+    "${DATABASE_BASE}/uniref30/UniRef30_2023_02/UniRef30_2023_02" &
+# UniProt
+run_jackhmmer "uniprot" $FASTA_PATH "${DATABASE_BASE}/uniprot/uniprot.fasta"
+
+wait
 
 # UniRef90
 run_jackhmmer "uniref90" $FASTA_PATH "${DATABASE_BASE}/uniref90/uniref90.fasta"
 
-# UniProt
-run_jackhmmer "uniprot" $FASTA_PATH "${DATABASE_BASE}/uniprot/uniprot.fasta"
-
-# MGnify
-run_jackhmmer "mgnify" $FASTA_PATH "${DATABASE_BASE}/mgnify/mgy_clusters_2022_05.fa"
-
-# BFD
-run_hhblits "bfd" $FASTA_PATH "${DATABASE_BASE}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
-
 wait
 
 # HMM
-run_hmmsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt"
+run_hmmsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb/pdb_seqres.txt" &
 
 # PDB70
-run_hhsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb70/pdb70"
+run_hhsearch "${OUTPUT_DIR}/uniref90_hits.sto" "${DATABASE_BASE}/pdb70/pdb70" &
+
+wait
 
 exit 0
