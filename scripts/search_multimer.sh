@@ -12,7 +12,7 @@ conda activate align
 
 FASTA_PATH=$1
 OUTPUT_DIR=$2
-DATABASE_BASE=${DATABASE_BASE:-"/scratch/database/casp16"}
+DATABASE_BASE=${DATABASE_BASE:-"/gpfs/database/casp16"}
 REFORMAT=${REFORMAT:-"$(which reformat.pl)"}
 
 date
@@ -100,7 +100,7 @@ function run_hmmsearch() {
     local INPUT_STO_PATH=$1
     local DB_PATH=$2
     local HMM_PATH="${OUTPUT_DIR}/output.hmm"
-    local STO_PATH="${OUTPUT_DIR}/pdb_hits.sto"
+    local STO_PATH="${OUTPUT_DIR}/hmm_output.sto"
 
     echo "TOOL=HMMSEARCH"
     echo "QUERY=$INPUT_STO_PATH"
