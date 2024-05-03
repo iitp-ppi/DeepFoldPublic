@@ -391,13 +391,19 @@ def pseudo_beta_fn(aatype, all_atom_positions, all_atom_mask):
 def make_pseudo_beta(protein, prefix=""):
     """Create pseudo-beta (alpha for glycine) position and mask."""
     assert prefix in ["", "template_"]
+
+    mask_key = "template_all_atom_mask" if prefix else "all_atom_mask"
+    # NOTE: AlphaFold has weird conventions.
+    if mask_key not in protein:
+        mask_key = "template_all_atom_masks" if prefix else "all_atom_mask"
+
     (
         protein[prefix + "pseudo_beta"],
         protein[prefix + "pseudo_beta_mask"],
     ) = pseudo_beta_fn(
         protein["template_aatype" if prefix else "aatype"],
         protein[prefix + "all_atom_positions"],
-        protein["template_all_atom_mask" if prefix else "all_atom_mask"],
+        protein[mask_key],
     )
 
     return protein
