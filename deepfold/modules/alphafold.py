@@ -674,6 +674,9 @@ def _compute_chi_angles(
     if chi_atom_indices is None:
         chi_atom_indices = positions.new_tensor(rc.CHI_ATOM_INDICES, dtype=torch.int64)
         # chi_atom_indices: [restype=21, chis=4, atoms=4]
+    
+    # Remove gaps
+    aatype = torch.clamp(aatype, max=20)
 
     # Select atoms to compute chis.
     atom_indices = chi_atom_indices[..., aatype, :, :]
