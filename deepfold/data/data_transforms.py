@@ -1160,14 +1160,10 @@ def random_crop_to_size(
     return protein
 
 
-def rename_keys(protein):
-    table = [
-        ("template_all_atom_masks", "template_all_atom_mask"),
-    ]
-
-    for key, new_key in table:
-        if key in protein:
-            protein[new_key] = protein[key]
-            del protein[key]
-
+@curry1
+def rename_key(protein, key, new_key):
+    if key in protein:
+        if new_key in protein:
+            raise RuntimeError(f"'{new_key}' is already in the example")
+        protein[new_key] = protein.pop(key)
     return protein

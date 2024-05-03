@@ -15,7 +15,6 @@
 # limitations under the License.
 
 
-import random
 from typing import Dict
 
 import torch
@@ -29,7 +28,7 @@ TensorDict = Dict[str, torch.Tensor]
 def nonensembled_transform_fns(config: FeaturePipelineConfig):
     """Input pipeline data transformers that are not ensembled."""
     transforms = [
-        data_transforms.rename_keys,
+        data_transforms.rename_key("template_all_atom_masks", "template_all_atom_mask"),
         data_transforms.cast_to_64bit_ints,
         data_transforms.correct_msa_restypes,
         data_transforms.squeeze_features,
