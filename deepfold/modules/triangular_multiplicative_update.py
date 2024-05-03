@@ -69,8 +69,8 @@ class TriangleMultiplicativeUpdate(nn.Module):
         mask = mask.unsqueeze(-1)
         # mask: [batch, N_res, N_res, 1]
 
-        if not self.training and self.block_size is not None:
-            return self._chunk_2d(z, mask)
+        # if not self.training and self.block_size is not None:
+        #     return self._chunk_2d(z, mask)
 
         # TODO: Fusion with a.float, b.float (?)
         a, b = _compute_projections(

@@ -109,8 +109,8 @@ class TemplatePairBlock(nn.Module):
             # t: [batch, N_res, N_res, c_t]
 
             if mp.is_enabled():
-                mask_row = mp.scatter(mask, dim=-3)
-                mask_col = mp.scatter(mask, dim=-2)
+                mask_row = mp.scatter(mask, dim=-2)
+                mask_col = mp.scatter(mask, dim=-1)
 
                 if self.tri_att_first:
                     t = self.tasn_dropout_rowwise(
@@ -137,25 +137,25 @@ class TemplatePairBlock(nn.Module):
                     t = mp.col_to_row(t)
                 else:
                     t = self.tmo_dropout_rowwise(
-                        self.tri_mul_out(z=t, mask=mask),
+                        self.tri_mul_out(z=t, mask=mask_row),
                         add_output_to=t,
                     )
                     t = mp.row_to_col(t)
                     t = self.tmi_dropout_rowwise(
-                        self.tri_mul_in(z=t, mask=mask),
+                        self.tri_mul_in(z=t, mask=mask_col),
                         add_output_to=t,
                     )
                     t = mp.col_to_row(t)
                     t = self.tasn_dropout_rowwise(
-                        self.tri_att_start(z=t, mask=mask),
+                        self.tri_att_start(z=t, mask=mask_row),
                         add_output_to=t,
                     )
                     t = mp.row_to_col(t)
                     t = self.taen_dropout_columnwise(
-                        self.tri_att_end(z=t, mask=mask),
+                        self.tri_att_end(z=t, mask=mask_col),
                         add_output_to=t,
                     )
-                    t = self.pair_transition(z=t, mask=mask)
+                    t = self.pair_transition(z=t, mask=mask_col)
                     t = mp.col_to_row(t)
             else:
                 if self.tri_att_first:

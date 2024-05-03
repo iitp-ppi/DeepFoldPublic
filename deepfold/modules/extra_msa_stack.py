@@ -7,6 +7,7 @@ from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 
 import deepfold.distributed.model_parallel as mp
 from deepfold.modules.extra_msa_block import ExtraMSABlock
+from deepfold.utils.dist_utils import get_pad_size, pad_tensor
 
 
 class ExtraMSAStack(nn.Module):
@@ -134,17 +135,29 @@ class ExtraMSAStack(nn.Module):
         pair_mask: torch.Tensor,
     ) -> torch.Tensor:
         if mp.is_enabled():
+            msa_col_pad_size = get_pad_size(m, -2, mp.size())
+            msa_row_pad_size = get_pad_size(m, -3, mp.size())
+            m = pad_tensor(m, -2, msa_col_pad_size)
+            m = pad_tensor(m, -3, msa_row_pad_size)
             if self.opm_first:
                 m = mp.scatter(m, dim=-2)
             else:
                 m = mp.scatter(m, dim=-3)
+            msa_mask = pad_tensor(msa_mask, -1, msa_col_pad_size)
+            msa_mask = pad_tensor(msa_mask, -2, msa_row_pad_size)
+            pair_pad_size = get_pad_size(z, -3, mp.size())
+            z = pad_tensor(z, -2, pair_pad_size)
+            z = pad_tensor(z, -3, pair_pad_size)
             z = mp.scatter(z, dim=-3)
+            pair_mask = pad_tensor(pair_mask, -1, pair_pad_size)
+            pair_mask = pad_tensor(pair_mask, -2, pair_pad_size)
 
         for block in self.blocks:
             m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
 
         if mp.is_enabled():
             z = mp.gather(z, dim=-3)
+            z = z[..., : z.size(-3) - pair_pad_size, : z.size(-2) - pair_pad_size, :]
 
         return z
 

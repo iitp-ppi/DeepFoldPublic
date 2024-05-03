@@ -95,13 +95,10 @@ class EvoformerBlockPairCore(nn.Module):
         """Evoformer Block Core forward pass.
 
         Args:
-            m: [batch, N_seq, N_res, c_m] MSA (or Extra MSA) representation
             z: [batch, N_res, N_res, c_z] pair representation
-            msa_mask: [batch, N_seq, N_res] MSA (or Extra MSA) mask
             pair_mask: [batch, N_res, N_res] pair mask
 
         Returns:
-            m: [batch, N_seq, N_res, c_m] updated MSA (or Extra MSA) representation
             z: [batch, N_res, N_res, c_z] updated pair representation
 
         """
@@ -140,8 +137,8 @@ class EvoformerBlockPairCore(nn.Module):
         z: torch.Tensor,
         pair_mask: torch.Tensor,
     ) -> torch.Tensor:
-        pair_mask_row = mp.scatter(pair_mask, dim=-3)
-        pair_mask_col = mp.scatter(pair_mask, dim=-2)
+        pair_mask_row = mp.scatter(pair_mask, dim=-2)
+        pair_mask_col = mp.scatter(pair_mask, dim=-1)
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask_row),
             add_output_to=z,
@@ -162,6 +159,6 @@ class EvoformerBlockPairCore(nn.Module):
             self.tri_att_end(z=z, mask=pair_mask_col),
             add_output_to=z,
         )
-        z = self.pair_transition(z, mask=pair_mask)
+        z = self.pair_transition(z, mask=pair_mask_col)
         z = mp.col_to_row(z)
         return z

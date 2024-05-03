@@ -45,13 +45,13 @@ class Dropout(nn.Module):
         self,
         x: torch.Tensor,
         add_output_to: torch.Tensor,
-        scattered_dim: Optional[int] = None,
+        dap_scattered_dim: Optional[int] = None,
     ) -> torch.Tensor:
         shape = list(x.shape)
         for d in self.share_dim:
             shape[d] = 1
-        if scattered_dim is not None:
-            shape[scattered_dim] *= mp.rank()
+        if dap_scattered_dim is not None:
+            shape[dap_scattered_dim] *= mp.size()
         mask = x.new_ones(shape)
         mask = F.dropout(
             input=mask,
@@ -59,8 +59,8 @@ class Dropout(nn.Module):
             training=self.training,
             inplace=self.inplace,
         )
-        if scattered_dim is not None:
-            mask = mp.scatter(mask, dim=scattered_dim)
+        if dap_scattered_dim is not None:
+            mask = mp.scatter(mask, dim=dap_scattered_dim)
         x = _mul_add(x, mask, add_output_to)
         return x
 

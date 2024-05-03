@@ -180,7 +180,7 @@ def _gather(tensor: torch.Tensor, dim: int = -1) -> torch.Tensor:
         torch.distributed.all_gather(
             tensor_list=tensor_list,
             tensor=tensor,
-            group=_DAP_GROUP(),
+            group=_DAP_GROUP,
             async_op=False,
         )
         output = torch.cat(tensor_list, dim=dim)
@@ -195,7 +195,7 @@ def _all_reduce_sum_split(tensor: torch.Tensor, dim: int) -> torch.Tensor:
     torch.distributed.all_reduce(
         tensor=tensor,
         op=torch.distributed.ReduceOp.SUM,
-        group=_DAP_GROUP(),
+        group=_DAP_GROUP,
     )
 
     assert tensor.size(dim) % _DAP_SIZE == 0

@@ -8,6 +8,7 @@ from torch.utils.checkpoint import checkpoint as gradient_checkpointing_fn
 import deepfold.distributed.model_parallel as mp
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.template_pair_block import TemplatePairBlock
+from deepfold.utils.dist_utils import get_pad_size, pad_tensor
 
 
 class TemplatePairStack(nn.Module):
@@ -44,6 +45,7 @@ class TemplatePairStack(nn.Module):
         tri_att_first: bool = True,
     ) -> None:
         super().__init__()
+        self.tri_att_first = tri_att_first
         self.blocks = nn.ModuleList(
             [
                 TemplatePairBlock(
@@ -94,19 +96,19 @@ class TemplatePairStack(nn.Module):
         mask: torch.Tensor,
     ) -> torch.Tensor:
         if mp.is_enabled():
-            if self.tri_att_first:
-                t = mp.scatter(t, dim=-2)
-            else:
-                t = mp.scatter(t, dim=-3)
+            pad_size = get_pad_size(t, -2, mp.size())
+            t = pad_tensor(t, -2, pad_size)
+            t = pad_tensor(t, -3, pad_size)
+            t = mp.scatter(t, dim=-3)
+            mask = pad_tensor(mask, -1, pad_size)
+            mask = pad_tensor(mask, -2, pad_size)
 
         for block in self.blocks:
             t = block(t=t, mask=mask)
 
         if mp.is_enabled():
-            if self.tri_att_first:
-                t = mp.gather(t, dim=-2)
-            else:
-                t = mp.gather(t, dim=-3)
+            t = mp.gather(t, dim=-3)
+            t = t[..., :, : t.size(-3) - pad_size, : t.size(-2) - pad_size, :]
 
         return t
 
@@ -118,18 +120,12 @@ class TemplatePairStack(nn.Module):
         blocks = [partial(block, mask=mask) for block in self.blocks]
 
         if mp.is_enabled():
-            if self.tri_att_first:
-                t = mp.scatter(t, dim=-2)
-            else:
-                t = mp.scatter(t, dim=-3)
+            t = mp.scatter(t, dim=-3)
 
         for block in blocks:
             t = gradient_checkpointing_fn(block, t, use_reentrant=True)
 
         if mp.is_enabled():
-            if self.tri_att_first:
-                t = mp.gather(t, dim=-2)
-            else:
-                t = mp.gather(t, dim=-3)
+            t = mp.gather(t, dim=-3)
 
         return t

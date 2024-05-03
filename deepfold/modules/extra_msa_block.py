@@ -126,8 +126,8 @@ class ExtraMSABlock(nn.Module):
 
         """
         if mp.is_enabled():
-            msa_mask_row = mp.scatter(msa_mask, dim=1)
-            msa_mask_col = mp.scatter(msa_mask, dim=2)
+            msa_mask_row = mp.scatter(msa_mask, dim=-2)
+            msa_mask_col = mp.scatter(msa_mask, dim=-1)
 
             if self.opm_first:
                 z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
@@ -135,7 +135,7 @@ class ExtraMSABlock(nn.Module):
             m = self.msa_dropout_rowwise(self.msa_att_row(m=m, z=z, mask=msa_mask_row), add_output_to=m)
             m = mp.row_to_col(m)
             m = self.msa_att_col(m=m, mask=msa_mask_col)
-            m = self.msa_transition(m=m, mask=msa_mask)
+            m = self.msa_transition(m=m, mask=msa_mask_col)
             if not self.opm_first:
                 z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
                 m = mp.col_to_row(m)
