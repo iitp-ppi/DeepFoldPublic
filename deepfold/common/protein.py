@@ -534,7 +534,7 @@ def from_prediction(
     result: ModelOutput,
     b_factors: Optional[np.ndarray] = None,
     remove_leading_feature_dimension: bool = False,
-    trajectory: bool = False,
+    is_trajectory: bool = False,
     remark: Optional[str] = None,
     parents: Optional[Sequence[str]] = None,
     parents_chain_index: Optional[Sequence[int]] = None,
@@ -565,7 +565,7 @@ def from_prediction(
     if b_factors.ndim == 1:
         b_factors = np.repeat(b_factors[..., None], rc.atom_type_num, axis=-1)
 
-    if trajectory:
+    if is_trajectory:
         proteins = []
         for i in range(result["trajectory"].shape[-1]):
             prot = Protein(
