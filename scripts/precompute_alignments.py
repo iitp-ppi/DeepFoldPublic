@@ -119,7 +119,7 @@ def main(args: argparse.Namespace):
             max_template_date=args.max_template_date,
             max_hits=MAX_TEMPLATE_HITS,
             kalign_binary_path=args.kalign_binary_path,
-            release_dates_path=args.release_dates_path,
+            # release_dates_path=args.release_dates_path,
             obsolete_pdbs_path=args.obsolete_pdbs_path,
         )
     else:
@@ -128,7 +128,7 @@ def main(args: argparse.Namespace):
             max_template_date=args.max_template_date,
             max_hits=MAX_TEMPLATE_HITS,
             kalign_binary_path=args.kalign_binary_path,
-            release_dates_path=args.release_dates_path,
+            # release_dates_path=args.release_dates_path,
             obsolete_pdbs_path=args.obsolete_pdbs_path,
         )
 
