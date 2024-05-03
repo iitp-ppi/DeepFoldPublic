@@ -918,7 +918,6 @@ class TemplateHitFeaturizer(abc.ABC):
         max_template_date: str,
         max_hits: int,
         kalign_binary_path: str,
-        release_dates_path: Optional[str] = None,
         obsolete_pdbs_path: Optional[str] = None,
         strict_error_check: bool = False,
         _shuffle_top_k_prefiltered: Optional[int] = None,
@@ -936,9 +935,6 @@ class TemplateHitFeaturizer(abc.ABC):
             max_hits: The maximum number of templates that will be returned.
             kalign_binary_path: The path to a kalign executable used for template
                 realignment.
-            release_dates_path: An optional path to a file with a mapping from PDB IDs
-                to their release dates. Thanks to this we don't have to redundantly
-                parse mmCIF files to get that information.
             obsolete_pdbs_path: An optional path to a file containing a mapping from
                 obsolete PDB IDs to the PDB IDs of their replacements.
             strict_error_check: If True, then the following will be treated as errors:
@@ -957,11 +953,7 @@ class TemplateHitFeaturizer(abc.ABC):
         self._kalign_binary_path = kalign_binary_path
         self._strict_error_check = strict_error_check
 
-        if release_dates_path:
-            logging.info("Using precomputed release dates %s.", release_dates_path)
-            self._release_dates = _parse_release_dates(release_dates_path)
-        else:
-            self._release_dates = {}
+        self._release_dates = {}
 
         if obsolete_pdbs_path:
             logging.info("Using precomputed obsolete pdbs %s.", obsolete_pdbs_path)
