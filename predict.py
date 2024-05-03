@@ -1,6 +1,4 @@
 import argparse
-import hashlib
-import io
 import logging
 import os
 import signal
@@ -11,7 +9,6 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed
-from matplotlib import pyplot as plt
 
 import deepfold.distributed as dist
 import deepfold.distributed.model_parallel as mp
@@ -20,8 +17,6 @@ from deepfold.common import protein
 from deepfold.config import AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data import feature_pipeline
 from deepfold.modules.alphafold import AlphaFold
-from deepfold.runner.plot import plot_distogram, plot_msa, plot_plddt, plot_predicted_alignment_error
-from deepfold.runner.pseudo_3d import plot_protein
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
@@ -83,6 +78,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Whether to save a recycling trajectory.",
     )
+    parser.add_argument(
+        "--suffix",
+        type=str,
+        default="",
+        help="Suffix to output files.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force overwrite.",
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -109,7 +115,7 @@ def create_alphafold_module(
     return alphafold
 
 
-def get_preset_opts(preset: str) -> Tuple[dict, dict, dict]:
+def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
     is_multimer = "multimer" in preset
     enable_ptm = "ptm" in preset or is_multimer
     enable_templates = not any(preset.endswith(x) for x in ["_3", "_4", "_5"])
@@ -132,7 +138,60 @@ def get_preset_opts(preset: str) -> Tuple[dict, dict, dict]:
         fuse_projection_weights=fuse_projection_weights,
     )
 
-    return model_cfg_kwargs, feat_cfg_kwargs, import_kwargs
+    model_name = {
+        "deepfold_model_1": "model_1",
+        "deepfold_model_2": "model_2",
+        "deepfold_model_3": "model_3",
+        "deepfold_model_4": "model_4",
+        "deepfold_model_5": "model_5",
+        "params_model_1": "model_1",
+        "params_model_2": "model_2",
+        "params_model_3": "model_3",
+        "params_model_4": "model_4",
+        "params_model_5": "model_5",
+        "params_model_1_ptm": "model_1",
+        "params_model_2_ptm": "model_2",
+        "params_model_3_ptm": "model_3",
+        "params_model_4_ptm": "model_4",
+        "params_model_5_ptm": "model_5",
+        "params_model_1_multimer": "model_1",
+        "params_model_2_multimer": "model_2",
+        "params_model_3_multimer": "model_3",
+        "params_model_4_multimer": "model_4",
+        "params_model_5_multimer": "model_5",
+        "params_model_1_multimer_v2": "model_1",
+        "params_model_2_multimer_v2": "model_2",
+        "params_model_3_multimer_v2": "model_3",
+        "params_model_4_multimer_v2": "model_4",
+        "params_model_5_multimer_v2": "model_5",
+        "params_model_1_multimer_v3": "model_1",
+        "params_model_2_multimer_v3": "model_2",
+        "params_model_3_multimer_v3": "model_3",
+        "params_model_4_multimer_v3": "model_4",
+        "params_model_5_multimer_v3": "model_5",
+    }[preset]
+
+    return model_name, (model_cfg_kwargs, feat_cfg_kwargs, import_kwargs)
+
+
+def _log_iter(
+    recycle_iter: int,
+    results: dict,
+) -> None:
+    # Calculate mean plDDT
+    results["mean_plddt"] = torch.mean(results["plddt"])
+
+    print_line = ""
+    for k, v in [
+        ("mean_plddt", "plDDT"),
+        ("ptm_score", "pTM"),
+        ("iptm_score", "ipTM"),
+        ("weighted_ptm_score", "Confidence"),
+    ]:
+        if k in results:
+            print_line += f" {v}={results[k]:.3g}"
+
+    logger.info(f"Pred: recycle={recycle_iter}{print_line}")
 
 
 def predict(args: argparse.Namespace) -> None:
@@ -153,7 +212,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Print args:
     if dist.is_master_process():
-        logger.info(">>> Args")
+        logger.info("Arguments:")
         for k, v in vars(args).items():
             logger.info(f"{k}={v}")
 
@@ -169,11 +228,15 @@ def predict(args: argparse.Namespace) -> None:
             )
 
     # Create output directory:
-    args.output_dirpath.mkdir(parents=True, exist_ok=True)
-    # figures_dirpath = args.output_dirpath / "figures"
+    args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
+    figures_dirpath = args.output_dirpath / "figures"
+    figures_dirpath.mkdir(parents=True, exist_ok=args.force)
+
+    # Setup suffix:
+    suffix = f"_{args.suffix}" if args.suffix else ""
 
     # Get configs:
-    model_cfg_kwargs, feat_cfg_kwargs, import_kwargs = get_preset_opts(args.preset)
+    model_name, (model_cfg_kwargs, feat_cfg_kwargs, import_kwargs) = get_preset_opts(args.preset)
     model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
@@ -193,7 +256,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Print configs:
     if dist.is_master_process():
-        logger.info(">>> Model Config")
+        logger.info("Model Config:")
         for k, v in flatten_dict(model_config.to_dict()).items():
             logger.info(f"{k}={v}")
         for k, v in flatten_dict(feat_config.to_dict()).items():
@@ -216,9 +279,17 @@ def predict(args: argparse.Namespace) -> None:
     if dist.is_master_process():
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
+        recycle_hook = _log_iter
+    else:
+        recycle_hook = None
     torch.cuda.reset_peak_memory_stats()
 
-    out = model(batch, save_trajectory=args.trajectory, verbose=dist.is_master_process())
+    # Run model:
+    out = model(
+        batch,
+        save_trajectory=args.trajectory,
+        recycle_hook=recycle_hook,
+    )
 
     if args.mp_size > 0:
         torch.distributed.barrier()
@@ -239,8 +310,8 @@ def predict(args: argparse.Namespace) -> None:
             tree=out,
         )
         logger.info("Save outputs...")
-        dump_pickle(batch, args.output_dirpath / f"processed_{args.preset}.pkl")
-        dump_pickle(batch, args.output_dirpath / f"result_{args.preset}.pkl")
+        dump_pickle(batch, args.output_dirpath / f"processed_{model_name}{suffix}.pkl")
+        dump_pickle(batch, args.output_dirpath / f"result_{model_name}{suffix}.pkl")
 
         prot = protein.from_prediction(
             processed_features=batch,
@@ -249,7 +320,7 @@ def predict(args: argparse.Namespace) -> None:
             remark=f"{args.preset} with seed={args.seed}",
             is_trajectory=args.trajectory,
         )
-        with open(args.output_dirpath / f"unrelaxed_{args.preset}.pdb", "w") as fp:
+        with open(args.output_dirpath / f"unrelaxed_{model_name}{suffix}.pdb", "w") as fp:
             fp.write(protein.to_pdb(prot))
 
     # Exit:

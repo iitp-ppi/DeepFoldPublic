@@ -1,6 +1,6 @@
 import logging
 from dataclasses import asdict
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -26,27 +26,6 @@ from deepfold.modules.template_projection import TemplateProjection
 from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map
 
 logger = logging.getLogger(__name__)
-
-
-def _log_iter(
-    tag: str,
-    recycle_iter: int,
-    results: Dict[str, torch.Tensor],
-) -> str:
-    # Calculate mean plDDT
-    results["mean_plddt"] = torch.mean(results["plddt"])
-
-    print_line = ""
-    for k, v in [
-        ("mean_plddt", "plDDT"),
-        ("ptm_score", "pTM"),
-        ("iptm_score", "ipTM"),
-        ("weighted_ptm_score", "Confidence"),
-    ]:
-        if k in results:
-            print_line += f" {v}={results[k]:.3g}"
-
-    logger.info(f"{tag} recycle={recycle_iter}{print_line}")
 
 
 class AlphaFold(nn.Module):
@@ -114,7 +93,7 @@ class AlphaFold(nn.Module):
         self,
         batch: Dict[str, torch.Tensor],
         save_trajectory: bool = False,
-        verbose: bool = False,
+        recycle_hook: Callable[[int, dict], None] | None = None,
     ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
@@ -131,8 +110,8 @@ class AlphaFold(nn.Module):
 
         # Forward iterations with autograd disabled:
         num_recycling_iters = batch["aatype"].shape[-1] - 1
-        for j in range(num_recycling_iters):
-            feats = tensor_tree_map(fn=lambda t: t[..., j].contiguous(), tree=batch)
+        for recycle_iter in range(num_recycling_iters):
+            feats = tensor_tree_map(fn=lambda t: t[..., recycle_iter].contiguous(), tree=batch)
             with torch.no_grad():
                 outputs, prevs = self._forward_iteration(
                     feats=feats,
@@ -143,11 +122,12 @@ class AlphaFold(nn.Module):
                 if self.save_trajectory:
                     trajectory.append(outputs["final_atom_positions"][..., None])
 
-                if verbose:  # Inference
+                if recycle_hook is not None:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
-                    _log_iter(tag="Pred", recycle_iter=j, results=aux_outputs)
+                    recycle_hook(recycle_iter, aux_outputs)
 
                 del outputs
+        recycle_iter += 1  # For the last iteration
 
         # https://github.com/pytorch/pytorch/issues/65766
         if torch.is_autocast_enabled():
@@ -175,8 +155,8 @@ class AlphaFold(nn.Module):
         aux_outputs = self.auxiliary_heads(outputs, asym_id)
         outputs.update(aux_outputs)
 
-        if verbose:  # Inference
-            _log_iter(tag="Last", recycle_iter=num_recycling_iters, results=aux_outputs)
+        if recycle_hook is not None:  # Inference
+            recycle_hook(recycle_iter, aux_outputs)
 
         return outputs
 
