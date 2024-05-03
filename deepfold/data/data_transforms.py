@@ -128,6 +128,7 @@ def correct_msa_restypes(protein):
 def squeeze_features(protein):
     """Remove singleton and repeated dimensions in protein features."""
     protein["aatype"] = torch.argmax(protein["aatype"], dim=-1)
+
     for k in [
         "domain_name",
         "msa",
@@ -391,19 +392,13 @@ def pseudo_beta_fn(aatype, all_atom_positions, all_atom_mask):
 def make_pseudo_beta(protein, prefix=""):
     """Create pseudo-beta (alpha for glycine) position and mask."""
     assert prefix in ["", "template_"]
-
-    mask_key = "template_all_atom_mask" if prefix else "all_atom_mask"
-    # NOTE: AlphaFold has weird conventions.
-    if mask_key not in protein:
-        mask_key = "template_all_atom_masks" if prefix else "all_atom_mask"
-
     (
         protein[prefix + "pseudo_beta"],
         protein[prefix + "pseudo_beta_mask"],
     ) = pseudo_beta_fn(
         protein["template_aatype" if prefix else "aatype"],
         protein[prefix + "all_atom_positions"],
-        protein[mask_key],
+        protein["template_all_atom_mask" if prefix else "all_atom_mask"],
     )
 
     return protein
@@ -1161,5 +1156,18 @@ def random_crop_to_size(
         protein[k] = v[slices]
 
     protein["seq_length"] = protein["seq_length"].new_tensor(num_res_crop_size)
+
+    return protein
+
+
+def rename_keys(protein):
+    table = [
+        ("template_all_atom_masks", "template_all_atom_mask"),
+    ]
+
+    for key, new_key in table:
+        if key in protein:
+            protein[new_key] = protein[key]
+            del protein[key]
 
     return protein
