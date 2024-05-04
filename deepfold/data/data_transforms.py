@@ -1162,8 +1162,7 @@ def random_crop_to_size(
 
 @curry1
 def rename_key(protein, key, new_key):
+    # NOTE: If `new_key` is already exists, overwrite.
     if key in protein:
-        if new_key in protein:
-            raise RuntimeError(f"'{new_key}' is already in the example")
         protein[new_key] = protein.pop(key)
     return protein
