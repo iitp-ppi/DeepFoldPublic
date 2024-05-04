@@ -63,8 +63,8 @@ def main(args: argparse.Namespace) -> None:
     feats = generate_feature_dict(tags, seqs, args.alignment_dirpath, data_processor)
 
     # Dump to pickle
-    pkl_filepath = args.output_dirpath / "features.pkl"
-    logger.info(f"Save input features on '{pkl_filepath}.gz'")
+    pkl_filepath = args.output_dirpath / "features.pkz"
+    logger.info(f"Save input features on '{pkl_filepath}'")
     dump_pickle(feats, pkl_filepath)
 
 

@@ -58,5 +58,6 @@ def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
     f, ext = os.path.splitext(path)
     if ext == ".pkl":
         path = f + ".pkz"
+        warnings.warn(f"Write on '{path}'")
     with gzip.open(path, "wb", compresslevel=level) as fp:
         pickle.dump(obj, fp)

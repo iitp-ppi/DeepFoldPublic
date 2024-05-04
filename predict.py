@@ -310,8 +310,8 @@ def predict(args: argparse.Namespace) -> None:
             tree=out,
         )
         logger.info("Save outputs...")
-        dump_pickle(batch, args.output_dirpath / f"processed_{model_name}{suffix}.pkl")
-        dump_pickle(batch, args.output_dirpath / f"result_{model_name}{suffix}.pkl")
+        dump_pickle(batch, args.output_dirpath / f"processed_{model_name}{suffix}.pkz")
+        dump_pickle(batch, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
         prot = protein.from_prediction(
             processed_features=batch,

@@ -54,7 +54,7 @@ def main_pdbx(
 
         name = f"{entry_id}_{chain_id}"
 
-        dump_pickle(feats, out_dir / f"{name}.pkl")
+        dump_pickle(feats, out_dir / f"{name}.pkz")
 
         try:
             pdb_io.set_structure(struct)

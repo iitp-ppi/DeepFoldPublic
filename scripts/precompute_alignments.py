@@ -12,7 +12,8 @@ from scripts.utils import add_data_args_
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(message)s",
-    force=True,)
+    force=True,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -95,12 +96,6 @@ def generate_feature_dict(
         )
     else:
         raise NotImplementedError("Don't support multi-sequencial FASTA files")
-        # with open(tmp_fasta_path, "w") as fp:
-        #     fp.write("\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]))
-        # feature_dict = data_processor.process_multiseq_fasta(
-        #     fasta_path=tmp_fasta_path,
-        #     super_alignment_dir=alignment_dir,
-        # )
 
     return feature_dict
 
@@ -121,7 +116,6 @@ def main(args: argparse.Namespace):
             max_template_date=args.max_template_date,
             max_hits=MAX_TEMPLATE_HITS,
             kalign_binary_path=args.kalign_binary_path,
-            # release_dates_path=args.release_dates_path,
             obsolete_pdbs_path=args.obsolete_pdbs_path,
         )
     else:
@@ -130,7 +124,6 @@ def main(args: argparse.Namespace):
             max_template_date=args.max_template_date,
             max_hits=MAX_TEMPLATE_HITS,
             kalign_binary_path=args.kalign_binary_path,
-            # release_dates_path=args.release_dates_path,
             obsolete_pdbs_path=args.obsolete_pdbs_path,
         )
 
@@ -167,8 +160,8 @@ def main(args: argparse.Namespace):
     # Genearte and dump feature dict
     feature_dict = generate_feature_dict(tags, seqs, alignment_dir, data_processor, args)
 
-    pkl_output_path = os.path.join(output_dir_base, "features.pkl")
-    logger.info(f"Write features on '{pkl_output_path}.gz'")
+    pkl_output_path = os.path.join(output_dir_base, "features.pkz")
+    logger.info(f"Write features on '{pkl_output_path}'")
     dump_pickle(feature_dict, pkl_output_path)
 
 
