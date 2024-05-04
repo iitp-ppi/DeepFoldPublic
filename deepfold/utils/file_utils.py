@@ -31,11 +31,11 @@ def load_pickle(path: os.PathLike) -> Any:
     try:
         ext = os.path.splitext(path)[1]
         if ext == ".gz":
-            _load_gz_pkl(path)
+            return _load_gz_pkl(path)
         elif ext == ".pkz":
-            _load_pkz(path)
+            return _load_pkz(path)
         else:
-            _load_pkl(path)
+            return _load_pkl(path)
     except FileNotFoundError:
         warnings.warn(f"File not found: {path}")
 
