@@ -79,6 +79,7 @@ class DuplicateError(PrefilterError):
 class LengthError(PrefilterError):
     """An error indicating that the hit was too short."""
 
+
 logger = logging.getLogger(__name__)
 
 TEMPLATE_FEATURES = {
