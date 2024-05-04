@@ -55,5 +55,8 @@ def _load_pkl(path: os.PathLike) -> Any:
 
 
 def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
-    with gzip.open(f"{path}.pkz", "wb", compresslevel=level) as fp:
+    f, ext = os.path.splitext(path)
+    if ext == ".pkl":
+        path = f + ".pkz"
+    with gzip.open(path, "wb", compresslevel=level) as fp:
         pickle.dump(obj, fp)
