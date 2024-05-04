@@ -8,9 +8,12 @@ from deepfold.utils.file_utils import dump_pickle
 from deepfold.utils.script_utils import parse_fasta
 from scripts.utils import add_data_args_
 
-logging.basicConfig()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    force=True,
+)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 MAX_TEMPLATE_HITS = 20

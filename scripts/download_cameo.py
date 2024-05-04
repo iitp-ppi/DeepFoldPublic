@@ -8,11 +8,14 @@ import re
 
 import requests
 
-from deepfold.search import mmcif_parsing
+from deepfold.data import mmcif_parsing
 
-logging.basicConfig()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    force=True,
+)
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
 
 VALID_PERIODS = [
     "1-year",
