@@ -92,16 +92,10 @@ class AlphaFold(nn.Module):
     def forward(
         self,
         batch: Dict[str, torch.Tensor],
-        save_trajectory: bool = False,
-        recycle_hook: Callable[[int, dict], None] | None = None,
+        recycle_hook: Callable[[int, dict, dict], None] | None = None,
     ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
-
-        self.save_trajectory = save_trajectory and not self.training
-        # Trajectory
-        if self.save_trajectory:
-            trajectory = []
 
         # Asym id for multimer
         asym_id = None
@@ -119,12 +113,10 @@ class AlphaFold(nn.Module):
                     gradient_checkpointing=False,
                 )
 
-                if self.save_trajectory:
-                    trajectory.append(outputs["final_atom_positions"][..., None])
-
                 if recycle_hook is not None:  # Inference
                     aux_outputs = self.auxiliary_heads(outputs, asym_id)
-                    recycle_hook(recycle_iter, aux_outputs)
+                    outputs.update(aux_outputs)
+                    recycle_hook(recycle_iter, feats, outputs)
 
                 del outputs
         recycle_iter += 1  # For the last iteration
@@ -142,11 +134,6 @@ class AlphaFold(nn.Module):
         )
         del prevs
 
-        if self.save_trajectory:
-            trajectory.append(outputs["final_atom_positions"][..., None])
-            outputs["trajectory"] = torch.cat(trajectory, dim=-1)
-            del trajectory
-
         outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
         outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
@@ -156,7 +143,7 @@ class AlphaFold(nn.Module):
         outputs.update(aux_outputs)
 
         if recycle_hook is not None:  # Inference
-            recycle_hook(recycle_iter, aux_outputs)
+            recycle_hook(recycle_iter, feats, outputs)
 
         return outputs
 
