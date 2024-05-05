@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import random
 import signal
 import time
 from functools import partial
@@ -23,8 +24,6 @@ from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
 from deepfold.utils.random import NUMPY_SEED_MODULUS
 from deepfold.utils.tensor_utils import tensor_tree_map
-import random
-
 
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
@@ -201,9 +200,6 @@ def _recycle_hook(
     logger.info(f"Pred: recycle={recycle_iter}{print_line}")
 
     if save_recycle:
-        for k, v in feats.items():
-            print(k, str(v.dtype), list(v.shape))
-
         batch_np = {
             "residue_index": feats["residue_index"].squeeze(0).cpu().numpy(),
             "aatype": feats["aatype"].squeeze(0).cpu().numpy(),
@@ -220,7 +216,7 @@ def _recycle_hook(
         prot = protein.from_prediction(
             processed_features=batch_np,
             result=outputs_np,
-            b_factors=outputs["plddt"].cpu().numpy(),
+            b_factors=outputs["plddt"].cpu().squeeze(0).numpy(),
             remark=f"RECYCLE {recycle_iter}",
         )
         with open(pdb_filepath, "w") as fp:
