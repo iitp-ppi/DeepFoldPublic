@@ -1,6 +1,7 @@
 import logging
 import sys
 import time
+from pathlib import Path
 
 from deepfold.common import protein
 from deepfold.relax import relax
@@ -43,6 +44,9 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda"):
 
 
 def main(input_filepath, output_filepath):
+    output_filepath = Path(output_filepath)
+    if output_filepath.exists():
+        raise FileExistsError(f"'{str(output_filepath)}' exists...")
     relax_protein(input_filepath, output_filepath)
 
 
