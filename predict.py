@@ -248,8 +248,8 @@ def predict(args: argparse.Namespace) -> None:
     feats = load_pickle(args.input_features_filepath)
 
     # Add batch dimension and copy processed features:
-    batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
-    batch = {k: torch.as_tensor(v[None, ...]).to(device=device) for k, v in batch.items()}
+    batch_np = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
+    batch = {k: torch.as_tensor(v[None, ...]).to(device=device) for k, v in batch_np.items()}
 
     # Disable inductor kernels:
     inductor.disable()
