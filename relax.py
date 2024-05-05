@@ -40,13 +40,13 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda"):
     with open(relaxed_output_path, "w") as fp:
         fp.write(struct_str)
 
-    logger.info(f"Relaxed output written to {relaxed_output_path}...")
+    logger.info(f"Relaxed output written to '{relaxed_output_path}'")
 
 
 def main(input_filepath, output_filepath):
     output_filepath = Path(output_filepath)
     if output_filepath.exists():
-        raise FileExistsError(f"'{str(output_filepath)}' exists...")
+        raise FileExistsError(f"'{output_filepath}' exists...")
     relax_protein(input_filepath, output_filepath)
 
 
