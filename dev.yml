@@ -32,6 +32,8 @@ dependencies:
   - mmseqs2=15.6f452
   - isort
   - black
+  - openmm=8.0.0
+  - pdbfixer
   - pip:
       - mkdocs
       - mkdocs-literate-nav
