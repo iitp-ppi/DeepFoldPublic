@@ -52,7 +52,7 @@ def np_to_tensor_dict(
 def np_example_to_features(
     np_example: FeatureDict,
     config: FeaturePipelineConfig,
-):
+) -> TensorDict:
     np_example = dict(np_example)
     cfg = copy.deepcopy(config)
 
@@ -95,5 +95,5 @@ class FeaturePipeline:
     def __init__(self, config: FeaturePipelineConfig):
         self.config = config
 
-    def process_features(self, raw_features: FeatureDict) -> FeatureDict:
+    def process_features(self, raw_features: FeatureDict) -> TensorDict:
         return np_example_to_features(np_example=raw_features, config=self.config)
