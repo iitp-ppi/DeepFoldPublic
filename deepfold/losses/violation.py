@@ -490,9 +490,9 @@ def compute_violation_metrics_np(
     violation_metrics = compute_violation_metrics(
         batch=array_tree_map(fn=torch.tensor, tree=batch),
         atom14_pred_positions=torch.tensor(atom14_pred_positions),
-        violations=tensor_tree_map(fn=torch.tensor, tree=violations),
+        violations=array_tree_map(fn=torch.tensor, tree=violations),
     )
-    violation_metrics = tensor_tree_map(fn=np.ndarray, tree=violation_metrics)
+    violation_metrics = tensor_tree_map(fn=lambda t: t.numpy(), tree=violation_metrics)
     return violation_metrics
 
 
