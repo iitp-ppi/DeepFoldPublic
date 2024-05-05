@@ -217,7 +217,7 @@ def _recycle_hook(
             processed_features=batch_np,
             result=outputs_np,
             b_factors=outputs["plddt"].cpu().squeeze(0).numpy(),
-            remark=f"RECYCLE {recycle_iter}",
+            remark=[f"RECYCLE {recycle_iter}", print_line],
         )
         with open(pdb_filepath, "w") as fp:
             fp.write(protein.to_pdb(prot))
