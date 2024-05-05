@@ -1,12 +1,13 @@
 import functools
 import gzip
-import logging
 import os
 import pickle
 import warnings
-from typing import Any
+from glob import glob
+from pathlib import Path
+from typing import Any, List, Sequence
 
-__all__ = ["read_text", "load_pickle", "dump_pickle"]
+__all__ = ["read_text", "load_pickle", "dump_pickle", "find_paths"]
 
 
 def read_text(path: os.PathLike) -> str:
@@ -61,3 +62,14 @@ def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
         warnings.warn(f"Write on '{path}'")
     with gzip.open(path, "wb", compresslevel=level) as fp:
         pickle.dump(obj, fp)
+
+
+def find_paths(paths: Sequence[os.PathLike]) -> List[Path]:
+    found_paths = set()
+    for regex in paths:
+        path_found = glob(regex)
+        for p in path_found:
+            found_paths.add(str(p))
+    found_paths = list(found_paths)
+    found_paths.sort()
+    return [Path(p) for p in found_paths]
