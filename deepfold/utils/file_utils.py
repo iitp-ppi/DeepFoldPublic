@@ -52,7 +52,7 @@ def _load_pkz(path: os.PathLike) -> Any:
 
 def _load_pkl(path: os.PathLike) -> Any:
     with open(path, "rb") as fp:
-        return pickle.load(path)
+        return pickle.load(fp)
 
 
 def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
