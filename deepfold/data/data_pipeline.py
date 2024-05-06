@@ -958,7 +958,12 @@ class DataPipelineMultimer:
             input_fasta_str = f.read()
         return self.process_fasta_string(fasta_string=input_fasta_str, alignment_dir=alignment_dir)
 
-    def process_fasta_string(self, fasta_string: str, alignment_dir: str) -> FeatureDict:
+    def process_fasta_string(
+        self,
+        fasta_string: str,
+        alignment_dir: str,
+        non_pair: bool = False,
+    ) -> FeatureDict:
         """Creates features."""
 
         input_seqs, input_descs = parsers.parse_fasta(fasta_string)
@@ -987,9 +992,7 @@ class DataPipelineMultimer:
 
         all_chain_features = add_assembly_features(all_chain_features)
 
-        np_example = feature_processing_multimer.pair_and_merge(
-            all_chain_features=all_chain_features,
-        )
+        np_example = feature_processing_multimer.pair_and_merge(all_chain_features=all_chain_features, non_pair=non_pair)
 
         # Pad MSA to avoid zero-sized extra_msa.
         np_example = pad_msa(np_example, 512)

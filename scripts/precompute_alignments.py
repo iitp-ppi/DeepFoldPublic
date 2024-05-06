@@ -83,6 +83,7 @@ def generate_feature_dict(
         feature_dict = data_processor.process_fasta_string(
             fasta_string="\n".join([f">{tag}\n{seq}" for tag, seq in zip(tags, seqs)]),
             alignment_dir=alignment_dir,
+            non_pair=args.non_pair,
         )
     elif len(seqs) == 1:
         tag = tags[0]
@@ -171,6 +172,7 @@ if __name__ == "__main__":
     parser.add_argument("template_mmcif_dir", type=str)
     parser.add_argument("output_dir", type=str)
     parser.add_argument("--multimer", action="store_true", dest="is_multimer")
+    parser.add_arugment("--non_pair", action="store_true", dest="non_pair")
     parser.add_argument(
         "--use_precomputed_alignments",
         type=str,
