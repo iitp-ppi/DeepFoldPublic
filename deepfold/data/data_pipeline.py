@@ -998,17 +998,12 @@ class DataPipelineMultimer:
 
     def get_mmcif_features(self, mmcif_object: mmcif_parsing.MmcifObject, chain_id: str) -> FeatureDict:
         mmcif_feats = {}
-
         all_atom_positions, all_atom_mask = mmcif_parsing.get_atom_coords(mmcif_object=mmcif_object, chain_id=chain_id)
         mmcif_feats["all_atom_positions"] = all_atom_positions
         mmcif_feats["all_atom_mask"] = all_atom_mask
-
         mmcif_feats["resolution"] = np.array(mmcif_object.header["resolution"], dtype=np.float32)
-
         mmcif_feats["release_date"] = np.array([mmcif_object.header["release_date"].encode("utf-8")], dtype=np.object_)
-
         mmcif_feats["is_distillation"] = np.array(0.0, dtype=np.float32)
-
         return mmcif_feats
 
     def process_mmcif(
@@ -1016,7 +1011,6 @@ class DataPipelineMultimer:
         mmcif: mmcif_parsing.MmcifObject,  # parsing is expensive, so no path
         alignment_dir: str,
     ) -> FeatureDict:
-
         all_chain_features = {}
         sequence_features = {}
         is_homomer_or_monomer = len(set(list(mmcif.chain_to_seqres.values()))) == 1
