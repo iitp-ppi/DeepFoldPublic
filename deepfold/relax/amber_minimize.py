@@ -458,9 +458,9 @@ def run_pipeline(
     exclude_residues = exclude_residues or []
     exclude_residues = set(exclude_residues)
     violations = np.inf
-    iteration = 0
+    iteration = 1
 
-    while violations > 0 and iteration < max_outer_iterations:
+    while violations > 0 and iteration <= max_outer_iterations:
         ret = _run_one_iteration(
             pdb_string=pdb_string,
             exclude_residues=exclude_residues,
@@ -492,7 +492,8 @@ def run_pipeline(
         exclude_residues = exclude_residues.union(ret["residue_violations"])
 
         logger.info(
-            "Iteration completed: Einit %.2f Efinal %.2f Time %.2f s " "num residue violations %d num residue exclusions %d ",
+            "Iteration %d completed: Einit %.2f Efinal %.2f Time %.2f s " "num residue violations %d num residue exclusions %d ",
+            iteration,
             ret["einit"],
             ret["efinal"],
             ret["opt_time"],
