@@ -172,7 +172,7 @@ if __name__ == "__main__":
     parser.add_argument("template_mmcif_dir", type=str)
     parser.add_argument("output_dir", type=str)
     parser.add_argument("--multimer", action="store_true", dest="is_multimer")
-    parser.add_arugment("--non_pair", action="store_true", dest="non_pair")
+    parser.add_argument("--non_pair", action="store_true", dest="non_pair")
     parser.add_argument(
         "--use_precomputed_alignments",
         type=str,
