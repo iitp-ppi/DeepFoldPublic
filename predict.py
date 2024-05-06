@@ -285,7 +285,8 @@ def predict(args: argparse.Namespace) -> None:
     start_time = time.perf_counter()
     batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
     pipeline_duration = time.perf_counter() - start_time
-    logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
+    if dist.is_master_process():
+        logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
     batch_last = {k: np.array(v[..., -1].squeeze(0).cpu()) for k, v in batch.items()}
 
     # Add batch dimension and copy processed features:
