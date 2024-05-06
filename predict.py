@@ -224,7 +224,7 @@ def _recycle_hook(
 
 
 def predict(args: argparse.Namespace) -> None:
-    if args.seed == -1:
+    if (args.seed == -1) and (args.mp_size > 0):
         seed = random.randint(0, NUMPY_SEED_MODULUS)
     else:
         seed = args.seed
