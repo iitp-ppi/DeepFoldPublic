@@ -416,7 +416,7 @@ def load_stereo_chemical_props() -> Tuple[
       residue_bond_angles: Dict that maps resname -> list of BondAngle tuples
     """
     # TODO: Edit if the project name has been changed
-    stereo_chemical_props = resources.read_text("deepfold.resources", "stereo_chemical_props.txt")
+    stereo_chemical_props = resources.read_text("deepfold.common", "stereo_chemical_props.txt")
 
     lines_iter = iter(stereo_chemical_props.splitlines())
     # Load bond lengths.
