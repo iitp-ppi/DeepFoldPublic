@@ -91,6 +91,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Force overwrite.",
     )
+    parser.add_argument(
+        "--use_multimer_templates",
+        action="store_true",
+        dest="multimer_templates",
+        help="Enable multimer templates." 
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -250,6 +256,15 @@ def predict(args: argparse.Namespace) -> None:
         for k, v in vars(args).items():
             logger.info(f"{k}={v}")
 
+    # Print configs:
+    if dist.is_master_process():
+        logger.info("Model Config:")
+        for k, v in flatten_dict(model_config.to_dict()).items():
+            logger.info(f"{k}={v}")
+        for k, v in flatten_dict(feat_config.to_dict()).items():
+            logger.info(f"{k}={v}")
+
+
     # Set device:
     torch.cuda.set_device(device=device)
 
@@ -263,8 +278,8 @@ def predict(args: argparse.Namespace) -> None:
 
     # Create output directory:
     args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
-    figures_dirpath = args.output_dirpath / "figures"
-    figures_dirpath.mkdir(parents=True, exist_ok=args.force)
+    # figures_dirpath = args.output_dirpath / "figures"
+    # figures_dirpath.mkdir(parents=True, exist_ok=args.force)
 
     # Setup suffix:
     suffix = f"_{args.suffix}" if args.suffix else ""
@@ -284,6 +299,14 @@ def predict(args: argparse.Namespace) -> None:
     # Process input features:
     start_time = time.perf_counter()
     batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
+
+    # Template multi-chain mask
+    if args.multimer_templates:
+        if dist.is_master_process():
+            logger.info("Multimer template enabled...")
+        multichain_mask_2d = batch["pair_mask"].new_ones()
+        batch["template_multichain_mask_2d"] = multichain_mask_2d
+
     pipeline_duration = time.perf_counter() - start_time
     if dist.is_master_process():
         logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
@@ -295,14 +318,7 @@ def predict(args: argparse.Namespace) -> None:
     # Disable inductor kernels:
     inductor.disable()
 
-    # Print configs:
-    if dist.is_master_process():
-        logger.info("Model Config:")
-        for k, v in flatten_dict(model_config.to_dict()).items():
-            logger.info(f"{k}={v}")
-        for k, v in flatten_dict(feat_config.to_dict()).items():
-            logger.info(f"{k}={v}")
-
+    
     # Create module:
     model = create_alphafold_module(
         alphafold_config=model_config,
@@ -318,6 +334,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
+        logger.info(f"seqlen={feats["aatype"].shape[-1]}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:

@@ -219,6 +219,7 @@ class AlphaFold(nn.Module):
                 gradient_checkpointing=gradient_checkpointing,
                 multichain_mask_2d=feats.get("template_multichain_mask_2d", None),
             )
+            # multichain_mask_2d: [batch, N_res, N_res, N_templ]
 
             z = z + template_embeds["template_pair_embedding"]
             # z: [batch, N_res, N_res, c_z]
