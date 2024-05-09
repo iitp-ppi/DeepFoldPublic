@@ -289,6 +289,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Load input features:
     feats = load_pickle(args.input_features_filepath)
+    seqlen = feats["residue_inex"].shape[-1]
 
     # Process input features:
     start_time = time.perf_counter()
@@ -298,7 +299,7 @@ def predict(args: argparse.Namespace) -> None:
     if args.multimer_templates:
         if dist.is_master_process():
             logger.info("Multimer template enabled...")
-        multichain_mask_2d = batch["pair_mask"].new_ones()
+        multichain_mask_2d = torch.ones([1, seqlen, seqlen, feat_config.max_templates])
         batch["template_multichain_mask_2d"] = multichain_mask_2d
 
     pipeline_duration = time.perf_counter() - start_time
@@ -327,7 +328,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
-        logger.info(f"seqlen={feats['aatype'].shape[-1]}")
+        logger.info(f"seqlen={seqlen}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:
