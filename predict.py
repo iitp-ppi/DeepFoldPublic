@@ -91,12 +91,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Force overwrite.",
     )
-    parser.add_argument(
-        "--use_multimer_templates",
-        action="store_true",
-        dest="multimer_templates",
-        help="Enable multimer templates." 
-    )
+    parser.add_argument("--use_multimer_templates", action="store_true", dest="multimer_templates", help="Enable multimer templates.")
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -264,7 +259,6 @@ def predict(args: argparse.Namespace) -> None:
         for k, v in flatten_dict(feat_config.to_dict()).items():
             logger.info(f"{k}={v}")
 
-
     # Set device:
     torch.cuda.set_device(device=device)
 
@@ -318,7 +312,6 @@ def predict(args: argparse.Namespace) -> None:
     # Disable inductor kernels:
     inductor.disable()
 
-    
     # Create module:
     model = create_alphafold_module(
         alphafold_config=model_config,
@@ -334,7 +327,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
-        logger.info(f"seqlen={feats["aatype"].shape[-1]}")
+        logger.info(f"seqlen={feats['aatype'].shape[-1]}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:
