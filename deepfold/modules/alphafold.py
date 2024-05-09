@@ -213,10 +213,11 @@ class AlphaFold(nn.Module):
             template_feats = {k: t for k, t in feats.items() if k.startswith("template_")}
             template_embeds = self._embed_templates(
                 feats=template_feats,
-                asym_id=feats["asym_id"] if self.config.is_multimer else None,
                 z=z,
                 pair_mask=pair_mask,
+                asym_id=feats["asym_id"] if self.config.is_multimer else None,
                 gradient_checkpointing=gradient_checkpointing,
+                multichain_mask_2d=feats.get("template_multichain_mask_2d", None),
             )
 
             z = z + template_embeds["template_pair_embedding"]
@@ -341,13 +342,17 @@ class AlphaFold(nn.Module):
         pair_mask: torch.Tensor,
         gradient_checkpointing: bool,
         asym_id: Optional[torch.Tensor] = None,
-        multichain_mask_2d: Optional[torch.Tensor] = None,
+        multichain_mask_2d: Optional[torch.Tensor] = None,  # [..., N_res, N_res, N_templ]
     ) -> Dict[str, torch.Tensor]:
         # Embed the templates one at a time:
         pair_embeds = []
         num_templ = feats["template_aatype"].shape[1]
         for i in range(num_templ):
             single_template_feats = tensor_tree_map(fn=lambda t: t[:, i], tree=feats)
+            if multichain_mask_2d is not None:
+                single_multichain_mask_2d = multichain_mask_2d[..., i]
+            else:
+                single_multichain_mask_2d = None
 
             if not self.config.is_multimer:
                 t = self.template_pair_embedder.build_template_pair_feat(
@@ -364,9 +369,9 @@ class AlphaFold(nn.Module):
                 t = self.template_pair_embedder(t)
                 # t: [batch, N_res, N_res, c_t]
             else:
-                if multichain_mask_2d is None:
-                    multichain_mask_2d = asym_id[..., :, None] == asym_id[..., None, :]
-                # multichain_mask_2d: [batch, N_res, N_res]
+                if single_multichain_mask_2d is None:
+                    single_multichain_mask_2d = asym_id[..., :, None] == asym_id[..., None, :]
+                # single_multichain_mask_2d: [batch, N_res, N_res]
 
                 t = self.template_pair_embedder.build_template_pair_feat(
                     feats=single_template_feats,
@@ -380,7 +385,7 @@ class AlphaFold(nn.Module):
 
                 t = self.template_pair_embedder(
                     query_embedding=z,
-                    multichain_mask_2d=multichain_mask_2d,
+                    multichain_mask_2d=single_multichain_mask_2d,
                     **t,
                 )
                 # t: [batch, N_res, N_res, c_t]
