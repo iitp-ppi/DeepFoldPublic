@@ -289,7 +289,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Load input features:
     feats = load_pickle(args.input_features_filepath)
-    seqlen = feats["residue_inex"].shape[-1]
+    seqlen = feats["residue_index"].shape[-1]
 
     # Process input features:
     start_time = time.perf_counter()
