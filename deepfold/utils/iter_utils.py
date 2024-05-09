@@ -25,3 +25,26 @@ def _flatten_dict_gen(d, parent_key, sep):
 
 def flatten_dict(d: MutableMapping, parent_key: str = "", sep: str = "."):
     return dict(_flatten_dict_gen(d, parent_key, sep))
+
+
+def list_zip(*arglists) -> list:
+    """Transforms given columns into list of rows."""
+
+    if len(arglists) == 0:
+        return []
+    lengths = [len(arglist) for arglist in arglists]
+    if not all_equal(lengths):
+        raise ValueError(f"unequal list lengths: {lengths}")
+    return list(zip(*arglists))
+
+
+def all_equal(values: list) -> bool:
+    """Checks if all values in list are equal to each other."""
+
+    if not values:
+        return True
+    first_val = values[0]
+    for val in values:
+        if val != first_val:
+            return False
+    return True
