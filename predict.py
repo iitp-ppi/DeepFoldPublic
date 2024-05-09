@@ -299,7 +299,14 @@ def predict(args: argparse.Namespace) -> None:
     if args.multimer_templates:
         if dist.is_master_process():
             logger.info("Multimer template enabled...")
-        multichain_mask_2d = torch.ones([1, seqlen, seqlen, feat_config.max_templates])
+        multichain_mask_2d = torch.ones(
+            [
+                seqlen,
+                seqlen,
+                feat_config.max_templates,
+                feat_config.max_recycling_iters,
+            ]
+        )
         batch["template_multichain_mask_2d"] = multichain_mask_2d
 
     pipeline_duration = time.perf_counter() - start_time
