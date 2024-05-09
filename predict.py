@@ -251,14 +251,6 @@ def predict(args: argparse.Namespace) -> None:
         for k, v in vars(args).items():
             logger.info(f"{k}={v}")
 
-    # Print configs:
-    if dist.is_master_process():
-        logger.info("Model Config:")
-        for k, v in flatten_dict(model_config.to_dict()).items():
-            logger.info(f"{k}={v}")
-        for k, v in flatten_dict(feat_config.to_dict()).items():
-            logger.info(f"{k}={v}")
-
     # Set device:
     torch.cuda.set_device(device=device)
 
@@ -286,6 +278,14 @@ def predict(args: argparse.Namespace) -> None:
         ensemble_seed=seed,
         **feat_cfg_kwargs,
     )
+
+    # Print configs:
+    if dist.is_master_process():
+        logger.info("Model Config:")
+        for k, v in flatten_dict(model_config.to_dict()).items():
+            logger.info(f"{k}={v}")
+        for k, v in flatten_dict(feat_config.to_dict()).items():
+            logger.info(f"{k}={v}")
 
     # Load input features:
     feats = load_pickle(args.input_features_filepath)
