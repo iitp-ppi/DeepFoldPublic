@@ -42,13 +42,14 @@ else
 fi
 
 # Set number of threads to use for parallel regions:
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=16
 
 # PyTorch Dynamo
 export TORCH_COMPILE_DISABLE=1
 
 INPUT_FEAT=$1
 OUTPUT_DIR=$2
+shift 2
 
 # srun --export=ALL \
 torchrun \
@@ -59,9 +60,10 @@ torchrun \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     predict.py \
     --mp_size 2 \
-    --preset "params_model_1" \
-    --params_dirpath "/gpfs/database/casp16/af_params" \
     --input_features_filepath $INPUT_FEAT \
-    --output_dirpath $OUTPUT_DIR
+    --output_dirpath $OUTPUT_DIR \
+    "$@"
+# --preset "params_model_1" \
+# --params_dirpath "/gpfs/database/casp16/af_params" \
 
 echo "END" $(date +"%Y-%m-%d %H:%M:%S")
