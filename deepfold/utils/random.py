@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 NUMPY_SEED_MODULUS = 0xFFFF_FFFF + 1
+TORCH_SEED_MODULUS = 0xFFFF_FFFF_FFFF_FFFF + 1
 
 
 def str_hash(string: str):
