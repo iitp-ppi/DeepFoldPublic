@@ -252,7 +252,7 @@ class TemplatePairEmbedderMultimer(nn.Module):
         act += self.aatype_linear_1(aatype_one_hot[..., None, :, :])
         act += self.aatype_linear_2(aatype_one_hot[..., :, None, :])
 
-        backbone_mask_2d = backbone_mask[..., None] * backbone_mask[..., None, :]
+        backbone_mask_2d = backbone_mask[..., :, None] * backbone_mask[..., None, :]
         backbone_mask_2d *= multichain_mask_2d
         # backbone_mask_2d: [1, N_res, N_res]
 
