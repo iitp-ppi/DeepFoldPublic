@@ -314,7 +314,7 @@ def predict(args: argparse.Namespace) -> None:
                 feat_config.max_recycling_iters,
             ]
         )
-        asym_id = batch["asym_id"][..., :0]
+        asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
         templ_idx = list(map(int, args.multimer_templates.split(",")))
