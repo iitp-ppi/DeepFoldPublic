@@ -314,13 +314,15 @@ def predict(args: argparse.Namespace) -> None:
                 feat_config.max_recycling_iters,
             ]
         )
-        asym_id = batch["asym_id"]
+        asym_id = batch["asym_id"][..., :0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
-        for i in range(feat_config.max_templates):
-            mask[..., i, :] = block_diag_mask
+
         templ_idx = list(map(int, args.multimer_templates.split(",")))
-        for i in templ_idx:
-            mask[..., i, :] = 1.0
+        for i in range(feat_config.max_templates):
+            if i in templ_idx:
+                mask[..., i, :] = 1.0
+            else:
+                mask[..., i, :] = block_diag_mask[..., None]
         batch["template_multichain_mask_2d"] = mask
 
     pipeline_duration = time.perf_counter() - start_time
