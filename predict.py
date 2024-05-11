@@ -91,7 +91,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Force overwrite.",
     )
-    parser.add_argument("--use_multimer_templates", action="store_true", dest="multimer_templates", help="Enable multimer templates.")
+    parser.add_argument(
+        "--use_multimer_templates",
+        default="",
+        type=str,
+        dest="multimer_templates",
+        help="Enable multimer templates.",
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -296,10 +302,11 @@ def predict(args: argparse.Namespace) -> None:
     batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
 
     # Template multi-chain mask
-    if args.multimer_templates:
+    if args.multimer_templates != "":
         if dist.is_master_process():
             logger.info("Multimer template enabled...")
-        multichain_mask_2d = torch.ones(
+        # Initialize:
+        mask = torch.zeros(
             [
                 seqlen,
                 seqlen,
@@ -307,7 +314,14 @@ def predict(args: argparse.Namespace) -> None:
                 feat_config.max_recycling_iters,
             ]
         )
-        batch["template_multichain_mask_2d"] = multichain_mask_2d
+        asym_id = batch["asym_id"]
+        block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
+        for i in range(feat_config.max_templates):
+            mask[..., i, :] = block_diag_mask
+        templ_idx = list(map(int, args.multimer_templates.split(",")))
+        for i in templ_idx:
+            mask[..., i, :] = 1.0
+        batch["template_multichain_mask_2d"] = mask
 
     pipeline_duration = time.perf_counter() - start_time
     if dist.is_master_process():
