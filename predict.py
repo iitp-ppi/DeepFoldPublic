@@ -305,7 +305,7 @@ def predict(args: argparse.Namespace) -> None:
     if args.multimer_templates != "":
         templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
-            logger.info(f"Multimer template enabled for {','.join(templ_idx)}")
+            logger.info(f"Multimer template enabled for {','.join(map(str, templ_idx))}")
         # Initialize:
         mask = torch.zeros(
             [
