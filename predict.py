@@ -303,8 +303,9 @@ def predict(args: argparse.Namespace) -> None:
 
     # Template multi-chain mask
     if args.multimer_templates != "":
+        templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
-            logger.info("Multimer template enabled...")
+            logger.info(f"Multimer template enabled for {','.join(templ_idx)}")
         # Initialize:
         mask = torch.zeros(
             [
@@ -317,12 +318,12 @@ def predict(args: argparse.Namespace) -> None:
         asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
-        templ_idx = list(map(int, args.multimer_templates.split(",")))
         for i in range(feat_config.max_templates):
             if i in templ_idx:
                 mask[..., i, :] = 1.0
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
+
         batch["template_multichain_mask_2d"] = mask
 
     pipeline_duration = time.perf_counter() - start_time
