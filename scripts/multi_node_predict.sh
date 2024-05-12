@@ -38,7 +38,6 @@ else
     export MASTER_ADDR=127.0.0.1
     export MASTER_PORT=10001
 
-    export CUDA_VISIBLE_DEVICES="0,1"
 fi
 
 # Set number of threads to use for parallel regions:
