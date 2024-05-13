@@ -22,6 +22,7 @@ from deepfold.modules.alphafold import AlphaFold
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
+from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.random import NUMPY_SEED_MODULUS
 from deepfold.utils.tensor_utils import tensor_tree_map
 
@@ -29,11 +30,6 @@ torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -413,6 +409,10 @@ def predict(args: argparse.Namespace) -> None:
         exit(0)
         if mp.size() >= 2:
             os.killpg(os.getpgid(os.getpid()), signal.SIGKILL)
+
+
+def _init_logging():
+    pass
 
 
 if __name__ == "__main__":

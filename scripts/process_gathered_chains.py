@@ -14,11 +14,8 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
+from deepfold.utils.log_utils import setup_logging
+
 logger = logging.getLogger(__name__)
 
 ID_TO_RESTYPE = {
@@ -274,6 +271,7 @@ def _normalize_chain_id(chain_id: str) -> str:
 
 def main() -> None:
     args = parse_args()
+    setup_logging("gather.log")
     process_gathered_chains(
         parsed_assembly_dirpath=args.parsed_assembly_dirpath,
         output_dirpath=args.output_dirpath,

@@ -1,22 +1,42 @@
-# Copyright 2023 NVIDIA CORPORATION
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import json
+import logging
+import os
 from pathlib import Path
 from typing import List
 
 import pandas as pd
+
+
+class TqdmHandler(logging.StreamHandler):
+    def __init__(self) -> None:
+        logging.StreamHandler.__init__(self)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        from tqdm.auto import tqdm
+
+        msg = self.format(record)
+        tqdm.write(msg)
+
+
+def setup_logging(filename: os.PathLike, mode: str = "w") -> None:
+    assert mode in ("w", "a")  # Not read mode
+
+    # Make parent directory
+    filename = Path(filename)
+    filename.parent.mkdir(exist_ok=True, parents=True)
+
+    # Setup root logger
+    root = logging.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            handler.close()
+            root.removeHandler(handler)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        handlers=[TqdmHandler(), logging.FileHandler(filename=filename, mode=mode)],
+        force=True,
+    )
 
 
 def save_logs(logs: List[dict], outpath: Path, append: bool) -> None:

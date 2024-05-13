@@ -6,14 +6,10 @@ from typing import Sequence
 from deepfold.data import data_pipeline, templates
 from deepfold.data.tools import hhsearch, hmmsearch
 from deepfold.utils.file_utils import dump_pickle
+from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.script_utils import parse_fasta
 from scripts.utils import add_data_args_
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -106,6 +102,8 @@ def list_files_with_extensions(dir, extensions):
 
 
 def main(args: argparse.Namespace):
+    setup_logging("features.log")
+
     # Create the output directory
     os.makedirs(args.output_dir, exist_ok=True)
 

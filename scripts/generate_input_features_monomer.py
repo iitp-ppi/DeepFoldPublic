@@ -5,14 +5,10 @@ from pathlib import Path
 
 from deepfold.data import data_pipeline, templates
 from deepfold.utils.file_utils import dump_pickle
+from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.script_utils import parse_fasta
 from scripts.utils import add_data_args_
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -69,6 +65,8 @@ def main(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    setup_logging("features.log")
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "fasta_filepath",

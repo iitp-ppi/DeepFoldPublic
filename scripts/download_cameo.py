@@ -9,12 +9,8 @@ import re
 import requests
 
 from deepfold.data import mmcif_parsing
+from deepfold.utils.log_utils import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__name__)
 
 VALID_PERIODS = [
@@ -75,6 +71,8 @@ def download_cameo(args):
 
 
 def main():
+    setup_logging("fetch.log")
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "period",

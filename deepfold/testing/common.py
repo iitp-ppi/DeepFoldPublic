@@ -15,11 +15,6 @@ from typing import Any, Dict, List, Union
 
 import torch
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__name__)
 
 

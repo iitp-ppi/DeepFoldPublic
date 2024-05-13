@@ -5,12 +5,8 @@ from pathlib import Path
 
 from deepfold.common import protein
 from deepfold.relax import relax
+from deepfold.utils.log_utils import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    force=True,
-)
 logger = logging.getLogger(__file__)
 logger.setLevel(level=logging.INFO)
 
@@ -44,6 +40,8 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda"):
 
 
 def main(input_filepath, output_filepath):
+    setup_logging("relax.log")
+
     output_filepath = Path(output_filepath)
     if output_filepath.exists():
         raise FileExistsError(f"'{output_filepath}' exists...")
