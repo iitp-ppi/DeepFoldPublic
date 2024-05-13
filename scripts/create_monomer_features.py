@@ -1,10 +1,9 @@
 import argparse
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
-from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_a3m, parse_fasta, parse_hhr, parse_hmmsearch_sto, parse_hmmsearch_a3m
+from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_a3m, parse_hmmsearch_sto
 from deepfold.data.search.pipeline import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
 from deepfold.utils.file_utils import dump_pickle
