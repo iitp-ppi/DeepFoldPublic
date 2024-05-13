@@ -57,6 +57,7 @@ def _load_pkl(path: os.PathLike) -> Any:
 
 def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
     f, ext = os.path.splitext(path)
+    assert ext in (".pkl", ".pkz", ".gz")
     if ext == ".pkl":
         path = f + ".pkz"
         warnings.warn(f"Write on '{path}'")
