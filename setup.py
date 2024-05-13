@@ -81,6 +81,6 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=["tests"]),
     # install_requires=install_requires,
     include_package_data=True,
-    ext_modules=ext_modules,
+    # ext_modules=ext_modules,
     cmdclass={"build_ext": BuildExtension},
 )

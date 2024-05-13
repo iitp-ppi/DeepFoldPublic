@@ -21,10 +21,10 @@ dependencies:
   - torchaudio
   - torchvision
   - pytorch-cuda=11.8
-  - cuda-compiler=11.8
-  - cuda-nvcc=11.8
-  - cuda-libraries=11.8
-  - cuda-libraries-dev=11.8
+  # - cuda-compiler=11.8
+  # - cuda-nvcc=11.8
+  # - cuda-libraries=11.8
+  # - cuda-libraries-dev=11.8
   - tqdm
   - hmmer=3.3.2
   - hhsuite=3.3.0
