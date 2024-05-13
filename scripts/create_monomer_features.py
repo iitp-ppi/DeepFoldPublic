@@ -94,8 +94,6 @@ def main(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    setup_logging("features.log")
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-f",
@@ -162,6 +160,8 @@ def parse_args() -> argparse.Namespace:
         help="Shuffling seeds for the template featurizer.",
     )
     args = parser.parse_args()
+
+    setup_logging("features.log")
 
     for k, v in vars(args).items():
         if isinstance(v, list):
