@@ -17,12 +17,12 @@
 
 """A Python wrapper for Kalign."""
 
+import logging
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import List
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class Kalign:
 
         """
         if self.verbose:
-            logging.info(f"Kalign input: {sequences}")
+            logger.info(f"Kalign input: {sequences}")
         assert len(sequences) >= 2
 
         for s in sequences:
@@ -85,7 +85,7 @@ class Kalign:
         ]
 
         if self.verbose:
-            logging.info(f"Kalign command: {kalign_cmd}")
+            logger.info(f"Kalign command: {kalign_cmd}")
 
         process = subprocess.Popen(
             args=kalign_cmd,
@@ -102,7 +102,7 @@ class Kalign:
         stdout, stderr = process.communicate()
 
         if self.verbose:
-            logging.info(f"Kalign stdout:\n{stdout.decode('utf-8')}\n" f"Kalign stderr:\n{stderr.decode('utf-8')}\n")
+            logger.info(f"Kalign stdout:\n{stdout.decode('utf-8')}\n" f"Kalign stderr:\n{stderr.decode('utf-8')}\n")
 
         if retcode != 0:
             shutil.rmtree(tmp_dirpath, ignore_errors=True)
@@ -112,7 +112,7 @@ class Kalign:
             a3m = f.read()
 
         if self.verbose:
-            logging.info(f"Kalign output: {a3m}")
+            logger.info(f"Kalign output: {a3m}")
 
         shutil.rmtree(tmp_dirpath, ignore_errors=True)
 
