@@ -68,6 +68,8 @@ FILTER_PARAM="--filter-msa $FILTER --filter-min-enable 1000 --diff $DIFF --qid '
 EXPAND_PARAM="--expansion-mode 0 -e $EXPAND_EVAL --expand-filter-clusters $FILTER --max-seq-id 0.95"
 
 $MMSEQS lndb $INPUT $BASE/qdb
+$MMSEQS lndb "${INPUT}_h" $BASE/pdb_h
+
 $MMSEQS search $BASE/qdb $DBBASE/$UNIREF_DB $BASE/res $BASE/tmp --threads $THREADS $SEARCH_PARAM || exit 1
 $MMSEQS mvdb $BASE/tmp/latest/profile_1 $BASE/prof_res || exit 1
 $MMSEQS lndb $BASE/qdb_h $BASE/prof_res_h || exit 1
@@ -84,10 +86,22 @@ if [[ ! -z $METAGENOMIC_DB ]]; then
     USE_ENV="1"
 fi
 
+if [[ ! -z $TEMPLATE_DB ]]; then
+    USE_TEMPLATES="1"
+fi
+
+if [[ ! -z $USE_TEMPLATES ]]; then
+    $MMSEQS search $BASE/prof_res $DBBASE/$TEMPLATE_DB $BASE/res_pdb $BASE/tmp --db-load-mode ${DB_LOAD_MODE} --threads $THREADS -s 7.5 -a -e 0.1 --prefilter-mode $PREFILTER_MODE || exit 1
+    $MMSEQS convertalis $BASE/prof_res $DBBASE/$TEMPLATE_DB$DB_SUFFIX_3 $BASE/res_pdb $BASE/$TEMPLATE_DB --format-output "query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,cigar" --db-output 1 --db-load-mode $DB_LOAD_MODE --threads $THREADS
+    $MMSEQS unpackdb $BASE/$TEMPLATE_DB $BASE --unpack-name-mode "0" --unpack-suffix ".m8"
+    $MMSEQS rmdb $BASE/res_pdb
+    $MMSEQS rmdb $BASE/$TEMPLATE_DB
+fi
+
 if [[ ! -z $USE_ENV ]]; then
-    $MMSEQS search $BASE/prof_res $DBBASE/$METAGENOMIC_DB $BASE/res_env $BASE/tmp3 --threads $THREADS $SEARCH_PARAM || exit 1
+    $MMSEQS search $BASE/prof_res $DBBASE/$METAGENOMIC_DB $BASE/res_env $BASE/tmp --threads $THREADS $SEARCH_PARAM || exit 1
     $MMSEQS expandaln $BASE/prof_res $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_2 $BASE/res_env_exp -e $EXPAND_EVAL --expansion-mode 0 --db-load-mode $DB_LOAD_MODE --threads $THREADS || exit 1
-    $MMSEQS align $BASE/tmp3/latest/profile_1 $DBBASE/METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp $BASE/res_env_exp_realign --db-load-mode $DB_LOAD_MODE -e $ALIGN_EVAL --max-accept $MAX_ACCEPT --threads $THREADS --alt-ali 10 -a || exit 1
+    $MMSEQS align $BASE/tmp/latest/profile_1 $DBBASE/METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp $BASE/res_env_exp_realign --db-load-mode $DB_LOAD_MODE -e $ALIGN_EVAL --max-accept $MAX_ACCEPT --threads $THREADS --alt-ali 10 -a || exit 1
     $MMSEQS filterresult $BASE/qdb $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp_realign $BASE/res_env_exp_realign_filter --db-load-mode $DB_LOAD_MODE --qid 0 --qsc $QSC --diff 0 --max-seq-id 1.0 --threads $THREADS --filter-min-enable 100 || exit 1
     $MMSEQS result2msa $BASE/qdb $DBBASE/$METAGENOMIC_DB$DB_SUFFIX_1 $BASE/res_env_exp_realign_filter $BASE/bfd.mgnify30.metaeuk30.smag30.a3m --msa-format-mode 6 --db-load-mode $DB_LOAD_MODE --threads $THREADS $FILTER_PARAM || exit 1
 
@@ -107,10 +121,8 @@ $MMSEQS rmdb $BASE/final.a3m || exit 1
 $MMSEQS rmdb $BASE/uniref.a3m || exit 1
 $MMSEQS rmdb $BASE/res || exit 1
 
-for FILE in $BASE/prof_res*; do
-    rm $FILE
-done
+$MMSEQS rmdb $BASE/qdb
+$MMSEQS rmdb $BASE/qdb_h
 
-rm -rf $BASE/tmp
-# rm -rf $BASE/tmp2
-rm -rf $BASE/tmp3
+rm -f -- "${BASE}/prof_res"*
+rm -rf -- "${BASE}/tmp"
