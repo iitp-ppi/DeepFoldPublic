@@ -662,7 +662,9 @@ class FeaturePipelineConfig:
         is_multimer: bool = False,
         **additional_options,
     ) -> FeaturePipelineConfig:
-        cfg = {}
+        cfg = {
+            "ensemble_seed": ensemble_seed,
+        }
         if preset == "predict":
             cfg = _predict_mode(is_multimer)
         elif preset == "eval":
@@ -676,7 +678,6 @@ class FeaturePipelineConfig:
             cfg.update(
                 {
                     "is_multimer": True,
-                    "ensemble_seed": ensemble_seed,
                     "max_recycling_iters": 20,
                 }
             )
