@@ -232,6 +232,13 @@ def predict(args: argparse.Namespace) -> None:
     else:
         seed = args.seed
 
+    # Parse the preset:
+    model_name, (model_cfg_kwargs, feat_cfg_kwargs, import_kwargs) = get_preset_opts(args.preset)
+
+    # Setup logging:
+    if dist.is_main_process():
+        setup_logging(f"predict.{model_name}.log")
+
     if args.mp_size > 0:
         # Assuming model parallelized prediction:
         dist.initialize()
@@ -273,7 +280,6 @@ def predict(args: argparse.Namespace) -> None:
     suffix = f"_{args.suffix}" if args.suffix else ""
 
     # Get configs:
-    model_name, (model_cfg_kwargs, feat_cfg_kwargs, import_kwargs) = get_preset_opts(args.preset)
     model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
