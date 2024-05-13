@@ -88,6 +88,7 @@ def main(args: argparse.Namespace) -> None:
     msa_features = create_msa_features(query_sequence, a3m_strings)
 
     logger.info("Write input features on {}".format(args.output_filepath))
+    args.output_filepath.parent.mkdir(parents=True, exist_ok=True)
     input_features = {**sequence_features, **msa_features, **template_features}
     dump_pickle(input_features, args.output_filepath, level=5)
 
