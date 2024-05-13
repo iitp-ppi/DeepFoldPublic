@@ -31,10 +31,10 @@ dependencies:
   - kalign2=2.04
   - mmseqs2=15.6f452
   - foldseek=9.427df8a
-  - isort
-  - black
   - openmm=8.0.0
   - pdbfixer
+  - python-dotenv
+  - pre_commit
   - pip:
       - mkdocs
       - mkdocs-literate-nav
