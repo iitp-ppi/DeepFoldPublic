@@ -62,6 +62,6 @@ def compute_distogram(
     max_bin: float = 21.6875,
     num_bins: int = 64,
 ) -> np.ndarray:
-    boundaries = bin_edges_np(min_bin, max_bin, num_bins)
+    # boundaries = bin_edges_np(min_bin, max_bin, num_bins)
     distances = np.sqrt(np.sum((pts[..., None, :, :] - pts[..., :, None, :]) ** 2, axis=-1))
     return distances
