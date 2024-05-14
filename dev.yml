@@ -33,6 +33,7 @@ dependencies:
   - mmseqs2=15.6f452
   - foldseek=9.427df8a
   - openmm=8.0.0
+  - cudatoolkit=11.8
   - pdbfixer
   - python-dotenv
   - pre_commit
@@ -44,7 +45,7 @@ dependencies:
       - mkdocs-material
       - mkdocstrings
       - mkdocstrings-python
-      - jax[cpu]==0.4.20
-      - dm-haiku==0.0.11
-      - dm-tree==0.1.8
+      # - jax[cpu]==0.4.20
+      # - dm-haiku==0.0.11
+      # - dm-tree==0.1.8
       - wandb
