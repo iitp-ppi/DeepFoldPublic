@@ -401,7 +401,6 @@ def predict(args: argparse.Namespace) -> None:
             tree=out,
         )
         logger.info("Save outputs...")
-        dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
         prot = protein.from_prediction(
             processed_features=batch_last,
@@ -411,6 +410,8 @@ def predict(args: argparse.Namespace) -> None:
         )
         with open(args.output_dirpath / f"unrelaxed_{model_name}{suffix}.pdb", "w") as fp:
             fp.write(protein.to_pdb(prot))
+
+        dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
     # Exit:
     del model
