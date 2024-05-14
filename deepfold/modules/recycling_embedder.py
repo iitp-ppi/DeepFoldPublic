@@ -138,7 +138,7 @@ def _embed_pair_distances_eager(
     w: torch.Tensor,
     b: torch.Tensor,
 ) -> torch.Tensor:
-    d = (x_prev.unsqueeze(-2) - x_prev.unsqueeze(-3)).pow(2).sum(dim=-1, keepdims=True)
+    d = (x_prev.unsqueeze(-2) - x_prev.unsqueeze(-3)).pow(2).sum(dim=-1, keepdim=True)
     d = torch.logical_and(d > lower, d < upper).to(dtype=x_prev.dtype)
     d = F.linear(d, w, b)
     return d
@@ -223,7 +223,7 @@ class OpenFoldRecyclingEmbedder(nn.Module):
         )
         squared_bins = bins**2
         upper = torch.cat([squared_bins[1:], squared_bins.new_tensor([self.inf])], dim=-1)
-        d = torch.sum((x_prev[..., :, None, :] - x_prev[..., None, :, :]) ** 2, dim=-1, keepdims=True)
+        d = torch.sum((x_prev[..., :, None, :] - x_prev[..., None, :, :]) ** 2, dim=-1, keepdim=True)
 
         # [*, N, N, no_bins]
         d = ((d > squared_bins) * (d < upper)).type(x_prev.dtype)

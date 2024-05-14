@@ -7,7 +7,7 @@ from typing import Tuple
 
 import torch
 
-import deepfold.distributed.main as dist
+import deepfold.distributed._dist as dist
 
 # whether DAP has been initialized or not
 _DAP_INITIALIZED = False

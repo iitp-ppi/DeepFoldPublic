@@ -18,7 +18,7 @@ class TqdmHandler(logging.StreamHandler):
         tqdm.write(msg)
 
 
-def setup_logging(filename: os.PathLike, mode: str = "w") -> None:
+def setup_logging(filename: str | os.PathLike | Path, mode: str = "w") -> None:
     assert mode in ("w", "a")  # Not read mode
 
     # Make parent directory

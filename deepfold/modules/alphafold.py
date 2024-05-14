@@ -519,7 +519,7 @@ def _build_extra_msa_feat_eager(
     extra_deletion_value: torch.Tensor,
     num_classes: int,
 ) -> torch.Tensor:
-    msa_1hot = F.one_hot(input=extra_msa, num_classes=num_classes)
+    msa_1hot = F.one_hot(extra_msa, num_classes=num_classes)
     msa_feat = [
         msa_1hot,
         extra_has_deletion.unsqueeze(-1),
@@ -578,7 +578,7 @@ def _build_template_angle_feat(feats: Dict[str, torch.Tensor]) -> torch.Tensor:
     torsion_angles_mask = feats["template_torsion_angles_mask"]
     template_angle_feat = torch.cat(
         [
-            F.one_hot(input=template_aatype, num_classes=22),
+            F.one_hot(template_aatype, num_classes=22),
             torsion_angles_sin_cos.reshape(*torsion_angles_sin_cos.shape[:-2], 14),
             alt_torsion_angles_sin_cos.reshape(*alt_torsion_angles_sin_cos.shape[:-2], 14),
             torsion_angles_mask,
@@ -602,7 +602,7 @@ def _build_template_angle_feat_multimer(feats: Dict[str, torch.Tensor]) -> Tuple
 
     template_angle_feat = torch.cat(
         [
-            F.one_hot(input=template_aatype, num_classes=22),
+            F.one_hot(template_aatype, num_classes=22),
             torch.sin(template_chi_angles) * template_chi_mask,
             torch.cos(template_chi_angles) * template_chi_mask,
             template_chi_mask,

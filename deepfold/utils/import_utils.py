@@ -26,6 +26,8 @@ def reshape_weight(x: np.ndarray) -> np.ndarray:
         return x.transpose(-1, -2)
     elif len_shape == 1:
         return x.reshape(-1, 1)
+    else:
+        raise RuntimeError("Wrong shape")
 
 
 # NOTE: `partial`` prevents `fns` from becoming methods.

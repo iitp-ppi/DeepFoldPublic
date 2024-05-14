@@ -105,7 +105,7 @@ def trunc_normal_init_(
     weight_data.copy_(torch.tensor(values, device=weight_data.device))
 
 
-def _calculate_fan(linear_weight_shape: torch.Size, fan: str = "fan_in") -> int:
+def _calculate_fan(linear_weight_shape: torch.Size, fan: str = "fan_in") -> float:
     fan_out, fan_in = linear_weight_shape
     if fan == "fan_in":
         fan_value = fan_in

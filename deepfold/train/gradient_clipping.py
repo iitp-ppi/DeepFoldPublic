@@ -36,7 +36,7 @@ def update_norm_from_buckets(
     bucket: torch.distributed.GradBucket,
 ) -> torch.futures.Future[torch.Tensor]:
     grad = bucket.buffer()
-    world_size = state.comm_group.size()
+    world_size = state.comm_group.size() if state.comm_group is not None else 1
     grad.div_(world_size)
 
     def _acc_grad_norm(fut: torch.futures.Future[torch.Tensor]) -> torch.Tensor:
@@ -45,4 +45,12 @@ def update_norm_from_buckets(
         state._norm_acc += grad_to_power_p.sum()
         return synced_grad
 
-    return torch.distributed.all_reduce(grad, group=state.comm_group, async_op=True).get_future().then(_acc_grad_norm)
+    return (
+        torch.distributed.all_reduce(
+            grad,
+            group=state.comm_group,
+            async_op=True,
+        )
+        .get_future()
+        .then(_acc_grad_norm)
+    )

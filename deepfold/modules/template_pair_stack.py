@@ -67,8 +67,8 @@ class TemplatePairStack(nn.Module):
 
     def forward(
         self,
-        t: torch.tensor,
-        mask: torch.tensor,
+        t: torch.Tensor,
+        mask: torch.Tensor,
         gradient_checkpointing: bool,
     ) -> torch.Tensor:
         """Template Pair Stack forward pass.

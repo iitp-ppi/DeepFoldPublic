@@ -100,7 +100,7 @@ def procrustes(
     regularization: float = 0.0,
     gradient_eps: float = 1e-5,
     return_singular_values: bool = False,
-) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor | None]:
     """Returns the orthonormal matrix minimizing Frobenius norm.
 
     Args:
@@ -117,7 +117,7 @@ def procrustes(
     r, ds = Procrustes.apply(m, force_rotation, regularization, gradient_eps)
     r = unflatten_batch_dims(r, batch_shape)
     if not return_singular_values:
-        return r
+        return r, None
     else:
         ds = unflatten_batch_dims(ds, batch_shape)
         return r, ds
@@ -128,7 +128,7 @@ def speical_procrustes(
     regularization: float = 0.0,
     gradient_eps: float = 1e-5,
     return_singular_values: bool = False,
-) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor | None]:
     return procrustes(
         m,
         force_rotation=True,
@@ -143,7 +143,7 @@ def rigid_vectors_registration(
     y: torch.Tensor,
     weights: Optional[torch.Tensor] = None,
     compute_scaling: bool = False,
-) -> Union[Tuple[torch.Tensor, torch.Tensor, float], Tuple[torch.Tensor, torch.Tensor]]:
+) -> Tuple[torch.Tensor, torch.Tensor | None]:
     if weights is None:
         n = x.shape[-2]
         m = torch.einsum("...ki,...kj->...ij", y, x / n)
@@ -153,6 +153,7 @@ def rigid_vectors_registration(
 
     if compute_scaling:
         rot, ds = speical_procrustes(m, return_singular_values=True)
+        assert ds is not None
         ds_tr = torch.sum(ds, dim=-1)
 
         if weights is None:
@@ -163,8 +164,8 @@ def rigid_vectors_registration(
         scale = ds_tr / sig2x
         return rot, scale
     else:
-        rot = speical_procrustes(m)
-        return rot
+        rot, _ = speical_procrustes(m)
+        return rot, None
 
 
 def rigid_points_registration(
@@ -172,7 +173,7 @@ def rigid_points_registration(
     y: torch.Tensor,
     weights: Optional[torch.Tensor] = None,
     compute_scaling: bool = False,
-) -> Union[Tuple[torch.Tensor, torch.Tensor, float], Tuple[torch.Tensor, torch.Tensor]]:
+) -> Tuple[torch.Tensor, torch.Tensor, float | None]:
     """Returns the rigid transformation and the optimal scaling
     that best align an input list of points `x` to a target list
     of points `y`, by minimizing the sum of square distance.
@@ -202,12 +203,13 @@ def rigid_points_registration(
     # Solve the vectors registration problem
     if compute_scaling:
         rot, scale = rigid_vectors_registration(x_hat, y_hat, weights=weights, compute_scaling=compute_scaling)
+        assert scale is not None
         trans = (y_mean - torch.einsum("...ik,...jk->...ji", scale[..., None, None] * rot, x_mean)).squeeze(-2)
-        return rot, trans, scale
+        return rot, trans, scale.item()
     else:
-        rot = rigid_vectors_registration(x_hat, y_hat, weights=weights, compute_scaling=compute_scaling)
+        rot, _ = rigid_vectors_registration(x_hat, y_hat, weights=weights, compute_scaling=compute_scaling)
         trans = (y_mean - torch.einsum("...ik,...jk->...ji", rot, x_mean)).squeeze(-2)
-        return rot, trans
+        return rot, trans, None
 
 
 kabsch = rigid_points_registration

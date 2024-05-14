@@ -96,7 +96,7 @@ class TemplatePairEmbedder(nn.Module):
         n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
 
         if inductor.is_enabled():
-            make_transform_from_reference = Rigid.make_transform_from_reference_jit
+            make_transform_from_reference = Rigid.make_transform_from_reference
         else:
             make_transform_from_reference = Rigid.make_transform_from_reference
         rigids = make_transform_from_reference(
@@ -107,7 +107,7 @@ class TemplatePairEmbedder(nn.Module):
         )
 
         points = rigids.get_trans().unsqueeze(-3)
-        rigid_vec = rigids.unsqueeze(-1).invert_apply_jit(points)
+        rigid_vec = rigids.unsqueeze(-1).invert_apply(points)
 
         if inductor.is_enabled():
             compute_part2_fn = _compute_part2_jit
@@ -165,7 +165,7 @@ def _compute_part1_eager(
     dgram = ((dgram > lower) * (dgram < upper)).to(dtype=dgram.dtype)
     to_concat = [dgram, template_mask_2d.unsqueeze(-1)]
     aatype_one_hot = F.one_hot(
-        input=template_aatype,
+        template_aatype,
         num_classes=num_classes,
     )
     return to_concat, aatype_one_hot
@@ -324,7 +324,7 @@ class TemplatePairEmbedderMultimer(nn.Module):
             compute_unit_vector = _compute_multimer_part2_eager
 
         points = rigids.get_trans().unsqueeze(-3)
-        rigid_vec = rigids.unsqueeze(-1).invert_apply_jit(points)
+        rigid_vec = rigids.unsqueeze(-1).invert_apply(points)
         unit_vector = compute_unit_vector(rigid_vec, eps, template_all_atom_mask, n, ca, c)
 
         return {
@@ -350,7 +350,7 @@ def _compute_multimer_part1_eager(
     )
     dgram = ((dgram > lower) * (dgram < upper)).to(dtype=dgram.dtype)
     aatype_one_hot = F.one_hot(
-        input=template_aatype,
+        tensor=template_aatype,
         num_classes=num_classes,
     )
     return dgram, aatype_one_hot

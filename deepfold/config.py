@@ -8,9 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
-from omegaconf import DictConfig
-
-from deepfold.utils import config_utils
+import dacite
 
 NUM_RES = "NUM_RES"
 NUM_MSA_SEQ = "NUM_MSA_SEQ"
@@ -470,12 +468,8 @@ class AlphaFoldConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, cfg: dict) -> "AlphaFoldConfig":
-        return config_utils.from_dict(
-            data_class=AlphaFoldConfig,
-            data=cfg,
-            config=config_utils.Config(check_types=True, strict=True),
-        )
+    def from_dict(cls, cfg: dict) -> AlphaFoldConfig:
+        return dacite.from_dict(cls, cfg, dacite.Config(strict=True, check_types=True))
 
 
 def _inference_stage(
@@ -684,18 +678,14 @@ class FeaturePipelineConfig:
 
         cfg.update(additional_options)
 
-        return cls.from_dict(cfg)
+        return dacite.from_dict(cls, cfg, dacite.Config(strict=True, check_types=True))
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, cfg: DictConfig) -> FeaturePipelineConfig:
-        return config_utils.from_dict(
-            data_class=FeaturePipelineConfig,
-            data=cfg,
-            config=config_utils.Config(check_types=True, strict=True),
-        )
+    def from_dict(cls, cfg: dict) -> FeaturePipelineConfig:
+        return dacite.from_dict(cls, cfg, dacite.Config(strict=True, check_types=True))
 
 
 def _predict_mode(is_multimer: bool = False) -> dict:
@@ -945,19 +935,12 @@ class TrainingConfig:
 
     @classmethod
     def from_preset(cls, **additional_options) -> TrainingConfig:
-        cfg = {}
-
-        cfg.update(additional_options)
-
+        cfg = {**additional_options}
         return cls.from_dict(cfg)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, cfg: dict) -> "AlphaFoldConfig":
-        return config_utils.from_dict(
-            data_class=AlphaFoldConfig,
-            data=cfg,
-            config=config_utils.Config(check_types=True, strict=True),
-        )
+    def from_dict(cls, cfg: dict) -> TrainingConfig:
+        return cls(**cfg)

@@ -13,3 +13,10 @@ profile = "black"
 line_length = 150
 py_version = 39
 skip_glob = ["_runs/*", "csrc/*"]
+
+[tool.pyright]
+include = ["deepfold", "tests"]
+exclude = ["**/node_modules", "**/__pycache__"]
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"

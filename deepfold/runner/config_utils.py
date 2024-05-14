@@ -7,13 +7,13 @@ from omegaconf import DictConfig, OmegaConf
 
 def load(path: Union[str, bytes, os.PathLike]):
     """Load yaml-format configuration."""
-    path = Path(path)
+    path = Path(str(path))
     cfg = OmegaConf.load(path)
 
     return _load_yaml(cfg, path)
 
 
-def _load_yaml(cfg: DictConfig, path: Union[str, bytes, os.PathLike]) -> DictConfig:
+def _load_yaml(cfg: DictConfig, path: Path) -> DictConfig:
     if "include" in cfg:
         # Load includes
         paths = [Path(path.parent / p) for p in cfg.include]

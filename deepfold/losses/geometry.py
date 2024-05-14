@@ -39,8 +39,8 @@ def compute_fape(
 
     """
     # [*, N_frames, N_pts, 3]
-    local_pred_pos = pred_frames.invert_jit()[..., None].apply(pred_positions[..., None, :, :])
-    local_target_pos = target_frames.invert_jit()[..., None].apply(target_positions[..., None, :, :])
+    local_pred_pos = pred_frames.invert()[..., None].apply(pred_positions[..., None, :, :])
+    local_target_pos = target_frames.invert()[..., None].apply(target_positions[..., None, :, :])
 
     error_dist = torch.sqrt(torch.sum((local_pred_pos - local_target_pos) ** 2, dim=-1) + eps)
 
@@ -387,7 +387,7 @@ def get_optimal_transform(
 
     if mask is None:
         mask = src_atoms.new_ones(src_atoms.shape[:-1])
-    r, t = kabsch(src_atoms, tgt_atoms, weights=mask)
+    r, t, _ = kabsch(src_atoms, tgt_atoms, weights=mask)
     return r, t
 
 

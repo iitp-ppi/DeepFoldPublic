@@ -11,14 +11,12 @@ import datetime
 import gzip
 import io
 import math
-import zlib
 from collections import defaultdict, namedtuple
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
-import pandas as pd
 from Bio import PDB
 from Bio.Data import PDBData
 from Bio.PDB.Model import Model as PDBModel
@@ -40,10 +38,9 @@ _Sequences = Dict[_AuthorChainId, str]
 _AuthorChainIds = List[_AuthorChainId]
 _EntityIdToChainIds = Dict[_EntityId, List[_MMCIFChainId]]
 _ResidueIndex = int
-_ResidueKey = Tuple[str, int, str]
+_ResidueKey = Tuple[str, int, str] | None
 _ResidueKeys = Dict[_AuthorChainId, Dict[_ResidueIndex, _ResidueKey]]
 _AtomsNumpy = Dict[_AuthorChainId, Dict[str, np.ndarray]]
-_AtomsCompressed = Dict[_AuthorChainId, Dict[str, Tuple[bytearray, tuple]]]
 
 
 def load_mmcif_file(mmcif_filepath: Path) -> str:

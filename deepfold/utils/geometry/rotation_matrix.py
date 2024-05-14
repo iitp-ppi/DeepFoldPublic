@@ -94,7 +94,8 @@ class Rot3Array:
         e0 = e0.normalized()
         # make e1 perpendicular to e0.
         c = e1.dot(e0)
-        e1 = (e1 - c * e0).normalized()
+        e1 = e1 - c * e0
+        e1 = e1.normalized()
         # Compute e2 as cross product of e0 and e1.
         e2 = e0.cross(e1)
         return cls(e0.x, e1.x, e2.x, e0.y, e1.y, e2.y, e0.z, e1.z, e2.z)

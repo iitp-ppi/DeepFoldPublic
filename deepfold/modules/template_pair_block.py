@@ -87,8 +87,8 @@ class TemplatePairBlock(nn.Module):
 
     def forward(
         self,
-        t: torch.tensor,
-        mask: torch.tensor,
+        t: torch.Tensor,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
         """Template Pair Block forward pass.
 

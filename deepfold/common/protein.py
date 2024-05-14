@@ -82,7 +82,7 @@ class Protein:
     parents_chain_index: Optional[Sequence[int]] = None
 
     def __post_init__(self):
-        if len(np.unique(self.chain_index)) > PDB_MAX_CHAINS:
+        if self.chain_index is not None and len(np.unique(self.chain_index)) > PDB_MAX_CHAINS:
             raise ValueError(f"Cannot build an instance with more than {PDB_MAX_CHAINS} " "chains because these cannot be written to PDB format")
 
 
@@ -149,16 +149,16 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
     if "PARENT" in pdb_str:
         parents = []
         parents_chain_index = []
-        chain_id = 0
+        chain_count = 0
         for l in pdb_str.split("\n"):
             if "PARENT" in l:
                 if not "N/A" in l:
                     parent_names = l.split()[1:]
                     parents.extend(parent_names)
-                    parents_chain_index.extend([chain_id for _ in parent_names])
-                chain_id += 1
+                    parents_chain_index.extend([chain_count for _ in parent_names])
+                chain_count += 1
 
-    unique_chain_ids = np.unique(chain_ids)
+    # unique_chain_ids = np.unique(chain_ids)
     chain_id_mapping = {cid: n for n, cid in enumerate(string.ascii_uppercase)}
     chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
 

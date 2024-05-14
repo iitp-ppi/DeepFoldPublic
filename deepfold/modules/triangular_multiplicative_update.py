@@ -146,8 +146,9 @@ class TriangleMultiplicativeUpdate(nn.Module):
             Avoid too small block size (<256).
         """
         out = torch.empty_like(z)
-
         par_dim = z.shape[-3] if self._is_outgoing else z.shape[-2]  # N'
+
+        assert self.block_size is not None
 
         for i_begin, i_end in slice_generator(0, par_dim, self.block_size):
             if self._is_outgoing:
@@ -308,7 +309,7 @@ def _compute_projections_eager(
     b_ab_g: torch.Tensor,
     w_ab_p: torch.Tensor,
     b_ab_p: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
     ab = F.linear(z, w_ab_g, b_ab_g)
     ab = torch.sigmoid(ab) * mask
     ab = ab * F.linear(z, w_ab_p, b_ab_p)
@@ -330,7 +331,8 @@ def _compute_projections(
         compute_projections_fn = _compute_projections_jit
     else:
         compute_projections_fn = _compute_projections_eager
-    return compute_projections_fn(z, mask, w_ab_g, b_ab_g, w_ab_p, b_ab_p).chunk(2, dim=-1)
+    a, b = compute_projections_fn(z, mask, w_ab_g, b_ab_g, w_ab_p, b_ab_p).chunk(2, dim=-1)
+    return a, b
 
 
 def _compute_output_eager(

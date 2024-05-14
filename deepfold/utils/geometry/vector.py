@@ -184,7 +184,7 @@ def dot(vector1: Vec3Array, vector2: Vec3Array) -> Float:
     return vector1.dot(vector2)
 
 
-def cross(vector1: Vec3Array, vector2: Vec3Array) -> Float:
+def cross(vector1: Vec3Array, vector2: Vec3Array) -> Vec3Array:
     return vector1.cross(vector2)
 
 

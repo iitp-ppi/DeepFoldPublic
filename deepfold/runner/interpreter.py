@@ -1,7 +1,7 @@
 import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
 import networkx as nx
 
@@ -72,7 +72,7 @@ class Interpreter:
         for k, v in self.vars.items():
             print(k, "->", v)
 
-    def parse(self, s: str) -> List[Dict[str, Any]]:
+    def parse(self, s: str) -> None:
         self.commands = self.parser.parse(s)
 
 
@@ -104,5 +104,5 @@ class Graph:
 class Predict:
     name: str
     model: Model
-    stoi: List[List[Entity, int]]
+    stoi: List[Tuple[Entity, int]]
     options: Dict[str, Any]

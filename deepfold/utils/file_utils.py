@@ -68,7 +68,7 @@ def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
 def find_paths(paths: Sequence[os.PathLike]) -> List[Path]:
     found_paths = set()
     for regex in paths:
-        path_found = glob(regex)
+        path_found = glob(str(regex))
         for p in path_found:
             found_paths.add(str(p))
     found_paths = list(found_paths)

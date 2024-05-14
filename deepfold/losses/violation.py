@@ -221,8 +221,8 @@ def between_residue_clash_loss(
     # Compute the per atom clash.
     # shape (N, 14)
     per_atom_clash_mask = torch.maximum(
-        torch.amax(clash_mask, axis=(-4, -2)),
-        torch.amax(clash_mask, axis=(-3, -1)),
+        torch.amax(clash_mask, dim=(-4, -2)),
+        torch.amax(clash_mask, dim=(-3, -1)),
     )
 
     return {

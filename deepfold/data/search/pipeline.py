@@ -68,7 +68,7 @@ def create_protein_features(
     is_distillation: bool = False,
 ) -> dict:
     pdb_feats = {}
-    aatype = protein_object.aatype
+    aatype = list(protein_object.aatype)  # [NUM_RES]
     sequence = _aatype_to_str_sequence(aatype)
     pdb_feats.update(create_sequence_features(sequence=sequence, domain_name=description))
     all_atom_positions = protein_object.atom_positions
@@ -105,7 +105,7 @@ def create_template_features(
     query_release_date = datetime_from_string(max_release_date, r"%Y-%m-%d")
     template_features = template_hit_featurizer.get_template_features(
         query_sequence=sequence,
-        template_hits=template_hits,
+        template_hits=list(template_hits),
         max_template_date=query_release_date,
         query_pdb_id=pdb_id,
         shuffling_seed=shuffling_seed,
@@ -141,7 +141,7 @@ def create_template_features_from_hmmsearch_sto_string(
     pdb_id: str | None = None,
     shuffling_seed: int | None = None,
 ) -> dict:
-    template_hits = parse_hmmsearch_sto(sto_string)
+    template_hits = parse_hmmsearch_sto(sequence, sto_string)
     template_features = create_template_features(
         sequence=sequence,
         template_hits=template_hits,

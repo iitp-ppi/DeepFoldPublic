@@ -208,7 +208,7 @@ def compute_tm(
     predicted_tm_term *= pair_mask
 
     pair_residue_weights = pair_mask * (residue_weights[..., None, :] * residue_weights[..., :, None])
-    denom = eps + torch.sum(pair_residue_weights, dim=-1, keepdims=True)
+    denom = eps + torch.sum(pair_residue_weights, dim=-1, keepdim=True)
     normed_residue_mask = pair_residue_weights / denom
     per_alignment = torch.sum(predicted_tm_term * normed_residue_mask, dim=-1)
 

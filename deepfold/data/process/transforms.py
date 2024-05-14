@@ -1,34 +1,20 @@
-# Copyright 2024 DeepFold Team
-# Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright 2022 AlQuraishi Laboratory
+# Copyright 2023 NVIDIA CORPORATION
+# Copyright 2024 DeepFold Team
 
 import itertools
 from functools import reduce, wraps
 from operator import add
-from typing import Dict, Optional
+from typing import Dict, Set, Tuple, Union
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
-import deepfold.common.residue_constants as rc
-from deepfold.config import NUM_EXTRA_SEQ, NUM_MSA_SEQ, NUM_RES, NUM_TEMPLATES
-from deepfold.utils.geometry import Rigid, Rigid3Array, Rot3Array, Rotation, Vec3Array
-from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map, tree_map
-
-TensorDict = Dict[str, torch.Tensor]
-
+from deepfold.common import residue_constants as rc
+from deepfold.utils.random import TORCH_SEED_MODULUS
+from deepfold.utils.rigid_utils import Rigid, Rotation
 
 MSA_FEATURE_NAMES = [
     "msa",
@@ -50,21 +36,19 @@ def cast_to_64bit_ints(protein):
 
 
 def make_one_hot(x, num_classes):
+    # return F.one_hot(x, num_classes=num_classes)
     x_one_hot = torch.zeros(*x.shape, num_classes, device=x.device)
     x_one_hot.scatter_(-1, x.unsqueeze(-1), 1)
-
     return x_one_hot
 
 
 def make_seq_mask(protein):
     protein["seq_mask"] = torch.ones(protein["aatype"].shape, dtype=torch.float32)
-
     return protein
 
 
 def make_template_mask(protein):
     protein["template_mask"] = torch.ones(protein["template_aatype"].shape[0], dtype=torch.float32)
-
     return protein
 
 
@@ -80,22 +64,22 @@ def curry1(f):
 
 def make_all_atom_aatype(protein):
     protein["all_atom_aatype"] = protein["aatype"]
-
     return protein
 
 
 def fix_templates_aatype(protein):
     # Map one-hot to indices
     num_templates = protein["template_aatype"].shape[0]
-    protein["template_aatype"] = torch.argmax(protein["template_aatype"], dim=-1)
-    # Map hhsearch-aatype to our aatype.
-    new_order_list = rc.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
-    new_order = torch.tensor(
-        new_order_list,
-        dtype=torch.int64,
-        device=protein["template_aatype"].device,
-    ).expand(num_templates, -1)
-    protein["template_aatype"] = torch.gather(new_order, 1, index=protein["template_aatype"])
+    if num_templates > 0:
+        protein["template_aatype"] = torch.argmax(protein["template_aatype"], dim=-1)
+        # Map hhsearch-aatype to our aatype.
+        new_order_list = rc.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
+        new_order = torch.tensor(
+            new_order_list,
+            dtype=torch.int64,
+            device=protein["aatype"].device,
+        ).expand(num_templates, -1)
+        protein["template_aatype"] = torch.gather(new_order, 1, index=protein["template_aatype"])
 
     return protein
 
@@ -109,7 +93,7 @@ def correct_msa_restypes(protein):
     ).transpose(0, 1)
     protein["msa"] = torch.gather(new_order, 0, protein["msa"])
 
-    perm_matrix = np.zeros((22, 22), dtype=np.float32)
+    perm_matrix = torch.zeros((22, 22), dtype=torch.float32)
     perm_matrix[range(len(new_order_list)), new_order_list] = 1.0
 
     for k in protein:
@@ -128,7 +112,6 @@ def correct_msa_restypes(protein):
 def squeeze_features(protein):
     """Remove singleton and repeated dimensions in protein features."""
     protein["aatype"] = torch.argmax(protein["aatype"], dim=-1)
-
     for k in [
         "domain_name",
         "msa",
@@ -158,36 +141,42 @@ def squeeze_features(protein):
 
 
 @curry1
-def randomly_replace_msa_with_unknown(protein, replace_proportion):
+def randomly_replace_msa_with_unknown(protein, replace_proportion, seed=None):
     """Replace a portion of the MSA with 'X'."""
-    msa_mask = torch.rand(protein["msa"].shape) < replace_proportion
+    g = torch.Generator(device=protein["msa"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
+    msa_mask = torch.rand(protein["msa"].shape, generator=g) < replace_proportion
     x_idx = 20
     gap_idx = 21
     msa_mask = torch.logical_and(msa_mask, protein["msa"] != gap_idx)
-    protein["msa"] = torch.where(msa_mask, torch.ones_like(protein["msa"]) * x_idx, protein["msa"])
-    aatype_mask = torch.rand(protein["aatype"].shape) < replace_proportion
+    protein["msa"] = torch.where(
+        msa_mask,
+        torch.ones_like(protein["msa"]) * x_idx,
+        protein["msa"],
+    )
+    aatype_mask = torch.rand(protein["aatype"].shape, generator=g) < replace_proportion
 
     protein["aatype"] = torch.where(
         aatype_mask,
         torch.ones_like(protein["aatype"]) * x_idx,
         protein["aatype"],
     )
-
     return protein
 
 
 @curry1
 def sample_msa(protein, max_seq, keep_extra, seed=None):
-    """Sample MSA randomly, remaining sequences are stored are stored as `extra_*`."""
+    """Sample MSA randomly, remaining sequences are stored as `extra_*`."""
     num_seq = protein["msa"].shape[0]
-
-    g = None
-    if seed is not None:
-        g = torch.Generator(device=protein["msa"].device)
-        g.manual_seed(seed)
-
+    g = torch.Generator(device=protein["msa"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
     shuffled = torch.randperm(num_seq - 1, generator=g) + 1
-    index_order = torch.cat((torch.tensor([0], device=shuffled.device), shuffled), dim=0)
+    index_order = torch.cat(
+        (torch.tensor([0], device=shuffled.device), shuffled),
+        dim=0,
+    )
     num_sel = min(max_seq, num_seq)
     sel_seq, not_sel_seq = torch.split(index_order, [num_sel, num_seq - num_sel])
 
@@ -203,23 +192,24 @@ def sample_msa(protein, max_seq, keep_extra, seed=None):
 @curry1
 def add_distillation_flag(protein, distillation):
     protein["is_distillation"] = distillation
-
     return protein
 
 
 @curry1
-def sample_msa_distillation(protein, max_seq):
+def sample_msa_distillation(protein, max_seq, seed):
     if protein["is_distillation"] == 1:
-        protein = sample_msa(max_seq, keep_extra=False)(protein)
-
+        protein = sample_msa(max_seq, keep_extra=False, seed=seed)(protein)
     return protein
 
 
 @curry1
-def crop_extra_msa(protein, max_extra_msa):
+def crop_extra_msa(protein, max_extra_msa, seed=None):
     num_seq = protein["extra_msa"].shape[0]
     num_sel = min(max_extra_msa, num_seq)
-    select_indices = torch.randperm(num_seq)[:num_sel]
+    g = torch.Generator(device=protein["msa"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
+    select_indices = torch.randperm(num_seq, generator=g)[:num_sel]
     for k in MSA_FEATURE_NAMES:
         if "extra_" + k in protein:
             protein["extra_" + k] = torch.index_select(protein["extra_" + k], 0, select_indices)
@@ -231,57 +221,39 @@ def delete_extra_msa(protein):
     for k in MSA_FEATURE_NAMES:
         if "extra_" + k in protein:
             del protein["extra_" + k]
-
     return protein
 
 
 # Not used in inference
 @curry1
-def block_delete_msa(
-    protein: TensorDict,
-    msa_fraction_per_block: float,
-    randomize_num_blocks: bool,
-    num_blocks: int,
-) -> TensorDict:
+def block_delete_msa(protein, config, seed=None):
     num_seq = protein["msa"].shape[0]
-    block_num_seq = torch.floor(
-        torch.tensor(
-            num_seq,
-            dtype=torch.float32,
-            device=protein["msa"].device,
-        )
-        * msa_fraction_per_block
-    ).to(torch.int32)
-
-    if int(block_num_seq) == 0:
-        return protein
-
-    if randomize_num_blocks:
-        nb = int(
-            torch.randint(
-                low=0,
-                high=(num_blocks + 1),
-                size=(1,),
-                device=protein["msa"].device,
-            )[0]
-        )
+    block_num_seq = torch.floor(torch.tensor(num_seq, dtype=torch.float32, device=protein["msa"].device) * config.msa_fraction_per_block).to(
+        torch.int32
+    )
+    g = torch.Generator(device=protein["msa"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
+    if config.randomize_num_blocks:
+        nb = torch.randint(0, config.num_blocks + 1, size=[1], generator=g)[0].item()
     else:
-        nb = num_blocks
+        nb = config.num_blocks
 
-    del_block_starts = torch.randint(low=1, high=num_seq, size=(nb,), device=protein["msa"].device)
-    del_blocks = del_block_starts[:, None] + torch.arange(start=0, end=block_num_seq)
-    del_blocks = torch.clip(del_blocks, 1, num_seq - 1)
-    del_indices = torch.unique(torch.reshape(del_blocks, [-1]))
+    del_block_starts = torch.randint(0, num_seq, size=[nb], generator=g)
+    del_blocks = del_block_starts[:, None] + torch.range(block_num_seq)
+    del_blocks = torch.clip(del_blocks, 0, num_seq - 1)
+    del_indices = torch.unique(torch.sort(torch.reshape(del_blocks, [-1])))[0]
 
     # Make sure we keep the original sequence
-    combined = torch.cat((torch.arange(start=0, end=num_seq), del_indices)).long()
+    combined = torch.cat((torch.range(1, num_seq)[None], del_indices[None]))
     uniques, counts = combined.unique(return_counts=True)
-    keep_indices = uniques[counts == 1]
+    difference = uniques[counts == 1]
+    # intersection = uniques[counts > 1]
+    keep_indices = torch.squeeze(difference, 0)
 
-    assert int(keep_indices[0]) == 0
     for k in MSA_FEATURE_NAMES:
         if k in protein:
-            protein[k] = torch.index_select(protein[k], 0, keep_indices)
+            protein[k] = torch.gather(protein[k], keep_indices)
 
     return protein
 
@@ -309,8 +281,14 @@ def nearest_neighbor_clusters(protein, gap_agreement_weight=0.0):
     # Compute tf.einsum('mrc,nrc,c->mn', sample_one_hot, extra_one_hot, weights)
     # in an optimized fashion to avoid possible memory or computation blowup.
     agreement = torch.matmul(
-        torch.reshape(extra_one_hot, [extra_num_seq, num_res * 23]),
-        torch.reshape(sample_one_hot * weights, [num_seq, num_res * 23]).transpose(0, 1),
+        torch.reshape(
+            input=extra_one_hot,
+            shape=[extra_num_seq, num_res * 23],
+        ),
+        torch.reshape(
+            input=sample_one_hot * weights,
+            shape=[num_seq, num_res * 23],
+        ).transpose(0, 1),
     )
 
     # Assign each sequence in the extra sequences to the closest MSA sample
@@ -335,7 +313,6 @@ def unsorted_segment_sum(data, segment_ids, num_segments):
     shape = [num_segments] + list(data.shape[1:])
     tensor = torch.zeros(*shape, device=segment_ids.device).scatter_add_(0, segment_ids, data.float())
     tensor = tensor.type(data.dtype)
-
     return tensor
 
 
@@ -370,19 +347,27 @@ def make_msa_mask(protein):
     return protein
 
 
-def pseudo_beta_fn(aatype, all_atom_positions, all_atom_mask):
+def pseudo_beta_fn(
+    aatype: torch.Tensor,
+    all_atom_positions: torch.Tensor,
+    all_atom_mask: torch.Tensor | None,
+) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     """Create pseudo beta features."""
     is_gly = torch.eq(aatype, rc.restype_order["G"])
     ca_idx = rc.atom_order["CA"]
     cb_idx = rc.atom_order["CB"]
     pseudo_beta = torch.where(
-        torch.tile(is_gly[..., None], [1] * len(is_gly.shape) + [3]),
+        torch.tile(is_gly.unsqueeze(-1), [1] * is_gly.ndim + [3]),
         all_atom_positions[..., ca_idx, :],
         all_atom_positions[..., cb_idx, :],
     )
 
     if all_atom_mask is not None:
-        pseudo_beta_mask = torch.where(is_gly, all_atom_mask[..., ca_idx], all_atom_mask[..., cb_idx])
+        pseudo_beta_mask = torch.where(
+            is_gly,
+            all_atom_mask[..., ca_idx],
+            all_atom_mask[..., cb_idx],
+        )
         return pseudo_beta, pseudo_beta_mask
     else:
         return pseudo_beta
@@ -400,23 +385,23 @@ def make_pseudo_beta(protein, prefix=""):
         protein[prefix + "all_atom_positions"],
         protein["template_all_atom_mask" if prefix else "all_atom_mask"],
     )
-
     return protein
 
 
 @curry1
 def add_constant_field(protein, key, value):
     protein[key] = torch.tensor(value, device=protein["msa"].device)
-
     return protein
 
 
-def shaped_categorical(probs, epsilon=1e-10):
+def shaped_categorical(probs, generator, epsilon=1e-10):
     ds = probs.shape
     num_classes = ds[-1]
-    distribution = torch.distributions.categorical.Categorical(torch.reshape(probs + epsilon, [-1, num_classes]))
-    counts = distribution.sample()
-
+    probs = torch.reshape(probs + epsilon, [-1, num_classes])
+    check_result = torch.distributions.constraints.simplex.check(probs)
+    assert check_result.all()
+    counts = torch.multinomial(probs, num_samples=1, replacement=True, generator=generator)
+    counts = counts.squeeze(-1)
     return torch.reshape(counts, ds[:-1])
 
 
@@ -429,24 +414,22 @@ def make_hhblits_profile(protein):
     msa_one_hot = make_one_hot(protein["msa"], 22)
 
     protein["hhblits_profile"] = torch.mean(msa_one_hot, dim=0)
-
     return protein
 
 
 @curry1
-def make_masked_msa(
-    protein: TensorDict,
-    profile_prob: float,
-    same_prob: float,
-    uniform_prob: float,
-    replace_fraction: float,
-    seed: Optional[int] = None,
-) -> TensorDict:
+def make_masked_msa(protein, profile_prob, same_prob, uniform_prob, replace_fraction, seed=None):
     """Create data for BERT on raw MSA."""
-    device = protein["msa"].device
-
     # Add a random amino acid uniformly.
-    random_aa = torch.tensor([0.05] * 20 + [0.0, 0.0], dtype=torch.float32, device=device)
+    g = torch.Generator(device=protein["seq_length"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
+
+    random_aa = torch.tensor(
+        [0.05] * 20 + [0.0, 0.0],
+        dtype=torch.float32,
+        device=protein["aatype"].device,
+    )
 
     categorical_probs = uniform_prob * random_aa + profile_prob * protein["hhblits_profile"] + same_prob * make_one_hot(protein["msa"], 22)
 
@@ -456,23 +439,12 @@ def make_masked_msa(
     mask_prob = 1.0 - profile_prob - same_prob - uniform_prob
     assert mask_prob >= 0.0
 
-    categorical_probs = torch.nn.functional.pad(
-        categorical_probs,
-        pad_shapes,
-        value=mask_prob,
-    )
+    categorical_probs = F.pad(categorical_probs, pad_shapes, value=mask_prob)
 
     sh = protein["msa"].shape
+    mask_position = torch.rand(sh, generator=g) < replace_fraction
 
-    g = None
-    if seed is not None:
-        g = torch.Generator(device=protein["msa"].device)
-        g.manual_seed(seed)
-
-    sample = torch.rand(sh, device=device, generator=g)
-    mask_position = sample < replace_fraction
-
-    bert_msa = shaped_categorical(categorical_probs)
+    bert_msa = shaped_categorical(categorical_probs, generator=g)
     bert_msa = torch.where(mask_position, bert_msa, protein["msa"])
 
     # Mix real and masked MSA
@@ -484,38 +456,40 @@ def make_masked_msa(
 
 
 @curry1
-def make_fixed_size(
-    protein,
-    shape_schema,
-    msa_cluster_size,
-    extra_msa_size,
-    num_res=0,
-    num_templates=0,
-):
+def pad_to_schema_shape(
+    protein: Dict[str, torch.Tensor],
+    feature_schema_shapes: Dict[str, tuple],
+    num_residues: int,
+    num_clustered_msa_seq: int,
+    num_extra_msa_seq: int,
+    num_templates: int,
+) -> Dict[str, torch.Tensor]:
     """Guess at the MSA and sequence dimension to make fixed size."""
+
     pad_size_map = {
-        NUM_RES: num_res,
-        NUM_MSA_SEQ: msa_cluster_size,
-        NUM_EXTRA_SEQ: extra_msa_size,
-        NUM_TEMPLATES: num_templates,
+        "N_res": num_residues,
+        "N_clust": num_clustered_msa_seq,
+        "N_extra_seq": num_extra_msa_seq,
+        "N_templ": num_templates,
     }
 
-    for k, v in protein.items():
-        # Don't transfer this to the accelerator.
-        if k == "extra_cluster_assignment":
+    for key, tensor in protein.items():
+        if key == "extra_cluster_assignment":
             continue
-        shape = list(v.shape)
-        schema = shape_schema[k]
-        msg = "Rank mismatch between shape and shape schema for"
-        assert len(shape) == len(schema), f"{msg} {k}: {shape} vs {schema}"
-        pad_size = [pad_size_map.get(s2, None) or s1 for (s1, s2) in zip(shape, schema)]
 
-        padding = [(0, p - v.shape[i]) for i, p in enumerate(pad_size)]
+        tensor_shape = list(tensor.shape)
+        schema_shape = feature_schema_shapes[key]
+        assert len(tensor_shape) == len(schema_shape)
+
+        pad_shape = [pad_size_map.get(dim_schema, dim_size) for (dim_schema, dim_size) in zip(schema_shape, tensor_shape)]
+
+        padding = [(0, pad_size - dim_size) for pad_size, dim_size in zip(pad_shape, tensor_shape)]
+
         padding.reverse()
         padding = list(itertools.chain(*padding))
+
         if padding:
-            protein[k] = torch.nn.functional.pad(v, padding)
-            protein[k] = torch.reshape(protein[k], pad_size)
+            protein[key] = F.pad(tensor, padding)
 
     return protein
 
@@ -558,13 +532,15 @@ def make_msa_feat(protein):
 
     protein["msa_feat"] = torch.cat(msa_feat, dim=-1)
     protein["target_feat"] = torch.cat(target_feat, dim=-1)
-
     return protein
 
 
 @curry1
-def select_feat(protein, feature_list):
-    return {k: v for k, v in protein.items() if k in feature_list}
+def filter_features(
+    protein: Dict[str, torch.Tensor],
+    allowed_feature_names: Set[str],
+) -> Dict[str, torch.Tensor]:
+    return {key: tensor for key, tensor in protein.items() if key in allowed_feature_names}
 
 
 @curry1
@@ -572,7 +548,6 @@ def crop_templates(protein, max_templates):
     for k, v in protein.items():
         if k.startswith("template_"):
             protein[k] = v[:max_templates]
-
     return protein
 
 
@@ -639,34 +614,26 @@ def make_atom14_masks(protein):
     return protein
 
 
-def make_atom14_masks_np(batch):
-    batch = tree_map(lambda n: torch.tensor(n, device="cpu"), batch, np.ndarray)
-    out = make_atom14_masks(batch)
-    out = tensor_tree_map(lambda t: np.array(t), out)
-
-    return out
-
-
 def make_atom14_positions(protein):
     """Constructs denser atom positions (14 dimensions instead of 37)."""
     residx_atom14_mask = protein["atom14_atom_exists"]
     residx_atom14_to_atom37 = protein["residx_atom14_to_atom37"]
 
     # Create a mask for known ground truth positions.
-    residx_atom14_gt_mask = residx_atom14_mask * batched_gather(
+    residx_atom14_gt_mask = residx_atom14_mask * _batched_gather(
         protein["all_atom_mask"],
         residx_atom14_to_atom37,
         dim=-1,
-        num_batch_dims=len(protein["all_atom_mask"].shape[:-1]),
+        no_batch_dims=len(protein["all_atom_mask"].shape[:-1]),
     )
 
     # Gather the ground truth positions.
     residx_atom14_gt_positions = residx_atom14_gt_mask[..., None] * (
-        batched_gather(
+        _batched_gather(
             protein["all_atom_positions"],
             residx_atom14_to_atom37,
             dim=-2,
-            num_batch_dims=len(protein["all_atom_positions"].shape[:-2]),
+            no_batch_dims=len(protein["all_atom_positions"].shape[:-2]),
         )
     )
 
@@ -733,13 +700,9 @@ def make_atom14_positions(protein):
 
 
 def atom37_to_frames(protein, eps=1e-8):
-    is_multimer = "asym_id" in protein
     aatype = protein["aatype"]
     all_atom_positions = protein["all_atom_positions"]
     all_atom_mask = protein["all_atom_mask"]
-
-    if is_multimer:
-        all_atom_positions = Vec3Array.from_array(all_atom_positions)
 
     batch_dims = len(aatype.shape[:-1])
 
@@ -772,59 +735,39 @@ def atom37_to_frames(protein, eps=1e-8):
     )
     restype_rigidgroup_base_atom37_idx = restype_rigidgroup_base_atom37_idx.view(*((1,) * batch_dims), *restype_rigidgroup_base_atom37_idx.shape)
 
-    residx_rigidgroup_base_atom37_idx = batched_gather(
+    residx_rigidgroup_base_atom37_idx = _batched_gather(
         restype_rigidgroup_base_atom37_idx,
         aatype,
         dim=-3,
-        num_batch_dims=batch_dims,
+        no_batch_dims=batch_dims,
     )
 
-    if is_multimer:
-        base_atom_pos = [
-            batched_gather(
-                pos,
-                residx_rigidgroup_base_atom37_idx,
-                dim=-1,
-                num_batch_dims=len(all_atom_positions.shape[:-1]),
-            )
-            for pos in all_atom_positions
-        ]
-        base_atom_pos = Vec3Array.from_array(torch.stack(base_atom_pos, dim=-1))
-    else:
-        base_atom_pos = batched_gather(
-            all_atom_positions,
-            residx_rigidgroup_base_atom37_idx,
-            dim=-2,
-            num_batch_dims=len(all_atom_positions.shape[:-2]),
-        )
+    base_atom_pos = _batched_gather(
+        all_atom_positions,
+        residx_rigidgroup_base_atom37_idx,
+        dim=-2,
+        no_batch_dims=len(all_atom_positions.shape[:-2]),
+    )
 
-    if is_multimer:
-        point_on_neg_x_axis = base_atom_pos[:, :, 0]
-        origin = base_atom_pos[:, :, 1]
-        point_on_xy_plane = base_atom_pos[:, :, 2]
-        gt_rotation = Rot3Array.from_two_vectors(origin - point_on_neg_x_axis, point_on_xy_plane - origin)
+    gt_frames = Rigid.from_3_points(
+        p_neg_x_axis=base_atom_pos[..., 0, :],
+        origin=base_atom_pos[..., 1, :],
+        p_xy_plane=base_atom_pos[..., 2, :],
+        eps=eps,
+    )
 
-        gt_frames = Rigid3Array(gt_rotation, origin)
-    else:
-        gt_frames = Rigid.from_3_points(
-            p_neg_x_axis=base_atom_pos[..., 0, :],
-            origin=base_atom_pos[..., 1, :],
-            p_xy_plane=base_atom_pos[..., 2, :],
-            eps=eps,
-        )
-
-    group_exists = batched_gather(
+    group_exists = _batched_gather(
         restype_rigidgroup_mask,
         aatype,
         dim=-2,
-        num_batch_dims=batch_dims,
+        no_batch_dims=batch_dims,
     )
 
-    gt_atoms_exist = batched_gather(
+    gt_atoms_exist = _batched_gather(
         all_atom_mask,
         residx_rigidgroup_base_atom37_idx,
         dim=-1,
-        num_batch_dims=len(all_atom_mask.shape[:-1]),
+        no_batch_dims=len(all_atom_mask.shape[:-1]),
     )
     gt_exists = torch.min(gt_atoms_exist, dim=-1)[0] * group_exists
 
@@ -832,12 +775,9 @@ def atom37_to_frames(protein, eps=1e-8):
     rots = torch.tile(rots, (*((1,) * batch_dims), 8, 1, 1))
     rots[..., 0, 0, 0] = -1
     rots[..., 0, 2, 2] = -1
+    rots = Rotation(rot_mats=rots)
 
-    if is_multimer:
-        gt_frames = gt_frames.compose_rotation(Rot3Array.from_array(rots))
-    else:
-        rots = Rotation(rot_mats=rots)
-        gt_frames = gt_frames.compose(Rigid(rots, None))
+    gt_frames = gt_frames.compose(Rigid(rots, None))
 
     restype_rigidgroup_is_ambiguous = all_atom_mask.new_zeros(*((1,) * batch_dims), 21, 8)
     restype_rigidgroup_rots = torch.eye(3, dtype=all_atom_mask.dtype, device=aatype.device)
@@ -853,28 +793,22 @@ def atom37_to_frames(protein, eps=1e-8):
         restype_rigidgroup_rots[..., restype, chi_idx + 4, 1, 1] = -1
         restype_rigidgroup_rots[..., restype, chi_idx + 4, 2, 2] = -1
 
-    residx_rigidgroup_is_ambiguous = batched_gather(
+    residx_rigidgroup_is_ambiguous = _batched_gather(
         restype_rigidgroup_is_ambiguous,
         aatype,
         dim=-2,
-        num_batch_dims=batch_dims,
+        no_batch_dims=batch_dims,
     )
 
-    residx_rigidgroup_ambiguity_rot = batched_gather(
+    residx_rigidgroup_ambiguity_rot = _batched_gather(
         restype_rigidgroup_rots,
         aatype,
         dim=-4,
-        num_batch_dims=batch_dims,
+        no_batch_dims=batch_dims,
     )
 
-    if is_multimer:
-        ambiguity_rot = Rot3Array.from_array(residx_rigidgroup_ambiguity_rot)
-
-        # Create the alternative ground truth frames.
-        alt_gt_frames = gt_frames.compose_rotation(ambiguity_rot)
-    else:
-        residx_rigidgroup_ambiguity_rot = Rotation(rot_mats=residx_rigidgroup_ambiguity_rot)
-        alt_gt_frames = gt_frames.compose(Rigid(residx_rigidgroup_ambiguity_rot, None))
+    residx_rigidgroup_ambiguity_rot = Rotation(rot_mats=residx_rigidgroup_ambiguity_rot)
+    alt_gt_frames = gt_frames.compose(Rigid(residx_rigidgroup_ambiguity_rot, None))
 
     gt_frames_tensor = gt_frames.to_tensor_4x4()
     alt_gt_frames_tensor = alt_gt_frames.to_tensor_4x4()
@@ -889,7 +823,7 @@ def atom37_to_frames(protein, eps=1e-8):
 
 
 def get_chi_atom_indices():
-    """Returns atom indices needed to compute chi angles for all residue types.
+    """Returns atom indices needed to compute chi angles for all residue types.`
 
     Returns:
       A tensor of shape [residue_types=21, chis=4, atoms=4]. The residue types are
@@ -975,7 +909,7 @@ def atom37_to_torsion_angles(
     chi_atom_indices = torch.as_tensor(get_chi_atom_indices(), device=aatype.device)
 
     atom_indices = chi_atom_indices[..., aatype, :, :]
-    chis_atom_pos = batched_gather(all_atom_positions, atom_indices, -2, len(atom_indices.shape[:-2]))
+    chis_atom_pos = _batched_gather(all_atom_positions, atom_indices, -2, len(atom_indices.shape[:-2]))
 
     chi_angles_mask = list(rc.chi_angles_mask)
     chi_angles_mask.append([0.0, 0.0, 0.0, 0.0])
@@ -983,11 +917,11 @@ def atom37_to_torsion_angles(
 
     chis_mask = chi_angles_mask[aatype, :]
 
-    chi_angle_atoms_mask = batched_gather(
+    chi_angle_atoms_mask = _batched_gather(
         all_atom_mask,
         atom_indices,
         dim=-1,
-        num_batch_dims=len(atom_indices.shape[:-2]),
+        no_batch_dims=len(atom_indices.shape[:-2]),
     )
     chi_angle_atoms_mask = torch.prod(chi_angle_atoms_mask, dim=-1, dtype=chi_angle_atoms_mask.dtype)
     chis_mask = chis_mask * chi_angle_atoms_mask
@@ -1041,9 +975,7 @@ def atom37_to_torsion_angles(
         )[((None,) * len(torsion_angles_sin_cos.shape[:-2])) + (slice(None), None)]
     )
 
-    chi_is_ambiguous = torsion_angles_sin_cos.new_tensor(
-        rc.chi_pi_periodic,
-    )[aatype, ...]
+    chi_is_ambiguous = torsion_angles_sin_cos.new_tensor(rc.chi_pi_periodic)[aatype, ...]
 
     mirror_torsion_angles = torch.cat(
         [
@@ -1072,30 +1004,28 @@ def get_backbone_frames(protein):
 
 def get_chi_angles(protein):
     dtype = protein["all_atom_mask"].dtype
-    protein["chi_angles_sin_cos"] = (protein["torsion_angles_sin_cos"][..., 3:, :]).to(dtype)
+    protein["chi_angles_sin_cos"] = protein["torsion_angles_sin_cos"][..., 3:, :].to(dtype)
     protein["chi_mask"] = protein["torsion_angles_mask"][..., 3:].to(dtype)
-
     return protein
 
 
 @curry1
-def random_crop_to_size(
-    protein,
-    crop_size,
-    max_templates,
-    shape_schema,
-    subsample_templates=False,
-    seed=None,
-):
-    """Crop randomly to `crop_size`, or keep as is if shorter than that."""
+def random_crop_and_template_subsampling(
+    protein: Dict[str, torch.Tensor],
+    feature_schema_shapes: Dict[str, tuple],
+    sequence_crop_size: int,
+    max_templates: int,
+    subsample_templates: bool = False,
+    seed: int | None = None,
+) -> Dict[str, torch.Tensor]:
+    """Randomly crop to `sequence_crop_size` and optionally subsample templates."""
     # We want each ensemble to be cropped the same way
+    g = torch.Generator(device=protein["seq_length"].device)
+    assert seed is not None
+    g.manual_seed(seed % TORCH_SEED_MODULUS)
 
-    g = None
-    if seed is not None:
-        g = torch.Generator(device=protein["seq_length"].device)
-        g.manual_seed(seed)
-
-    seq_length = protein["seq_length"]
+    seq_length = int(protein["seq_length"])
+    num_res_crop_size = min(seq_length, sequence_crop_size)
 
     if "template_mask" in protein:
         num_templates = protein["template_mask"].shape[-1]
@@ -1103,66 +1033,74 @@ def random_crop_to_size(
         num_templates = 0
 
     # No need to subsample templates if there aren't any
-    subsample_templates = subsample_templates and num_templates
-
-    num_res_crop_size = min(int(seq_length), crop_size)
+    subsample_templates = subsample_templates and num_templates > 0
 
     def _randint(lower, upper):
         return int(
             torch.randint(
-                lower,
-                upper + 1,
-                (1,),
-                device=protein["seq_length"].device,
+                low=lower,
+                high=upper + 1,
+                size=(1,),
                 generator=g,
+                device=protein["seq_length"].device,
             )[0]
         )
 
     if subsample_templates:
         templates_crop_start = _randint(0, num_templates)
-        templates_select_indices = torch.randperm(num_templates, device=protein["seq_length"].device, generator=g)
+        templates_select_indices = torch.randperm(
+            n=num_templates,
+            generator=g,
+            device=protein["seq_length"].device,
+        )
     else:
         templates_crop_start = 0
 
     num_templates_crop_size = min(num_templates - templates_crop_start, max_templates)
 
-    n = seq_length - num_res_crop_size
-    if "use_clamped_fape" in protein and protein["use_clamped_fape"] == 1.0:
-        right_anchor = n
-    else:
-        x = _randint(0, n)
-        right_anchor = n - x
+    assert seq_length >= num_res_crop_size
+    num_res_crop_start = _randint(0, seq_length - num_res_crop_size)
 
-    num_res_crop_start = _randint(0, right_anchor)
+    for key, tensor in protein.items():
+        assert key in feature_schema_shapes
+        schema_shape = feature_schema_shapes[key]
+        assert isinstance(schema_shape, tuple)
 
-    for k, v in protein.items():
-        if k not in shape_schema or ("template" not in k and NUM_RES not in shape_schema[k]):
+        if "template" not in key and "N_res" not in schema_shape:
             continue
 
         # randomly permute the templates before cropping them.
-        if k.startswith("template") and subsample_templates:
-            v = v[templates_select_indices]
+        if key.startswith("template") and subsample_templates:
+            tensor = tensor[templates_select_indices]
+
+        assert len(schema_shape) == len(tensor.shape)
 
         slices = []
-        for i, (dim_size, dim) in enumerate(zip(shape_schema[k], v.shape)):
-            is_num_res = dim_size == NUM_RES
-            if i == 0 and k.startswith("template"):
+        for dim_schema, dim_size in zip(schema_shape, tensor.shape):
+            is_N_res = bool(dim_schema == "N_res")
+            is_N_templ = bool(dim_schema == "N_templ")
+            if is_N_templ and key.startswith("template"):
                 crop_size = num_templates_crop_size
                 crop_start = templates_crop_start
             else:
-                crop_start = num_res_crop_start if is_num_res else 0
-                crop_size = num_res_crop_size if is_num_res else dim
+                crop_start = num_res_crop_start if is_N_res else 0
+                crop_size = num_res_crop_size if is_N_res else dim_size
             slices.append(slice(crop_start, crop_start + crop_size))
-        protein[k] = v[slices]
+        protein[key] = tensor[slices]
 
-    protein["seq_length"] = protein["seq_length"].new_tensor(num_res_crop_size)
+    protein["seq_length"].fill_(num_res_crop_size)
 
     return protein
 
 
-@curry1
-def rename_key(protein, key, new_key):
-    # NOTE: If `new_key` is already exists, overwrite.
-    if key in protein:
-        protein[new_key] = protein.pop(key)
-    return protein
+def _batched_gather(data, inds, dim=0, no_batch_dims=0):
+    ranges = []
+    for i, s in enumerate(data.shape[:no_batch_dims]):
+        r = torch.arange(s)
+        r = r.view(*(*((1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
+        ranges.append(r)
+
+    remaining_dims = [slice(None) for _ in range(len(data.shape) - no_batch_dims)]
+    remaining_dims[dim - no_batch_dims if dim >= 0 else dim] = inds
+    ranges.extend(remaining_dims)
+    return data[ranges]

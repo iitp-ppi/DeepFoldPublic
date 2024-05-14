@@ -1,4 +1,5 @@
-import numbers
+from numbers import Integral
+from typing import Sequence
 
 import torch
 import torch.nn as nn
@@ -7,11 +8,11 @@ import torch.nn.functional as F
 
 class LayerNorm(nn.Module):
 
-    def __init__(self, normalization_shape, eps=1e-5, elementwise_affine=True) -> None:
+    def __init__(self, normalization_shape: Sequence[Integral] | Integral, eps=1e-5, elementwise_affine=True) -> None:
         super().__init__()
-        if isinstance(normalization_shape, numbers.Integral):
+        if isinstance(normalization_shape, Integral):
             normalization_shape = (normalization_shape,)
-        self.normalized_shape = torch.Size(normalization_shape)
+        self.normalized_shape = torch.Size(int(x) for x in normalization_shape)
         self.eps = eps
         assert elementwise_affine
         self.weight = nn.Parameter(torch.Tensor(*normalization_shape))

@@ -196,7 +196,7 @@ class StructureModule(nn.Module):
             s = self.transition(s)
             # s: [batch, N_res, c_s]
 
-            rigids = rigids.compose_q_update_vec_jit(self.bb_update(s))
+            rigids = rigids.compose_q_update_vec(self.bb_update(s))
 
             # To hew as closely as possible to AlphaFold, we convert our
             # quaternion-based transformations to rotation-matrix ones here
@@ -418,13 +418,11 @@ def _torsion_angles_to_frames(
     all_rots[..., 0, 0] = 1
     all_rots[..., 1, 1] = alpha[..., 1]
     all_rots[..., 1, 2] = -alpha[..., 0]
-    # all_rots[..., 2, 1:] = alpha
     all_rots[..., 2, 1:3] = alpha
 
     # all_rots = Rigid(Rotation(rot_mats=all_rots), None)
     all_rots = rigid_type.from_tensor_4x4(all_rots)
 
-    # all_frames = default_r.compose_jit(all_rots)
     all_frames = default_r.compose(all_rots)
 
     chi2_frame_to_frame = all_frames[..., 5]
@@ -435,9 +433,6 @@ def _torsion_angles_to_frames(
     chi2_frame_to_bb = chi1_frame_to_bb.compose(chi2_frame_to_frame)
     chi3_frame_to_bb = chi2_frame_to_bb.compose(chi3_frame_to_frame)
     chi4_frame_to_bb = chi3_frame_to_bb.compose(chi4_frame_to_frame)
-    # chi2_frame_to_bb = chi1_frame_to_bb.compose_jit(chi2_frame_to_frame)
-    # chi3_frame_to_bb = chi2_frame_to_bb.compose_jit(chi3_frame_to_frame)
-    # chi4_frame_to_bb = chi3_frame_to_bb.compose_jit(chi4_frame_to_frame)
 
     all_frames_to_bb = rigid_type.cat(
         [

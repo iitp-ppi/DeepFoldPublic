@@ -135,6 +135,12 @@ def parse_args() -> argparse.Namespace:
         help="PDB obsoleted entry list file.",
     )
     parser.add_argument(
+        "--max_template_date",
+        type=str,
+        default=datetime.today().strftime(r"%Y-%m-%d"),
+        help="Maximum template release date.",
+    )
+    parser.add_argument(
         "--max_template_hits",
         type=int,
         default=20,
@@ -145,12 +151,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="kalign",
         help="Kalign binary filepath.",
-    )
-    parser.add_argument(
-        "--max_template_date",
-        type=str,
-        default=datetime.today().strftime(r"%Y-%m-%d"),
-        help="Maximum template release date.",
     )
     parser.add_argument(
         "--seed",

@@ -231,7 +231,7 @@ class InvariantPointAttention(nn.Module):
         o_pt = o_pt.movedim(-3, -1).swapdims(-3, -4)
         # o_pt: [batch, N_res, num_heads, num_v_points, 3]
 
-        o_pt = r.unsqueeze(-1).unsqueeze(-2).invert_apply_jit(o_pt)
+        o_pt = r.unsqueeze(-1).unsqueeze(-2).invert_apply(o_pt)
         # o_pt: [batch, N_res, num_heads, num_v_points, 3]
 
         if inductor.is_enabled():
@@ -470,8 +470,8 @@ class InvariantPointAttentionMultimer(nn.Module):
     def forward(
         self,
         s: torch.Tensor,
-        z: Optional[torch.Tensor],
-        r: Union[Rigid, Rigid3Array],
+        z: torch.Tensor,
+        r: Rigid3Array,
         mask: torch.Tensor,
     ) -> torch.Tensor:
         """

@@ -26,6 +26,7 @@ def contact_map(prot: protein.Protein, cutoff: float) -> np.ndarray:
     box_size = maxi - mini
     cell_lists = CellLists(box_size=box_size, num_particles=num_atoms, cutoff_distance=cutoff)
 
+    assert asym_id is not None
     all_atom_pos = prot.atom_positions  # - mini
     for rid, at in np.ndindex(shape):
         if prot.atom_mask[rid, at] > 0.5:  # TODO: Masked array?
@@ -36,7 +37,7 @@ def contact_map(prot: protein.Protein, cutoff: float) -> np.ndarray:
                         atom_type=at,
                         rid=rid,
                         residue_index=prot.residue_index[rid],
-                        chain_index=prot.chain_index[rid],
+                        chain_index=asym_id[rid],
                     ),
                 ),
             )

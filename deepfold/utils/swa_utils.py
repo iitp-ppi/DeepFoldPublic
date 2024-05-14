@@ -11,18 +11,19 @@ class AlphaFoldSWA(nn.Module):
         super().__init__()
 
         if enabled:
-            self.averaged_model = torch.optim.swa_utils.AveragedModel(model=alphafold, avg_fn=swa_avg_fn(decay_rate=decay_rate))
-            self.enabled = True
+            self.averaged_model = torch.optim.swa_utils.AveragedModel(
+                model=alphafold,
+                avg_fn=swa_avg_fn(decay_rate=decay_rate),
+            )
         else:
             self.averaged_model = None
-            self.enabled = False
 
     def update(self, model: AlphaFold) -> None:
-        if self.enabled:
+        if self.averaged_model is not None:
             self.averaged_model.update_parameters(model=model)
 
     def forward(self, batch):
-        if not self.enabled:
+        if self.averaged_model is None:
             raise RuntimeError("Weight averaging is not enabled")
         return self.averaged_model(batch)
 
@@ -41,6 +42,6 @@ class swa_avg_fn:
         self,
         averaged_model_parameter: torch.Tensor,
         model_parameter: torch.Tensor,
-        num_averaged: torch.Tensor,
+        num_averaged: int,
     ) -> torch.Tensor:
         return averaged_model_parameter + (model_parameter - averaged_model_parameter) * (1.0 - self.decay_rate)

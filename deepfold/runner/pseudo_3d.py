@@ -247,7 +247,7 @@ def _protein_best_view(
         pos = pos - (pos * weights[:, None]).sum(0, keepdims=True) / weights.sum()
         pos = pos @ kabsch(pos, pos, weights)[1]
     else:
-        pos = pos - pos.mean(0, keepdims=True)
+        pos = pos - pos.mean(axis=0, keepdims=True)
         pos = pos @ kabsch(pos, pos)[1]
     return pos
 

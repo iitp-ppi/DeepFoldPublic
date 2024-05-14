@@ -30,10 +30,10 @@ def numpy_seed(seed: Optional[int] = None, *additional_seeds, key: str = ""):
 
     if len(additional_seeds) > 0:
         additional_seeds = [int(i) for i in additional_seeds]
-        seed = hash((seed, *additional_seeds)) % 1e8
+        seed = hash((seed, *additional_seeds)) % 100000000
 
     if key is not None:
-        seed = hash((seed, str_hash(key))) % 1e8
+        seed = hash((seed, str_hash(key))) % 100000000
 
     state = np.random.get_state()
     np.random.seed(seed)

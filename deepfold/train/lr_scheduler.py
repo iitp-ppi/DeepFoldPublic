@@ -12,11 +12,11 @@ def get_learning_rate(optimizer: torch.optim.Optimizer) -> float:
         else:
             raise NotImplementedError("Multiple different learning rate values")
     else:
-        RuntimeError("Empty `param_groups`")
+        raise RuntimeError("Empty `param_groups`")
 
 
-def set_learning_rate(optimzer: torch.optim.Optimizer, lr_value: float) -> None:
-    for param_group in optimzer.param_groups:
+def set_learning_rate(optimizer: torch.optim.Optimizer, lr_value: float) -> None:
+    for param_group in optimizer.param_groups:
         param_group["lr"] = lr_value
 
 
@@ -47,7 +47,7 @@ class AlphaFoldLRScheduler:
             start=(init_lr / max(warmup_lr_length, 1)),
             end=init_lr,
             steps=warmup_lr_length,
-            device=torch.float64,
+            dtype=torch.float64,
         )
         self.prev_lr_value = None
 
@@ -61,7 +61,7 @@ class AlphaFoldLRScheduler:
             lr_value = self.final_lr
         # Set only if differes from the previous call:
         if lr_value != self.prev_lr_value:
-            set_learning_rate(optimzer=self.optimizer, lr_value=lr_value)
+            set_learning_rate(optimizer=self.optimizer, lr_value=lr_value)
             self.prev_lr_value = lr_value
 
 
@@ -97,8 +97,5 @@ class OpenFoldBenchmarkLRScheduler:
             lr_value = self.base_lr
         # Set only if differs from the previous call:
         if lr_value != self._prev_lr_value:
-            set_learning_rate(
-                optimizer=self.optimizer,
-                lr_value=lr_value,
-            )
+            set_learning_rate(optimizer=self.optimizer, lr_value=lr_value)
             self._prev_lr_value = lr_value

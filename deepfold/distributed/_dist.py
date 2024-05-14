@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 import torch
+import torch.distributed
 
 # whether torch distributed has been initialized or not
 _DIST_INITIALIZED = False
@@ -185,7 +186,7 @@ def gather_val_metrics(
     gather_nrows = len(val_metrics_list)
     gather_ncols = len(keys) + 1
     gather_shape = [gather_nrows, gather_ncols]
-    all_reduce_tensor = torch.tensor(gather_shape, device=device)
+    all_reduce_tensor = torch.tensor(gather_shape, device=device)  # LongTensor
     torch.distributed.all_reduce(
         tensor=all_reduce_tensor,
         op=torch.distributed.ReduceOp.MAX,
@@ -202,6 +203,7 @@ def gather_val_metrics(
         for j, key in enumerate(keys, 1):
             gather_tensor[i][j] = val_metrics[key]
     gather_tensor = gather_tensor.to(device=device)
+    assert _DIST_MASTER_RANK is not None
     if _DIST_RANK == _DIST_MASTER_RANK:
         gather_list = [torch.zeros_like(gather_tensor) for _ in range(len(_DIST_TRAIN_RANKS))]
     else:
@@ -216,6 +218,7 @@ def gather_val_metrics(
         torch.distributed.barrier(group=_DIST_VAL_PROCESS_GROUP)
     if _DIST_RANK != _DIST_MASTER_RANK:
         return None
+    assert gather_list is not None
     gather_list = [gather_tensor.cpu() for gather_tensor in gather_list]
     gather_val_metrics_list = []
     for gather_tensor in gather_list:

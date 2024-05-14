@@ -23,7 +23,6 @@ from multiprocessing import cpu_count
 from typing import Any, Mapping, MutableMapping, Optional, Sequence, Union
 
 import numpy as np
-import torch
 
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
