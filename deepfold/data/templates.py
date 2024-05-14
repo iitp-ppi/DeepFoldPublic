@@ -502,7 +502,7 @@ def _extract_template_features(
     query_sequence: str,
     template_chain_id: str,
     kalign_binary_path: str,
-    _zero_center_positions: bool = True,
+    _zero_center_positions: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[str]]:
     """Parses atom positions in the target structure and aligns with the query.
 
@@ -761,7 +761,7 @@ def _process_single_hit(
     obsolete_pdbs: Mapping[str, str],
     kalign_binary_path: str,
     strict_error_check: bool = False,
-    _zero_center_positions: bool = True,
+    _zero_center_positions: bool = False,
 ) -> SingleHitResult:
     """Tries to extract template features from a single HHSearch hit."""
     # Fail hard if we can't get the PDB ID and chain name from the hit.
@@ -885,7 +885,7 @@ def get_custom_template_features(
         query_sequence=query_sequence,
         template_chain_id=chain_id,
         kalign_binary_path=kalign_binary_path,
-        _zero_center_positions=True,
+        _zero_center_positions=False,
     )
     features["template_sum_probs"] = [1.0]
 
@@ -922,7 +922,7 @@ class TemplateHitFeaturizer(abc.ABC):
         obsolete_pdbs_path: Optional[str] = None,
         strict_error_check: bool = False,
         _shuffle_top_k_prefiltered: Optional[int] = None,
-        _zero_center_positions: bool = True,
+        _zero_center_positions: bool = False,
     ):
         """Initializes the Template Search.
 
