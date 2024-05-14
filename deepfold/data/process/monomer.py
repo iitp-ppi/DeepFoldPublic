@@ -4,7 +4,6 @@
 # Copyright 2024 DeepFold Team
 
 
-import time
 from copy import deepcopy
 from typing import Callable, Dict, List, Sequence
 
@@ -16,64 +15,42 @@ from deepfold.config import FEATURE_SHAPES, FeaturePipelineConfig
 
 def process_raw_feature_tensors(
     tensors: Dict[str, torch.Tensor],
-    pipeline_config: FeaturePipelineConfig,
-    mode: str,
-    seed: int,
+    cfg: FeaturePipelineConfig,
 ) -> Dict[str, torch.Tensor]:
     """Based on the config, apply filters and transformations to the data."""
 
-    if mode == "train":
-        sequence_crop_size = pipeline_config.crop_size
-    elif mode in {"eval", "predict"}:
-        sequence_crop_size = tensors["seq_length"][0].item()
-
     # nonensembled transformations:
-    _compose_nonensembled_perf = -time.perf_counter()
-    nonensembled = nonensembled_transform_fns(
-        pipeline_config=pipeline_config,
-        mode=mode,
-        seed=seed,
-    )
+    nonensembled = nonensembled_transform_fns(cfg)
     tensors = compose(nonensembled)(tensors)
-    _compose_nonensembled_perf += time.perf_counter()
 
     # ensembled transformations:
-    _compose_ensembled_perf = -time.perf_counter()
     ensembles = []
-    for i in range(pipeline_config.num_recycling_iters + 1):
-        ensembled = ensembled_transform_fns(
-            pipeline_config=pipeline_config,
-            sequence_crop_size=sequence_crop_size,
-            mode=mode,
-            seed=seed,
-            ensemble_iter=i,
-        )
+    for i in range(cfg.max_recycling_iters + 1):
+        ensembled = ensembled_transform_fns(cfg, ensemble_iter=i)
         ensembles.append(compose(ensembled)(deepcopy(tensors)))
     tensors = {}
     for key in ensembles[0].keys():
         tensors[key] = torch.stack([d[key] for d in ensembles], dim=-1)
-    _compose_ensembled_perf += time.perf_counter()
 
     return tensors
 
 
-def nonensembled_transform_fns(
-    pipeline_config: FeaturePipelineConfig,
-    mode: str,
-    seed: int,
-) -> List[Callable]:
+def nonensembled_transform_fns(cfg: FeaturePipelineConfig) -> List[Callable]:
     """Input pipeline data transformers that are not ensembled."""
 
+    # Non-ensembled features:
     transforms = [
         data_transforms.cast_to_64bit_ints,
         data_transforms.correct_msa_restypes,
         data_transforms.squeeze_features,
-        data_transforms.randomly_replace_msa_with_unknown(0.0, seed),
+        data_transforms.randomly_replace_msa_with_unknown(0.0, cfg.seed),
         data_transforms.make_seq_mask,
         data_transforms.make_msa_mask,
         data_transforms.make_hhblits_profile,
     ]
-    if pipeline_config.templates_enabled:
+
+    # Template features:
+    if cfg.templates_enabled:
         transforms.extend(
             [
                 data_transforms.fix_templates_aatype,
@@ -81,7 +58,7 @@ def nonensembled_transform_fns(
                 data_transforms.make_pseudo_beta("template_"),
             ]
         )
-        if pipeline_config.embed_template_torsion_angles:
+        if cfg.embed_template_torsion_angles:
             transforms.extend(
                 [
                     data_transforms.atom37_to_torsion_angles("template_"),
@@ -94,7 +71,8 @@ def nonensembled_transform_fns(
         ]
     )
 
-    if mode in {"train", "eval"}:
+    # Supervised features:
+    if cfg.supervised_features_enabled:
         transforms.extend(
             [
                 data_transforms.make_atom14_positions,
@@ -110,56 +88,53 @@ def nonensembled_transform_fns(
 
 
 def ensembled_transform_fns(
-    pipeline_config: FeaturePipelineConfig,
-    sequence_crop_size: int,
-    mode: str,
-    seed: int,
+    cfg: FeaturePipelineConfig,
     ensemble_iter: int,
 ) -> List[Callable]:
     """Input pipeline data transformers that can be ensembled and averaged."""
 
     transforms = []
 
-    if mode == "train":
+    if cfg.sample_msa_distillation_enabled:
         transforms.append(
             data_transforms.sample_msa_distillation(
-                pipeline_config.max_distillation_msa_clusters,
-                (seed + ensemble_iter),
+                cfg.max_distillation_msa_clusters,
+                (cfg.seed + ensemble_iter),
             )
         )
 
     transforms.append(
         data_transforms.sample_msa(
-            pipeline_config.max_msa_clusters,
+            cfg.max_msa_clusters,
             keep_extra=True,
-            seed=(seed + ensemble_iter),
+            seed=(cfg.seed + ensemble_iter),
         )
     )
 
-    if pipeline_config.masked_msa_enabled:
+    if cfg.masked_msa_enabled:
         # Masked MSA should come *before* MSA clustering so that
         # the clustering and full MSA profile do not leak information about
         # the masked locations and secret corrupted locations.
         transforms.append(
             data_transforms.make_masked_msa(
-                pipeline_config.masked_msa_profile_prob,
-                pipeline_config.masked_msa_same_prob,
-                pipeline_config.masked_msa_uniform_prob,
-                pipeline_config.masked_msa_replace_fraction,
-                (seed + ensemble_iter),
+                cfg.masked_msa_profile_prob,
+                cfg.masked_msa_same_prob,
+                cfg.masked_msa_uniform_prob,
+                cfg.masked_msa_replace_fraction,
+                (cfg.seed + ensemble_iter),
             )
         )
 
-    if pipeline_config.msa_cluster_features:
+    if cfg.msa_cluster_features_enabled:
         transforms.append(data_transforms.nearest_neighbor_clusters())
         transforms.append(data_transforms.summarize_clusters())
 
     # Crop after creating the cluster profiles.
-    if pipeline_config.max_extra_msa:
+    if cfg.max_extra_msa:
         transforms.append(
             data_transforms.crop_extra_msa(
-                pipeline_config.max_extra_msa,
-                (seed + ensemble_iter),
+                cfg.max_extra_msa,
+                (cfg.seed + ensemble_iter),
             )
         )
     else:
@@ -173,27 +148,22 @@ def ensembled_transform_fns(
         )
     )
 
-    if mode == "train":
-        subsample_templates = True
-    elif mode in {"eval", "predict"}:
-        subsample_templates = False
-
     transforms.append(
         data_transforms.random_crop_and_template_subsampling(
             feature_schema_shapes=FEATURE_SHAPES,
-            sequence_crop_size=sequence_crop_size,
-            max_templates=pipeline_config.max_templates,
-            subsample_templates=subsample_templates,
-            seed=seed,
+            sequence_crop_size=cfg.crop_size,
+            max_templates=cfg.max_templates,
+            subsample_templates=cfg.subsample_templates,
+            seed=cfg.seed,
         )
     )
     transforms.append(
         data_transforms.pad_to_schema_shape(
             feature_schema_shapes=FEATURE_SHAPES,
-            num_residues=sequence_crop_size,
-            num_clustered_msa_seq=pipeline_config.max_msa_clusters,
-            num_extra_msa_seq=pipeline_config.max_extra_msa,
-            num_templates=pipeline_config.max_templates,
+            num_residues=cfg.crop_size,
+            num_clustered_msa_seq=cfg.max_msa_clusters,
+            num_extra_msa_seq=cfg.max_extra_msa,
+            num_templates=cfg.max_templates,
         )
     )
 
