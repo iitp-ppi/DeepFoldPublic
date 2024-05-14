@@ -422,10 +422,6 @@ def predict(args: argparse.Namespace) -> None:
             os.killpg(os.getpgid(os.getpid()), signal.SIGKILL)
 
 
-def _init_logging():
-    pass
-
-
 if __name__ == "__main__":
     try:
         predict(parse_args())
