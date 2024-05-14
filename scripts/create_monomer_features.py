@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from deepfold.data.search.crfalign import parse_crf
 from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_a3m, parse_hmmsearch_sto
 from deepfold.data.search.pipeline import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
@@ -26,7 +27,8 @@ def main(args: argparse.Namespace) -> None:
     logger.info("Description: {}".format(description))
     logger.info("Sequence: {}".format(query_sequence))
 
-    sequence_features = create_sequence_features(query_sequence, description)
+    domain_name = description.split()[0]
+    sequence_features = create_sequence_features(query_sequence, domain_name)
 
     # Featurize template hits:
     template_features = create_empty_template_feats(len(query_sequence))
@@ -53,6 +55,15 @@ def main(args: argparse.Namespace) -> None:
             template_hits = parse_hmmsearch_a3m(query_sequence, template_str, skip_first=False)
         elif suffix == ".hhr":
             template_hits = parse_hhr(template_str)
+        elif suffix == ".crf":
+            if args.crf_alignment_dirpath is None:
+                raise ValueError("CRFalign hits are provided. However, args.crf_alignment_dirpath is None")
+            else:
+                template_hits = parse_crf(
+                    template_str,
+                    query_id=domain_name,
+                    alignment_dir=args.crf_alignment_dirpath,
+                )
         else:
             raise RuntimeError(f"Not supported template hits extensions: {suffix}")
 
@@ -145,6 +156,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=20,
         help="Maximum template hits.",
+    )
+    parser.add_argument(
+        "--crf_alignment_dirpath",
+        type=Path,
+        default=None,
+        help="CRFalign alignment directory.",
     )
     parser.add_argument(
         "--kalign_binary_path",

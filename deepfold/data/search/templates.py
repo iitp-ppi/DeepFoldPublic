@@ -51,8 +51,25 @@ class CaDistanceError(Exception):
     """An error indicating that a CA atom distance exceeds a threshold."""
 
 
-class ReleaseDateError(Exception):
-    """An error indicating that the release date is later than the cutoff."""
+# Prefilter exceptions.
+class PrefilterError(Exception):
+    """A base class for template prefilter exceptions."""
+
+
+class DateError(PrefilterError):
+    """An error indicating that the hit date was after the max allowed date."""
+
+
+class AlignRatioError(PrefilterError):
+    """An error indicating that the hit align ratio to the query was too small."""
+
+
+class DuplicateError(PrefilterError):
+    """An error indicating that the hit was an exact subsequence of the query."""
+
+
+class LengthError(PrefilterError):
+    """An error indicating that the hit was too short."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -77,7 +94,7 @@ class TemplateHitFeaturizer:
         verbose: bool = False,
     ) -> None:
         if pdb_obsolete_filepath is not None:
-            pdb_obsolete_mapping = _load_pdb_obsolete_mapping(pdb_obsolete_filepath)
+            pdb_obsolete_mapping = load_pdb_obsolete_mapping(pdb_obsolete_filepath)
         else:
             pdb_obsolete_mapping = {}
         self.max_template_hits = max_template_hits
@@ -189,7 +206,7 @@ class TemplateHitFeaturizer:
         return template_features
 
 
-def _load_mmcif_dict(
+def load_mmcif_dict(
     mmcif_dirpath: Path,
     pdb_id: str,
 ) -> dict:
@@ -201,7 +218,7 @@ def _load_mmcif_dict(
     return mmcif_dict
 
 
-def _load_pdb_obsolete_mapping(pdb_obsolete_filepath: Path) -> Dict[str, str]:
+def load_pdb_obsolete_mapping(pdb_obsolete_filepath: Path) -> Dict[str, str]:
     """Parses the data file from PDB that lists which PDB ids are obsolete."""
     mapping = {}
     with open(pdb_obsolete_filepath) as f:
@@ -426,16 +443,16 @@ def _featurize_template_hit(
     # remove gaps (which regardless have a missing confidence score).
     template_hit_sequence = template_hit.hit_sequence.replace("-", "")
 
-    mmcif_dict = _load_mmcif_dict(mmcif_dirpath=pdb_mmcif_dirpath, pdb_id=template_hit_pdb_id)
+    mmcif_dict = load_mmcif_dict(mmcif_dirpath=pdb_mmcif_dirpath, pdb_id=template_hit_pdb_id)
 
     # Check release date.
     template_hit_release_date = datetime_from_string(mmcif_dict["release_date"], r"%Y-%m-%d")
     if template_hit_release_date > max_template_date:
-        error = f"ReleaseDateError: {template_hit_release_date.date()} > {max_template_date.date()}; name={template_hit.name:48s}"
+        error = f"DateError: Date {template_hit_release_date.date()} > max template date {max_template_date.date()}; name={template_hit.name:48s}"
         return TemplateFeaturesResult(features=None, error=error, warning=None)
 
     try:
-        template_features, realign_warning = _extract_template_features(
+        template_features, realign_warning = extract_template_features(
             mmcif_dict=mmcif_dict,
             index_mapping=index_mapping,
             query_sequence=query_sequence,
@@ -537,7 +554,7 @@ def _build_query_to_hit_index_mapping(
     return index_mapping
 
 
-def _extract_template_features(
+def extract_template_features(
     mmcif_dict: dict,
     index_mapping: Dict[int, int],
     query_sequence: str,
@@ -624,11 +641,11 @@ def _extract_template_features(
     try:
         # Essentially set to infinity - we don't want to reject templates unless
         # they're really really bad.
-        all_atom_positions, all_atom_mask = _get_atom_positions(
+        all_atom_positions, all_atom_mask = get_atom_positions(
             mmcif_dict=mmcif_dict,
             auth_chain_id=chain_id,
             max_ca_ca_distance=150.0,
-            zero_center=True,
+            zero_center=False,
         )
     except (CaDistanceError, KeyError) as e:
         raise NoAtomDataInTemplateError(f"Could not get atom data {repr(template_id)}: {str(e)}") from e
@@ -739,7 +756,7 @@ def _find_template_in_pdb(
     )
 
 
-def _get_atom_positions(
+def get_atom_positions(
     mmcif_dict: dict,
     auth_chain_id: str,
     max_ca_ca_distance: float,
