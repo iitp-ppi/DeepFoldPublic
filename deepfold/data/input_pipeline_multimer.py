@@ -144,7 +144,7 @@ def process_tensors_from_config(
         gt_tensors = prepare_ground_truth_features(tensors)
 
     # ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)
-    ensemble_seed = config.ensemble_seed
+    ensemble_seed = config.seed
     tensors["aatype"] = tensors["aatype"].to(torch.long)
     nonensembled = nonensembled_transform_fns()
     nonensembled.extend(

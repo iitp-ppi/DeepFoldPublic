@@ -529,7 +529,7 @@ def _half_precision_settings() -> dict:
 class FeaturePipelineConfig:
     preset: str = ""
     is_multimer: bool = False
-    ensemble_seed: int = 0
+    seed: int = 0
 
     # Fix input sizes:
     fixed_size: bool = True
@@ -620,7 +620,8 @@ class FeaturePipelineConfig:
     )
 
     # Training loss configuration:
-    use_clamped_fape_probability: float = 0.9
+    clamped_fape_enabled: bool = False
+    clamped_fape_probability: float = 0.9
     self_distillation_plddt_threshold: float = 50.0
 
     def feature_names(self) -> List[str]:
@@ -696,7 +697,6 @@ def _predict_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": False,
         "max_msa_clusters": 512,
         "max_extra_msa": 1024,
-        # "max_template_hits": 4,
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": False,
@@ -721,7 +721,6 @@ def _eval_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": False,
         "max_msa_clusters": 128,
         "max_extra_msa": 1024,
-        # "max_template_hits": 4,
         "max_templates": 4,
         "residue_cropping_enabled": False,
         "supervised_features_enabled": True,
@@ -746,14 +745,14 @@ def _train_mode(is_multimer: bool = False) -> dict:
         "block_delete_msa_enabled": True,
         "max_msa_clusters": 128,
         "max_extra_msa": 1024,
-        # "max_template_hits": 4,
         "max_templates": 4,
         "shuffle_top_k_prefiltered": 20,
         "residue_cropping_enabled": True,
         "crop_size": 256,
         "supervised_features_enabled": True,
         # "uniform_recycling": True,
-        "clamp_fape_prob": 0.9,
+        "clamped_fape_enabled": True,
+        "clamped_fape_probability": 0.9,
         "sample_msa_distillation_enabled": True,
         "max_distillation_msa_clusters": 1000,
         "distillation_prob": 0.75,
@@ -767,7 +766,8 @@ def _train_mode(is_multimer: bool = False) -> dict:
                 "crop_size": 640,
                 "spatial_crop_prob": 0.5,
                 "interface_threshold": 10.0,
-                "clamp_fape_prob": 1.0,
+                "clamped_fape_enabled": True,
+                "clamped_fape_probability": 1.0,
             }
         )
 

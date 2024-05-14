@@ -167,7 +167,7 @@ def process_tensors_from_config(
     """Based on the config, apply filters and transformations to the data."""
 
     # ensemble_seed = random.randint(0, torch.iinfo(torch.int32).max)
-    ensemble_seed = config.ensemble_seed
+    ensemble_seed = config.seed
 
     def wrap_ensemble_fn(data, i):
         """Function to be mapped over the ensemble dimension."""
