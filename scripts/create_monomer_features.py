@@ -177,7 +177,7 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
 
-    setup_logging("features.log")
+    setup_logging("features.log", mode="a")
 
     for k, v in vars(args).items():
         if isinstance(v, list):
