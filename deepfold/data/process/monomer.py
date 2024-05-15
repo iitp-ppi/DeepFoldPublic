@@ -4,6 +4,9 @@
 # Copyright 2024 DeepFold Team
 
 
+"""Feature proecessing logic for monomer data."""
+
+
 from copy import deepcopy
 from typing import Callable, Dict, List, Sequence
 
@@ -12,11 +15,13 @@ import torch
 import deepfold.data.process.transforms as data_transforms
 from deepfold.config import FEATURE_SHAPES, FeaturePipelineConfig
 
+TensorDict = Dict[str, torch.Tensor]
+
 
 def process_raw_feature_tensors(
-    tensors: Dict[str, torch.Tensor],
+    tensors: TensorDict,
     cfg: FeaturePipelineConfig,
-) -> Dict[str, torch.Tensor]:
+) -> TensorDict:
     """Based on the config, apply filters and transformations to the data."""
 
     # nonensembled transformations:
@@ -172,9 +177,9 @@ def ensembled_transform_fns(
 
 @data_transforms.curry1
 def compose(
-    x: dict,
+    x: TensorDict,
     fs: Sequence[Callable],
-) -> dict:
+) -> TensorDict:
     for f in fs:
         x = f(x)
     return x

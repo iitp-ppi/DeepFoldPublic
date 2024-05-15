@@ -601,7 +601,6 @@ class FeaturePipelineConfig:
             "template_sum_probs",
             "template_aatype",
             "template_all_atom_mask",
-            "template_all_atom_masks",  # Compatibility
         ]
     )
 

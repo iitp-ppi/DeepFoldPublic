@@ -17,7 +17,7 @@ import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
 from deepfold.config import AlphaFoldConfig, FeaturePipelineConfig
-from deepfold.data import feature_pipeline
+from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
@@ -305,7 +305,8 @@ def predict(args: argparse.Namespace) -> None:
 
     # Process input features:
     start_time = time.perf_counter()
-    batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
+    # batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
+    batch = example_to_features(feats, feat_config)  # TODO: Test
 
     # Template multi-chain mask
     if args.multimer_templates != "":
@@ -313,14 +314,7 @@ def predict(args: argparse.Namespace) -> None:
         if dist.is_master_process():
             logger.info(f"Multimer template enabled for {','.join(map(str, templ_idx))}")
         # Initialize:
-        mask = torch.zeros(
-            [
-                seqlen,
-                seqlen,
-                feat_config.max_templates,
-                feat_config.max_recycling_iters,
-            ]
-        )
+        mask = torch.zeros([seqlen, seqlen, feat_config.max_templates, feat_config.max_recycling_iters])
         asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 

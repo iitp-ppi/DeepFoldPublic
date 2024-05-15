@@ -351,7 +351,7 @@ def pseudo_beta_fn(
     aatype: torch.Tensor,
     all_atom_positions: torch.Tensor,
     all_atom_mask: torch.Tensor | None,
-) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor | None]:
     """Create pseudo beta features."""
     is_gly = torch.eq(aatype, rc.restype_order["G"])
     ca_idx = rc.atom_order["CA"]
@@ -370,7 +370,7 @@ def pseudo_beta_fn(
         )
         return pseudo_beta, pseudo_beta_mask
     else:
-        return pseudo_beta
+        return pseudo_beta, None
 
 
 @curry1

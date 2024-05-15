@@ -7,11 +7,13 @@ import torch
 from deepfold.config import FeaturePipelineConfig
 from deepfold.data.process import monomer, multimer
 
+TensorDict = Dict[str, torch.Tensor]
 
-def np_to_tensor_dict(
-    np_example: dict,
+
+def example_to_tensor_dict(
+    example: dict,
     features: Sequence[str],
-) -> Dict[str, torch.Tensor]:
+) -> TensorDict:
     """Creates dict of tensors from a dict of NumPy arrays.
 
     Args:
@@ -24,27 +26,27 @@ def np_to_tensor_dict(
     """
     # PyTorch generates warnings if feature is already a torch Tensor
     to_tensor = lambda t: torch.tensor(t) if type(t) != torch.Tensor else t.clone().detach()
-    tensor_dict = {k: to_tensor(v) for k, v in np_example.items() if k in features}
+    tensor_dict = {k: to_tensor(v) for k, v in example.items() if k in features}
 
     return tensor_dict
 
 
-def np_example_to_features(
-    np_example: dict,
+def example_to_features(
+    example: dict,
     cfg: FeaturePipelineConfig,
-) -> Dict[str, torch.Tensor]:
+) -> TensorDict:
     cfg = copy.deepcopy(cfg)
 
-    seq_len = np_example["seq_length"]
+    seq_len = example["seq_length"]
     num_res = int(seq_len[0]) if seq_len.ndim != 0 else int(seq_len)
     if not cfg.residue_cropping_enabled:
         cfg.crop_size = num_res
     feature_names = cfg.feature_names()
 
-    if "deletion_matrix_int" in np_example:
-        np_example["deletion_matrix"] = np_example.pop("deletion_matrix_int").astype(np.float32)
+    if "deletion_matrix_int" in example:
+        example["deletion_matrix"] = example.pop("deletion_matrix_int").astype(np.float32)
 
-    tensor_dict = np_to_tensor_dict(np_example, feature_names)
+    tensor_dict = example_to_tensor_dict(example, feature_names)
 
     with torch.no_grad():
         if cfg.is_multimer:
