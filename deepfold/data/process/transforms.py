@@ -467,10 +467,10 @@ def pad_to_schema_shape(
     """Guess at the MSA and sequence dimension to make fixed size."""
 
     pad_size_map = {
-        "N_res": num_residues,
-        "N_clust": num_clustered_msa_seq,
-        "N_extra_seq": num_extra_msa_seq,
-        "N_templ": num_templates,
+        "NUM_RES": num_residues,
+        "NUM_MSA_SEQ": num_clustered_msa_seq,
+        "NUM_EXTRA_SEQ": num_extra_msa_seq,
+        "NUM_TEMPLATES": num_templates,
     }
 
     for key, tensor in protein.items():
@@ -1066,7 +1066,7 @@ def random_crop_and_template_subsampling(
         schema_shape = feature_schema_shapes[key]
         assert isinstance(schema_shape, tuple)
 
-        if "template" not in key and "N_res" not in schema_shape:
+        if "template" not in key and "NUM_RES" not in schema_shape:
             continue
 
         # randomly permute the templates before cropping them.
@@ -1077,8 +1077,8 @@ def random_crop_and_template_subsampling(
 
         slices = []
         for dim_schema, dim_size in zip(schema_shape, tensor.shape):
-            is_N_res = bool(dim_schema == "N_res")
-            is_N_templ = bool(dim_schema == "N_templ")
+            is_N_res = bool(dim_schema == "NUM_RES")
+            is_N_templ = bool(dim_schema == "NUM_TEMPLATES")
             if is_N_templ and key.startswith("template"):
                 crop_size = num_templates_crop_size
                 crop_start = templates_crop_start
