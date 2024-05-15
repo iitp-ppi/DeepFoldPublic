@@ -347,7 +347,8 @@ class AlphaFold(nn.Module):
     ) -> Dict[str, torch.Tensor]:
         # Embed the templates one at a time:
         pair_embeds = []
-        num_templ = feats["template_aatype"].shape[1]
+        num_templ = feats["template_aatype"].shape[-2]  # 1
+
         for i in range(num_templ):
             single_template_feats = tensor_tree_map(fn=lambda t: t[:, i], tree=feats)
             if multichain_mask_2d is not None:
@@ -394,7 +395,7 @@ class AlphaFold(nn.Module):
             pair_embeds.append(t)
             del t
 
-        t = torch.stack(pair_embeds, dim=1)
+        t = torch.stack(pair_embeds, dim=-4)  # 1
         # t: [batch, N_templ, N_res, N_res, c_t]
         del pair_embeds
 
