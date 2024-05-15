@@ -406,7 +406,7 @@ def _linear_transpose_add(
     return linear_transpose_add_fn(x, w, b, y)
 
 
-@torch.jit.ignore(drop=True)
+@torch.jit.unused
 def _deepspeed_evo_attn(
     q: torch.Tensor,
     k: torch.Tensor,
