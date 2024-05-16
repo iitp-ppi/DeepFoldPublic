@@ -50,7 +50,7 @@ def example_to_features(
 
     with torch.no_grad():
         if cfg.is_multimer:
-            raise NotImplementedError()
+            features = multimer.process_raw_feature_tensors(tensor_dict, cfg)
         else:
             features = monomer.process_raw_feature_tensors(tensor_dict, cfg)
 

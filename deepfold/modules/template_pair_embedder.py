@@ -278,10 +278,22 @@ class TemplatePairEmbedderMultimer(nn.Module):
         eps: float,
         dtype: torch.dtype,
     ) -> Dict[str, torch.Tensor]:
-        template_pseudo_beta = feats["template_pseudo_beta"]
-        template_pseudo_beta_mask = feats["template_pseudo_beta_mask"]
+        # template_pseudo_beta = feats["template_pseudo_beta"]
+        # template_pseudo_beta_mask = feats["template_pseudo_beta_mask"]
         template_aatype = feats["template_aatype"]
+        template_all_atom_positions = feats["template_all_atom_positions"]
         template_all_atom_mask = feats["template_all_atom_mask"]
+
+        if inductor.is_enabled():
+            pseudo_beta_fn = _pseudo_beta_fn_jit
+        else:
+            pseudo_beta_fn = _pseudo_beta_fn_eager
+
+        template_pseudo_beta, template_pseudo_beta_mask = pseudo_beta_fn(
+            aatype=template_aatype,
+            all_atom_positions=template_all_atom_positions,
+            all_atom_mask=template_all_atom_mask,
+        )
 
         self._initialize_buffers(
             min_bin=min_bin,
@@ -304,13 +316,8 @@ class TemplatePairEmbedderMultimer(nn.Module):
             self.c_aatype,
         )  # dgram, aa_one_hot
 
-        if inductor.is_enabled():
-            make_transform_from_reference = Rigid.make_transform_from_reference_jit
-        else:
-            make_transform_from_reference = Rigid.make_transform_from_reference
-
         n, ca, c = [rc.atom_order[a] for a in ["N", "CA", "C"]]
-        rigids = make_transform_from_reference(
+        rigids = Rigid.make_transform_from_reference(
             n_xyz=feats["template_all_atom_positions"][..., n, :],
             ca_xyz=feats["template_all_atom_positions"][..., ca, :],
             c_xyz=feats["template_all_atom_positions"][..., c, :],
@@ -350,7 +357,7 @@ def _compute_multimer_part1_eager(
     )
     dgram = ((dgram > lower) * (dgram < upper)).to(dtype=dgram.dtype)
     aatype_one_hot = F.one_hot(
-        tensor=template_aatype,
+        template_aatype,
         num_classes=num_classes,
     )
     return dgram, aatype_one_hot
@@ -377,3 +384,27 @@ def _compute_multimer_part2_eager(
 
 
 _compute_multimer_part2_jit = torch.compile(_compute_multimer_part2_eager)
+
+
+def _pseudo_beta_fn_eager(
+    aatype: torch.Tensor,
+    all_atom_positions: torch.Tensor,
+    all_atom_mask: torch.Tensor,
+) -> torch.Tensor:
+    is_gly = torch.eq(aatype, rc.restype_order["G"])
+    ca_idx = rc.atom_order["CA"]
+    cb_idx = rc.atom_order["CB"]
+    pseudo_beta = torch.where(
+        torch.tile(is_gly.unsqueeze(-1), [1] * is_gly.ndim + [3]),
+        all_atom_positions[..., ca_idx, :],
+        all_atom_positions[..., cb_idx, :],
+    )
+    pseudo_beta_mask = torch.where(
+        is_gly,
+        all_atom_mask[..., ca_idx],
+        all_atom_mask[..., cb_idx],
+    )
+    return pseudo_beta, pseudo_beta_mask
+
+
+_pseudo_beta_fn_jit = torch.compile(_pseudo_beta_fn_eager)

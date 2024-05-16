@@ -305,8 +305,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Process input features:
     start_time = time.perf_counter()
-    # batch = feature_pipeline.FeaturePipeline(config=feat_config).process_features(feats)
-    batch = example_to_features(feats, feat_config)  # TODO: Test
+    batch = example_to_features(feats, feat_config)
 
     # Template multi-chain mask
     if args.multimer_templates != "":
