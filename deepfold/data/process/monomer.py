@@ -33,6 +33,7 @@ def process_raw_feature_tensors(
     for i in range(cfg.max_recycling_iters + 1):
         ensembled = ensembled_transform_fns(cfg, ensemble_iter=i)
         ensembles.append(compose(ensembled)(deepcopy(tensors)))
+
     tensors = {}
     for key in ensembles[0].keys():
         tensors[key] = torch.stack([d[key] for d in ensembles], dim=-1)
@@ -162,15 +163,17 @@ def ensembled_transform_fns(
             seed=cfg.seed,
         )
     )
-    transforms.append(
-        data_transforms.pad_to_schema_shape(
-            feature_schema_shapes=FEATURE_SHAPES,
-            num_residues=cfg.crop_size,
-            num_clustered_msa_seq=cfg.max_msa_clusters,
-            num_extra_msa_seq=cfg.max_extra_msa,
-            num_templates=cfg.max_templates,
+
+    if cfg.fixed_size:
+        transforms.append(
+            data_transforms.pad_to_schema_shape(
+                feature_schema_shapes=FEATURE_SHAPES,
+                num_residues=cfg.crop_size,
+                num_clustered_msa_seq=cfg.max_msa_clusters,
+                num_extra_msa_seq=cfg.max_extra_msa,
+                num_templates=cfg.max_templates,
+            )
         )
-    )
 
     return transforms
 

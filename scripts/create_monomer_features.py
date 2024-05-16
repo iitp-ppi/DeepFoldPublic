@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 
 from deepfold.data.search.crfalign import parse_crf
+from deepfold.data.search.input_features import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_a3m, parse_hmmsearch_sto
-from deepfold.data.search.pipeline import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
 from deepfold.utils.file_utils import dump_pickle
 from deepfold.utils.log_utils import setup_logging

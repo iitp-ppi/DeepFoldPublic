@@ -6,7 +6,7 @@
 import itertools
 from functools import reduce, wraps
 from operator import add
-from typing import Dict, Set, Tuple, Union
+from typing import Dict, Set, Tuple
 
 import numpy as np
 import torch
@@ -31,7 +31,6 @@ def cast_to_64bit_ints(protein):
     for k, v in protein.items():
         if v.dtype == torch.int32:
             protein[k] = v.type(torch.int64)
-
     return protein
 
 
@@ -479,7 +478,7 @@ def pad_to_schema_shape(
 
         tensor_shape = list(tensor.shape)
         schema_shape = feature_schema_shapes[key]
-        assert len(tensor_shape) == len(schema_shape)
+        assert len(tensor_shape) == len(schema_shape), key
 
         pad_shape = [pad_size_map.get(dim_schema, dim_size) for (dim_schema, dim_size) in zip(schema_shape, tensor_shape)]
 
