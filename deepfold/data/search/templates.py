@@ -865,7 +865,7 @@ def _realign_pdb_template_to_query(
             )
 
     try:
-        (old_aligned_template, new_aligned_template), _ = parse_a3m(aligner.align([old_template_sequence, new_template_sequence]))
+        (old_aligned_template, new_aligned_template), _, _ = parse_a3m(aligner.align([old_template_sequence, new_template_sequence]))
     except Exception as e:
         raise QueryToTemplateAlignError(
             "Could not align old template {ots} to template {nts} ({tid})."

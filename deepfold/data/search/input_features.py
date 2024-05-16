@@ -3,16 +3,13 @@
 # Copyright 2023 NVIDIA CORPORATION
 # Copyright 2024 DeepFold Team
 
-import datetime
-from copy import deepcopy
+
 from typing import List, Sequence
 
 import numpy as np
-import torch
 
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.config import FeaturePipelineConfig
 from deepfold.data.search.mmcif import zero_center_atom_positions
 from deepfold.data.search.parsers import parse_a3m, parse_hhr, parse_hmmsearch_sto
 from deepfold.data.search.templates import TemplateHit, TemplateHitFeaturizer
@@ -156,19 +153,23 @@ def create_template_features_from_hmmsearch_sto_string(
 def create_msa_features(
     sequence: str,
     a3m_strings: List[str],
+    use_identifiers: bool = False,
 ) -> dict:
     msas = []
     deletion_matrices = []
+    descriptions = []
     for a3m_string in a3m_strings:
         if not a3m_string:
             continue
-        msa, deletion_matrix = parse_a3m(a3m_string)
+        msa, deletion_matrix, desc = parse_a3m(a3m_string)
         msas.append(msa)
         deletion_matrices.append(deletion_matrix)
+        descriptions.extend(desc)
 
     if len(msas) == 0:
         msas.append([sequence])
         deletion_matrices.append([[0 for _ in sequence]])
+        descriptions.append("")
 
     int_msa = []
     deletion_matrix = []
@@ -190,34 +191,8 @@ def create_msa_features(
     msa_features["deletion_matrix_int"] = np.array(deletion_matrix, dtype=np.int32)
     msa_features["msa"] = np.array(int_msa, dtype=np.int32)
     msa_features["num_alignments"] = np.array([num_alignments] * num_res, dtype=np.int32)
+
+    if use_identifiers:
+        msa_features["msa_identifiers"] = descriptions
+
     return msa_features
-
-
-def process_features(
-    raw_features: dict,
-    pipeline_config: FeaturePipelineConfig,
-    mode: str,  # "train", "eval" or "predict"
-) -> dict:
-    assert mode in {"train", "eval", "predict"}
-
-    if "deletion_matrix_int" in raw_features:
-        deletion_matrix_int = raw_features.pop("deletion_matrix_int")
-        raw_features["deletion_matrix"] = deletion_matrix_int.astype(np.float32)
-
-    raw_feature_names = _get_raw_feature_names(pipeline_config=pipeline_config, mode=mode)
-
-    raw_feature_tensors = {key: torch.tensor(array) for key, array in raw_features.items() if key in raw_feature_names}
-
-    return raw_feature_tensors
-
-
-def _get_raw_feature_names(
-    pipeline_config: FeaturePipelineConfig,
-    mode: str,  # "train", "eval", or "predict"
-) -> List[str]:
-    raw_feature_names = deepcopy(pipeline_config.primary_raw_feature_names)
-    if pipeline_config.templates_enabled:
-        raw_feature_names += pipeline_config.template_raw_feature_names
-    if mode in {"train", "eval"}:
-        raw_feature_names += pipeline_config.supervised_raw_feature_names
-    return raw_feature_names
