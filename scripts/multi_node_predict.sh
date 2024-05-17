@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# Usage: sbatch scripts/multi_node_training.sh
-
-#SBATCH --job-name  train
-#SBATCH --time      UNLIMITED
+#SBATCH --job-name    predict
+#SBATCH --time       24:00:00
 #SBATCH --nodes             1
 #SBATCH --ntasks-per-node   1
 #SBATCH --output    %x-%J.out
@@ -41,7 +39,7 @@ else
 fi
 
 # Set number of threads to use for parallel regions:
-export OMP_NUM_THREADS=16
+export OMP_NUM_THREADS=12
 
 # PyTorch Dynamo
 export TORCH_COMPILE_DISABLE=1
