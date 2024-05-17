@@ -7,7 +7,7 @@
 #SBATCH --nodes             1
 #SBATCH --ntasks-per-node   1
 #SBATCH --output    %x-%J.out
-#SBATCH --gres          gpu:2
+#SBATCH --gres          gpu:4
 
 CONDA_HOME="${HOME}/conda"
 source "${CONDA_HOME}/etc/profile.d/conda.sh"
@@ -53,12 +53,12 @@ shift 2
 # srun --export=ALL \
 torchrun \
     --nnodes=$NNODES \
-    --nproc_per_node=2 \
+    --nproc_per_node=4 \
     --rdzv_id=$JOB_ID \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     predict.py \
-    --mp_size 2 \
+    --mp_size 4 \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
     --params_dirpath "/gpfs/database/casp16/params" \
