@@ -61,8 +61,8 @@ torchrun \
     --mp_size 2 \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
+    --params_dirpath "/gpfs/database/casp16/params" \
     "$@"
 # --preset "params_model_1" \
-# --params_dirpath "/gpfs/database/casp16/af_params" \
 
 echo "END" $(date +"%Y-%m-%d %H:%M:%S")
