@@ -164,15 +164,16 @@ def create_msa_features(
         msa, deletion_matrix, desc = parse_a3m(a3m_string)
         msas.append(msa)
         deletion_matrices.append(deletion_matrix)
-        descriptions.extend(desc)
+        descriptions.append(desc)
 
     if len(msas) == 0:
         msas.append([sequence])
         deletion_matrices.append([[0 for _ in sequence]])
-        descriptions.append("")
+        descriptions.append([""])
 
     int_msa = []
     deletion_matrix = []
+    identifiers = []
     seen_sequences = set()
     for msa_index, msa in enumerate(msas):
         if not msa:
@@ -183,6 +184,7 @@ def create_msa_features(
             seen_sequences.add(sequence)
             int_msa.append([rc.HHBLITS_AA_TO_ID[res] for res in sequence])
             deletion_matrix.append(deletion_matrices[msa_index][sequence_index])
+            identifiers.append(descriptions[msa_index][sequence_index])
 
     num_res = len(msas[0][0])
     num_alignments = len(int_msa)
@@ -193,6 +195,6 @@ def create_msa_features(
     msa_features["num_alignments"] = np.array([num_alignments] * num_res, dtype=np.int32)
 
     if use_identifiers:
-        msa_features["msa_identifiers"] = descriptions
+        msa_features["msa_identifiers"] = np.array(identifiers, dtype=np.object_)
 
     return msa_features

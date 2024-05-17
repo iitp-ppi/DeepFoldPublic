@@ -106,7 +106,7 @@ def process_single_chain(
         a3m_strings_for_paring = [""]
     if not is_homomer_or_monomer:
         all_seq_msa_features = create_all_seq_msa_features(
-            chain_features["sequence"].item().decode("utf8"),
+            chain_features["sequence"].item().decode("utf-8"),
             a3m_strings_for_paring,
         )
         chain_features.update(all_seq_msa_features)
@@ -173,7 +173,7 @@ def create_all_seq_msa_features(
         use_identifiers=True,
     )
 
-    species_id = [get_uniprot_identifiers(s) if s else "" for s in all_seq_features["msa_identifiers"]]
+    species_id = [get_uniprot_identifiers(s) for s in all_seq_features["msa_identifiers"]]
     all_seq_features["msa_identifiers"] = np.array(species_id, dtype=np.object_)
 
     valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")

@@ -39,7 +39,15 @@ MSA_PAD_VALUES = {
     "deletion_matrix_int": 0,
 }
 
-MSA_FEATURES = ("msa", "msa_mask", "deletion_matrix", "deletion_matrix_int")
+
+MSA_FEATURES = (
+    "msa",
+    "msa_mask",
+    "deletion_matrix",
+    "deletion_matrix_int",
+)
+
+
 SEQ_FEATURES = (
     "residue_index",
     "aatype",
@@ -59,8 +67,17 @@ SEQ_FEATURES = (
     "atom_indices_to_group_indices",
     "rigid_group_default_frame",
 )
-TEMPLATE_FEATURES = ("template_aatype", "template_all_atom_positions", "template_all_atom_mask")
-CHAIN_FEATURES = ("num_alignments", "seq_length")
+TEMPLATE_FEATURES = (
+    "template_aatype",
+    "template_all_atom_positions",
+    "template_all_atom_mask",
+)
+
+
+CHAIN_FEATURES = (
+    "num_alignments",
+    "seq_length",
+)
 
 
 def create_paired_features(
@@ -119,7 +136,7 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
         num_res = feature.shape[1]
         padding = MSA_PAD_VALUES[feature_name] * np.ones([1, num_res], feature.dtype)
     elif feature_name == "msa_identifiers_all_seq":
-        padding = [b""]
+        padding = [""]  # b""
     else:
         return feature
     feats_padded = np.concatenate([feature, padding], axis=0)
@@ -201,7 +218,7 @@ def pair_sequences(
 
     common_species = sorted(common_species)
     # Remove target sequence species.
-    common_species.remove("")  # NOTE: b""
+    common_species.remove("")  # b""
 
     all_paired_msa_rows = [np.zeros(len(examples), int)]
     all_paired_msa_rows_dict = {k: [] for k in range(num_examples)}
