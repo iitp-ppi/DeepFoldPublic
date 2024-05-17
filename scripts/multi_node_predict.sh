@@ -55,7 +55,7 @@ torchrun \
     --rdzv_id=$JOB_ID \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
-    predict.py \
+    $BASE/predict.py \
     --mp_size 4 \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
