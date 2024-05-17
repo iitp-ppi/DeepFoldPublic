@@ -12,7 +12,7 @@
 CONDA_HOME="${HOME}/conda"
 source "${CONDA_HOME}/etc/profile.d/conda.sh"
 conda activate deepfold2-dev
-BASE="/runs/users/vv137/project/DeepFold"
+BASE="/gpfs/deepfold/casp/deepfold2"
 
 export PYTHONPATH=$BASE
 
