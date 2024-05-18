@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import random
@@ -16,6 +17,7 @@ import deepfold.distributed as dist
 import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
+from deepfold.common import residue_constants as rc
 from deepfold.config import AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
@@ -230,6 +232,59 @@ def _recycle_hook(
             fp.write(protein.to_pdb(prot))
 
 
+def save_summary(
+    processed_features: dict,
+    result: dict,
+    output_filepath: Path,
+    *,
+    model_name: str = "",
+    preset: str = "",
+    seed: int = -1,
+) -> None:
+    """Save model summary in JSON format.
+
+    The summary includes:
+    - model_name
+    - preset
+    - seed
+    - sequence
+    - asym_id
+    - residue_index
+    - plddt
+    - ptm
+    - iptm
+    - weighted_ptm
+
+    """
+    summary = {}
+
+    summary["model_name"] = model_name
+    summary["preset"] = preset
+    summary["seed"] = seed
+
+    aatype = processed_features["aatype"]
+    summary["sequence"] = "".join(rc.restypes_with_x[i] for i in aatype)
+
+    asym_id = processed_features.get("asym_id", None)
+    if asym_id is not None:
+        chain_id = asym_id - 1
+        summary["chain_index"] = chain_id.tolist()
+    else:
+        summary["chain_index"] = [0] * len(aatype)
+
+    residue_index = processed_features["residue_index"] + 1
+    summary["residue_index"] = residue_index.tolist()
+
+    summary["plddt"] = result["plddt"].tolist()
+    summary["ptm"] = result.get("ptm_score", None)
+    summary["iptm"] = result.get("iptm_score", None)
+    summary["weighted_ptm_score"] = result.get("weighted_ptm_score", None)
+
+    json_str = json.dumps(summary, indent=4)
+    with open(output_filepath, "w") as fp:
+        fp.write(json_str)
+
+
 def predict(args: argparse.Namespace) -> None:
     if (args.seed == -1) and (args.mp_size == 0):
         seed = random.randint(0, NUMPY_SEED_MODULUS)
@@ -403,6 +458,16 @@ def predict(args: argparse.Namespace) -> None:
         )
         with open(args.output_dirpath / f"unrelaxed_{model_name}{suffix}.pdb", "w") as fp:
             fp.write(protein.to_pdb(prot))
+
+        summary_filepath = args.output_dirpath / f"summary_{model_name}{suffix}.json"
+        save_summary(
+            batch_last,
+            out,
+            summary_filepath,
+            model_name=model_name,
+            preset=args.preset,
+            seed=seed,
+        )
 
         dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
