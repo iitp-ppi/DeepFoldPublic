@@ -4,6 +4,8 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 from deepfold.common import protein
 from deepfold.relax import relax
 from deepfold.utils.log_utils import setup_logging
@@ -12,16 +14,21 @@ logger = logging.getLogger(__file__)
 logger.setLevel(level=logging.INFO)
 
 
-def relax_protein(input_filepath, output_filepath, model_device="cuda", summary_filepath: Path | None = None):
+def relax_protein(
+    input_filepath,
+    output_filepath,
+    model_device="cuda",
+    summary_filepath: Path | None = None,
+):
     """Amber relaxation."""
 
     if summary_filepath is not None:
         logger.info(f"Use summary informations: {str(summary_filepath)}")
         with open(summary_filepath, "r") as fp:
             summary = json.load(fp)
-            chain_index = summary["chain_index"]
-            residue_index = summary["residue_index"]
-            plddt = summary["plddt"]
+            chain_index = np.asarray(summary["chain_index"])
+            residue_index = np.asarray(summary["residue_index"])
+            plddt = np.asarray(summary["plddt"])
     else:
         chain_index = None
         residue_index = None
