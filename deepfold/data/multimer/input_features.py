@@ -102,6 +102,7 @@ def process_single_chain(
     a3m_strings_for_paring: Sequence[str] | None = None,
 ) -> dict:
     """Process a single chain features."""
+    new_chain_features = copy.deepcopy(chain_features)
     if a3m_strings_for_paring is None:
         a3m_strings_for_paring = [""]
     if not is_homomer_or_monomer:
@@ -109,8 +110,8 @@ def process_single_chain(
             chain_features["sequence"].item().decode("utf-8"),
             a3m_strings_for_paring,
         )
-        chain_features.update(all_seq_msa_features)
-    return chain_features
+        new_chain_features.update(all_seq_msa_features)
+    return new_chain_features
 
 
 def add_assembly_features(
@@ -243,7 +244,7 @@ def pair_and_merge(all_chain_features: MutableMapping[str, dict]) -> dict:
         A dictionary of features.
 
     """
-    all_chain_features = process_unmerged_features(all_chain_features)
+    process_unmerged_features(all_chain_features)
 
     np_chains_list = list(all_chain_features.values())
 
@@ -380,7 +381,7 @@ def _filter_features(np_example: dict) -> dict:
     return {k: v for (k, v) in np_example.items() if k in REQUIRED_FEATURES}
 
 
-def process_unmerged_features(all_chain_features: MutableMapping[str, dict]) -> dict:
+def process_unmerged_features(all_chain_features: MutableMapping[str, dict]):
     """Postprocessing stage for per-chain features before merging."""
     num_chains = len(all_chain_features)
     for chain_features in all_chain_features.values():
@@ -402,5 +403,3 @@ def process_unmerged_features(all_chain_features: MutableMapping[str, dict]) -> 
     # Add entity_mask.
     for chain_features in all_chain_features.values():
         chain_features["entity_mask"] = (chain_features["entity_id"] != 0).astype(np.int32)
-
-    return all_chain_features
