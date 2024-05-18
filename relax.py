@@ -18,11 +18,11 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda", summary_
     if summary_filepath is not None:
         with open(summary_filepath, "r") as fp:
             summary = json.load(fp)
-            chain_id = summary["chain_id"]
+            chain_index = summary["chain_index"]
             residue_index = summary["residue_index"]
             plddt = summary["plddt"]
     else:
-        chain_id = None
+        chain_index = None
         residue_index = None
         plddt = None
 
@@ -47,7 +47,7 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda", summary_
     protein.from_relaxation(
         struct_str,
         residue_index=residue_index,
-        chain_index=chain_id,
+        chain_index=chain_index,
         b_factors=plddt,
     )
 
