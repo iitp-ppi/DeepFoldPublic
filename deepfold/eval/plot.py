@@ -152,7 +152,14 @@ def plot_plddt(
     fig = plt.figure(**fig_kwargs)
     ax = fig.add_subplot(1, 1, 1)
     ax.set_title(rf"Predicted CA-lDDT")
-    for n, (model_name, value) in enumerate(outputs.items(), start=1):
+
+    ranking = [(v["plddt"].mean(), k) for k, v in outputs.items()]
+    ranking.sort(key=lambda x: x[0], reverse=True)
+
+    for n, (_, key) in enumerate(ranking, start=1):
+        model_name = key
+        value = outputs[key]
+
         # Draw plDDT
         x = np.arange(len(value["plddt"])) + 1
         y = value["plddt"]
