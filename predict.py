@@ -276,9 +276,13 @@ def save_summary(
     summary["residue_index"] = residue_index.tolist()
 
     summary["plddt"] = result["plddt"].tolist()
-    summary["ptm"] = result.get("ptm_score", None)
-    summary["iptm"] = result.get("iptm_score", None)
-    summary["weighted_ptm_score"] = result.get("weighted_ptm_score", None)
+
+    if "ptm" in result:
+        summary["ptm"] = float(result["ptm_score"])
+    if "iptm" in result:
+        summary["iptm"] = float(result["iptm_score"])
+    if "weighted_ptm_score" in result:
+        summary["weighted_ptm_score"] = float(result["weighted_ptm_score"])
 
     json_str = json.dumps(summary, indent=4)
     with open(output_filepath, "w") as fp:
