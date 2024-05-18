@@ -8,7 +8,8 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import Colormap, ListedColormap
 
 from deepfold.common import protein
-from deepfold.runner.plot import find_cluster_boundaries, plddt_cmap
+from deepfold.common import residue_constants as rc
+from deepfold.eval.plot import find_cluster_boundaries, plddt_cmap
 
 PYMOL_COLORS = [
     "#33ff33",
@@ -198,7 +199,7 @@ def plot_protein(
     linewidth: float = 2.0,
 ) -> plt.Figure:
     if protein is not None:
-        pos = np.asarray(protein.atom_positions[:, 1, :])
+        pos = np.asarray(protein.atom_positions[:, rc.atom_order["CA"], :])
         if plddt is None:
             plddt = np.asarray(protein.b_factors[:, 1])
 
