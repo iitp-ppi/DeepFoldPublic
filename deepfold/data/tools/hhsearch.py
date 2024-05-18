@@ -20,7 +20,7 @@ import os
 import subprocess
 from typing import Optional, Sequence
 
-from deepfold.data import parsers
+from deepfold.data.search import parsers
 from deepfold.data.tools import utils
 
 
