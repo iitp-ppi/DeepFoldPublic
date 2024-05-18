@@ -16,6 +16,7 @@ def relax_protein(input_filepath, output_filepath, model_device="cuda", summary_
     """Amber relaxation."""
 
     if summary_filepath is not None:
+        logger.info(f"Use summary informations: {str(summary_filepath)}")
         with open(summary_filepath, "r") as fp:
             summary = json.load(fp)
             chain_index = summary["chain_index"]
