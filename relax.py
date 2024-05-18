@@ -26,9 +26,9 @@ def relax_protein(
         logger.info(f"Use summary informations: {str(summary_filepath)}")
         with open(summary_filepath, "r") as fp:
             summary = json.load(fp)
-            chain_index = np.asarray(summary["chain_index"])
-            residue_index = np.asarray(summary["residue_index"])
-            plddt = np.asarray(summary["plddt"])
+        chain_index = np.asarray(summary["chain_index"])
+        residue_index = np.asarray(summary["residue_index"])
+        plddt = np.asarray(summary["plddt"])
     else:
         chain_index = None
         residue_index = None
@@ -52,7 +52,7 @@ def relax_protein(
 
     logger.info(f"Relaxation time: {relaxation_time}")
 
-    protein.from_relaxation(
+    prot = protein.from_relaxation(
         struct_str,
         residue_index=residue_index,
         chain_index=chain_index,
@@ -61,7 +61,7 @@ def relax_protein(
 
     relaxed_output_path = output_filepath
     with open(relaxed_output_path, "w") as fp:
-        fp.write(struct_str)
+        fp.write(protein.to_pdb(prot))
 
     logger.info(f"Relaxed output written to '{relaxed_output_path}'")
 
