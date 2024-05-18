@@ -596,10 +596,7 @@ def from_prediction(
 
 
 def from_relaxation(
-    relaxed_pdb_str: str,
-    residue_index: np.ndarray | None,
-    chain_index: np.ndarray | None,
-    b_factors: np.ndarray | None,
+    relaxed_pdb_str: str, residue_index: np.ndarray | None = None, chain_index: np.ndarray | None = None, b_factors: np.ndarray | None = None
 ) -> Protein:
     """Amber relaxation procedure renames residue index starting from 1.
     Since we may ahve cropped domains, we must fix residue indices with correct ones.
