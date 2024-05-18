@@ -12,6 +12,13 @@ def parse_crf(crf_string: str, query_id: str, alignment_dir: Path) -> List[Templ
 
     crf_hits = []
     for i, chain_id in enumerate(lst_crf, start=1):
+        # Handle comments:
+        if chain_id.startswith("#"):
+            continue
+        chain_id, _, _ = chain_id.partition("#")
+        chain_id = chain_id.strip()
+
+        # Parse template hits:
         with open(alignment_dir / f"{query_id}-{chain_id}.pir", "r") as fp:
             lines = fp.read()
         hit = parse_pir(lines, index=i)
