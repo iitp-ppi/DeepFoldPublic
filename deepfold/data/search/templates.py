@@ -239,7 +239,7 @@ def create_empty_template_feats(seqlen: int) -> dict:
     return {
         "template_domain_names": [],
         "template_sequence": [],
-        "template_aatype": np.zeros(shape=(0, seqlen), dtype=np.int32),
+        "template_aatype": np.zeros(shape=(0, seqlen, 22), dtype=np.int32),
         "template_all_atom_positions": np.zeros(shape=(0, seqlen, rc.atom_type_num, 3), dtype=np.float32),
         "template_all_atom_mask": np.zeros(shape=(0, seqlen, rc.atom_type_num), dtype=np.float32),
         "template_sum_probs": np.zeros(shape=(0, 1), dtype=np.float32),
