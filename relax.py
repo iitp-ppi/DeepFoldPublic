@@ -22,6 +22,10 @@ def relax_protein(
 ):
     """Amber relaxation."""
 
+    with open(input_filepath, "r") as fp:
+        pdb_string = fp.read()
+    unrelaxed_protein = protein.from_pdb_string(pdb_string)
+
     if summary_filepath is not None:
         logger.info(f"Use summary informations: {str(summary_filepath)}")
         with open(summary_filepath, "r") as fp:
@@ -30,9 +34,9 @@ def relax_protein(
         residue_index = np.asarray(summary["residue_index"])
         plddt = np.asarray(summary["plddt"])
     else:
-        chain_index = None
-        residue_index = None
-        plddt = None
+        chain_index = unrelaxed_protein.chain_index.copy()
+        residue_index = unrelaxed_protein.residue_index.copy()
+        plddt = unrelaxed_protein.b_factors.copy()
 
     amber_relaxer = relax.AmberRelaxation(
         max_iterations=0,
@@ -44,9 +48,7 @@ def relax_protein(
     )
 
     t = time.perf_counter()
-    with open(input_filepath, "r") as fp:
-        pdb_string = fp.read()
-    unrelaxed_protein = protein.from_pdb_string(pdb_string)
+
     struct_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
     relaxation_time = time.perf_counter() - t
 
