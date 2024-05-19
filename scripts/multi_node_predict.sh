@@ -61,6 +61,7 @@ torchrun \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
     --params_dirpath "/gpfs/database/casp16/params" \
+    --seed $RANDOM \
     "$@"
 # --preset "params_model_1" \
 
