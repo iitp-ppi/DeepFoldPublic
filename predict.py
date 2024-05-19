@@ -277,9 +277,9 @@ def save_summary(
 
     summary["plddt"] = result["plddt"].tolist()
 
-    if "ptm" in result:
+    if "ptm_score" in result:
         summary["ptm"] = float(result["ptm_score"])
-    if "iptm" in result:
+    if "iptm_score" in result:
         summary["iptm"] = float(result["iptm_score"])
     if "weighted_ptm_score" in result:
         summary["weighted_ptm_score"] = float(result["weighted_ptm_score"])
