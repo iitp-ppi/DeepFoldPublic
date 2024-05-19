@@ -50,7 +50,9 @@ OUTPUT_DIR=$2
 shift 2
 
 # Pick a random numbeer:
-SEED=$RANDOM
+MIN=0
+MAX=4294967295
+SEED=$(awk "BEGIN { srand(); print int(rand()*($MAX-$MIN+1))+$MIN }")
 
 # srun --export=ALL \
 torchrun \
