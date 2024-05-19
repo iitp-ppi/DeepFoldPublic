@@ -49,6 +49,9 @@ INPUT_FEAT=$1
 OUTPUT_DIR=$2
 shift 2
 
+# Pick a random numbeer:
+SEED=$RANDOM
+
 # srun --export=ALL \
 torchrun \
     --nnodes=$NNODES \
@@ -61,8 +64,7 @@ torchrun \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
     --params_dirpath "/gpfs/database/casp16/params" \
-    --seed $RANDOM \
+    --seed $SEED \
     "$@"
-# --preset "params_model_1" \
 
 echo "END" $(date +"%Y-%m-%d %H:%M:%S")
