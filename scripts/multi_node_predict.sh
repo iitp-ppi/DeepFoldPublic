@@ -53,6 +53,7 @@ shift 2
 MIN=0
 MAX=4294967295
 SEED=$(awk "BEGIN { srand(); print int(rand()*($MAX-$MIN+1))+$MIN }")
+echo "SEED=${SEED}"
 
 # srun --export=ALL \
 torchrun \
@@ -63,10 +64,10 @@ torchrun \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     $BASE/predict.py \
     --mp_size 4 \
+    --seed $SEED \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
     --params_dirpath "/gpfs/database/casp16/params" \
-    --seed $SEED \
     "$@"
 
 echo "END" $(date +"%Y-%m-%d %H:%M:%S")
