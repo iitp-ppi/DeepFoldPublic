@@ -408,7 +408,7 @@ class AlphaFoldConfig:
         }
 
         if is_multimer:
-            _update(
+            cfg = _update(
                 cfg,
                 {
                     "input_embedder_config": {
@@ -448,19 +448,19 @@ class AlphaFoldConfig:
             )
 
         if inference_chunk_size is not None or inference_block_size is not None:
-            _update(cfg, _inference_stage(chunk_size=inference_chunk_size, block_size=inference_block_size))
+            cfg = _update(cfg, _inference_stage(chunk_size=inference_chunk_size, block_size=inference_block_size))
 
         if enable_ptm:
-            _update(cfg, _ptm_preset())
+            cfg = _update(cfg, _ptm_preset())
 
         if precision in {"fp32", "tf32", "bf16"}:
             pass
         elif precision in {"amp", "fp16"}:
-            _update(cfg, _half_precision_settings())
+            cfg = _update(cfg, _half_precision_settings())
         else:
             raise ValueError(f"Unknown precision={repr(precision)}")
 
-        cfg.update(additional_options)
+        cfg = _update(cfg, additional_options)
 
         return cls.from_dict(cfg)
 
@@ -652,7 +652,7 @@ class FeaturePipelineConfig:
     def from_preset(
         cls,
         preset: str,
-        seed: int = 0,
+        seed: int,
         is_multimer: bool = False,
         **additional_options,
     ) -> FeaturePipelineConfig:
@@ -660,25 +660,26 @@ class FeaturePipelineConfig:
             "seed": seed,
         }
         if preset == "predict":
-            cfg = _predict_mode(is_multimer)
+            cfg = _update(cfg, _predict_mode(is_multimer))
         elif preset == "eval":
-            cfg = _eval_mode(is_multimer)
+            cfg = _update(cfg, _eval_mode(is_multimer))
         elif preset == "train":
-            cfg = _train_mode(is_multimer)
+            cfg = _update(cfg, _train_mode(is_multimer))
         else:
             raise ValueError(f"Unknown preset: '{preset}'")
 
         if is_multimer:
-            cfg.update(
+            cfg = _update(
+                cfg,
                 {
                     "is_multimer": True,
                     "max_recycling_iters": 20,
-                }
+                },
             )
 
-        cfg.update(additional_options)
+        cfg = _update(cfg, additional_options)
 
-        return dacite.from_dict(cls, cfg, dacite.Config(strict=True, check_types=True))
+        return cls.from_dict(cls, cfg)
 
     def to_dict(self) -> dict:
         return asdict(self)
