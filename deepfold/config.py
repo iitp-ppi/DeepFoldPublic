@@ -652,12 +652,12 @@ class FeaturePipelineConfig:
     def from_preset(
         cls,
         preset: str,
-        ensemble_seed: int = 0,
+        seed: int = 0,
         is_multimer: bool = False,
         **additional_options,
     ) -> FeaturePipelineConfig:
         cfg = {
-            "ensemble_seed": ensemble_seed,
+            "seed": seed,
         }
         if preset == "predict":
             cfg = _predict_mode(is_multimer)

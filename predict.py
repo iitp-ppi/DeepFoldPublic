@@ -346,7 +346,7 @@ def predict(args: argparse.Namespace) -> None:
     model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
-        ensemble_seed=seed,
+        seed=seed,
         **feat_cfg_kwargs,
     )
 
