@@ -679,7 +679,7 @@ class FeaturePipelineConfig:
 
         cfg = _update(cfg, additional_options)
 
-        return cls.from_dict(cls, cfg)
+        return cls.from_dict(cfg)
 
     def to_dict(self) -> dict:
         return asdict(self)
