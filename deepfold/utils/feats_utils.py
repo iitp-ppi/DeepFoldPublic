@@ -16,9 +16,14 @@ def crop_features(feats: dict, start: int, end: int):
     new_feats["aatype"] = feats["aatype"][mask, :]
     new_feats["between_segment_residues"] = feats["between_segment_residues"][mask]
     new_feats["residue_index"] = feats["residue_index"][mask]
-    new_feats["deletion_matrix_int"] = feats["deletion_matrix_int"][:, mask]
-    new_feats["msa"] = feats["msa"][:, mask]
+
+    new_msa = feats["msa"][:, mask]
+    msa_mask = ~np.all(new_msa == 21, axis=1)  # All-gap
+    new_feats["msa"] = new_msa[msa_mask]
+    new_feats["deletion_matrix_int"] = feats["deletion_matrix_int"][new_msa, mask]
     new_feats["num_alignments"] = feats["num_alignments"][mask]
+    new_feats["num_alignments"].fill(len(msa_mask))
+
     new_feats["template_aatype"] = feats["template_aatype"][:, mask, :]
     new_feats["template_all_atom_positions"] = feats["template_all_atom_positions"][:, mask, :, :]
     new_feats["template_all_atom_mask"] = feats["template_all_atom_mask"][:, mask, :]
