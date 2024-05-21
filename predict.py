@@ -99,6 +99,12 @@ def parse_args() -> argparse.Namespace:
         dest="multimer_templates",
         help="Enable multimer templates.",
     )
+    parser.add_argument(
+        "--max_recycling_iters",
+        default=0,
+        type=int,
+        help="Maximum number of recycling iterations.",
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -136,7 +142,7 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         enable_ptm=enable_ptm,
         enable_templates=enable_templates,
         inference_chunk_size=4,
-        inference_block_size=None,
+        inference_block_size=128,
     )
     feat_cfg_kwargs = dict(
         is_multimer=is_multimer,
@@ -232,7 +238,7 @@ def _recycle_hook(
             fp.write(protein.to_pdb(prot))
 
 
-def save_summary(
+def _save_summary(
     processed_features: dict,
     result: dict,
     output_filepath: Path,
@@ -289,6 +295,16 @@ def save_summary(
         fp.write(json_str)
 
 
+def _allocate_memory():
+    torch.cuda.empty_cache()
+    free_mem, total_mem = torch.cuda.mem_get_info()
+    used_mem = total_mem - free_mem
+    size = int(total_mem * 0.95 - used_mem) // 4
+    t = torch.empty(size, dtype=torch.float32, device="cuda")
+    del t
+    torch.cuda.reset_peak_memory_stats()
+
+
 def predict(args: argparse.Namespace) -> None:
     if (args.seed == -1) and (args.mp_size == 0):
         seed = random.randint(0, NUMPY_SEED_MODULUS)
@@ -298,9 +314,12 @@ def predict(args: argparse.Namespace) -> None:
     # Parse the preset:
     model_name, (model_cfg_kwargs, feat_cfg_kwargs, import_kwargs) = get_preset_opts(args.preset)
 
+    # Setup suffix:
+    suffix = f"_{args.suffix}" if args.suffix else ""
+
     # Setup logging:
     if dist.is_main_process():
-        setup_logging(f"predict.{model_name}.log")
+        setup_logging(f"predict.{model_name}{suffix}.log")
 
     if args.mp_size > 0:
         # Assuming model parallelized prediction:
@@ -325,6 +344,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Set device:
     torch.cuda.set_device(device=device)
+    _allocate_memory()
 
     # Distributed warm-up:
     if args.mp_size > 0:
@@ -339,8 +359,9 @@ def predict(args: argparse.Namespace) -> None:
     # figures_dirpath = args.output_dirpath / "figures"
     # figures_dirpath.mkdir(parents=True, exist_ok=args.force)
 
-    # Setup suffix:
-    suffix = f"_{args.suffix}" if args.suffix else ""
+    # Maximum recycling iterations:
+    if args.max_recycling_iters > 0:
+        feat_cfg_kwargs["max_recycling_iters"] = args.max_recycling_iters
 
     # Get configs:
     model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
@@ -464,7 +485,7 @@ def predict(args: argparse.Namespace) -> None:
             fp.write(protein.to_pdb(prot))
 
         summary_filepath = args.output_dirpath / f"summary_{model_name}{suffix}.json"
-        save_summary(
+        _save_summary(
             batch_last,
             out,
             summary_filepath,
