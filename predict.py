@@ -105,6 +105,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         help="Maximum number of recycling iterations.",
     )
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Don't write result pickle.",
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
@@ -299,7 +304,7 @@ def _allocate_memory():
     torch.cuda.empty_cache()
     free_mem, total_mem = torch.cuda.mem_get_info()
     used_mem = total_mem - free_mem
-    size = int(total_mem * 0.95 - used_mem) // 4
+    size = int(total_mem * 0.90 - used_mem) // 4
     t = torch.empty(size, dtype=torch.float32, device="cuda")
     del t
     torch.cuda.reset_peak_memory_stats()
@@ -494,7 +499,8 @@ def predict(args: argparse.Namespace) -> None:
             seed=seed,
         )
 
-        dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
+        if not args.benchmark:
+            dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
     # Exit:
     del model
