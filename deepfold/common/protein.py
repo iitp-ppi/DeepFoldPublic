@@ -317,17 +317,17 @@ def _single_protein_to_pdb(prot: Protein, model_id: int = 1) -> List[str]:
     # Add all atom sites.
     for i in range(aatype.shape[0]):
         # Close the previous chain if in a multichain PDB.
-        if last_chain_index != chain_index[i]:
-            pdb_lines.append(
-                _chain_end(
-                    atom_index,
-                    res_1to3(aatype[i - 1]),
-                    chain_ids[chain_index[i - 1]],
-                    residue_index[i - 1],
-                )
-            )
-            last_chain_index = chain_index[i]
-            atom_index += 1  # Atom index increases at the TER symbol.
+        # if last_chain_index != chain_index[i]:
+        #     pdb_lines.append(
+        #         _chain_end(
+        #             atom_index,
+        #             res_1to3(aatype[i - 1]),
+        #             chain_ids[chain_index[i - 1]],
+        #             residue_index[i - 1],
+        #         )
+        #     )
+        #     last_chain_index = chain_index[i]
+        #     atom_index += 1  # Atom index increases at the TER symbol.
 
         res_name_3 = res_1to3(aatype[i])
         for atom_name, pos, mask, b_factor in zip(atom_types, atom_positions[i], atom_mask[i], b_factors[i]):
@@ -596,7 +596,10 @@ def from_prediction(
 
 
 def from_relaxation(
-    relaxed_pdb_str: str, residue_index: np.ndarray | None = None, chain_index: np.ndarray | None = None, b_factors: np.ndarray | None = None
+    relaxed_pdb_str: str,
+    residue_index: np.ndarray | None = None,
+    chain_index: np.ndarray | None = None,
+    b_factors: np.ndarray | None = None,
 ) -> Protein:
     """Amber relaxation procedure renames residue index starting from 1.
     Since we may ahve cropped domains, we must fix residue indices with correct ones.
