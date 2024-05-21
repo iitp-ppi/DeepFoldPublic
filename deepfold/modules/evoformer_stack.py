@@ -100,6 +100,7 @@ class EvoformerStack(nn.Module):
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
         gradient_checkpointing: bool,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Evoformer Stack forward pass.
 
@@ -131,6 +132,7 @@ class EvoformerStack(nn.Module):
                 z=z,
                 msa_mask=msa_mask,
                 pair_mask=pair_mask,
+                inplace_safe=inplace_safe,
             )
         s = self.linear(m[..., 0, :, :])
         return m, z, s
@@ -141,6 +143,7 @@ class EvoformerStack(nn.Module):
         z: torch.Tensor,
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if mp.is_enabled():
             msa_col_pad_size = get_pad_size(m, -2, mp.size())
@@ -161,7 +164,7 @@ class EvoformerStack(nn.Module):
             pair_mask = pad_tensor(pair_mask, -2, pair_pad_size)
 
         for block in self.blocks:
-            m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask)
+            m, z = block(m=m, z=z, msa_mask=msa_mask, pair_mask=pair_mask, inplace_safe=inplace_safe)
 
         if mp.is_enabled():
             if self.opm_first:

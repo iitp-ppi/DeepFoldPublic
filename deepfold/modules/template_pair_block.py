@@ -8,6 +8,7 @@ from deepfold.modules.dropout import DropoutColumnwise, DropoutRowwise
 from deepfold.modules.pair_transition import PairTransition
 from deepfold.modules.triangular_attention import TriangleAttentionEndingNode, TriangleAttentionStartingNode
 from deepfold.modules.triangular_multiplicative_update import TriangleMultiplicationIncoming, TriangleMultiplicationOutgoing
+from deepfold.utils.tensor_utils import add
 
 
 class TemplatePairBlock(nn.Module):
@@ -89,6 +90,7 @@ class TemplatePairBlock(nn.Module):
         self,
         t: torch.Tensor,
         mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """Template Pair Block forward pass.
 
@@ -100,11 +102,11 @@ class TemplatePairBlock(nn.Module):
             t: [batch, N_templ, N_res, N_res, c_t] updated template representation
 
         """
+
         t_list = list(torch.unbind(t, dim=-4))
+        # t_list = [t.unsqueeze(-4) for t in torch.unbind(t, dim=-4)]
 
-        N_templ = len(t_list)
-
-        for i in range(N_templ):
+        for i in range(len(t_list)):
             t = t_list[i]
             # t: [batch, N_res, N_res, c_t]
 
@@ -116,86 +118,118 @@ class TemplatePairBlock(nn.Module):
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask_row),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.row_to_col(t)
                     t = self.taen_dropout_columnwise(
                         self.tri_att_end(z=t, mask=mask_col),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.col_to_row(t)
                     t = self.tmo_dropout_rowwise(
                         self.tri_mul_out(z=t, mask=mask_row),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.row_to_col(t)
                     t = self.tmi_dropout_rowwise(
                         self.tri_mul_in(z=t, mask=mask_col),
                         dap_scattered_dim=2,
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
-                    t = self.pair_transition(z=t, mask=mask_col)
+                    t = self.pair_transition(
+                        z=t,
+                        mask=mask_col,
+                        inplace_safe=inplace_safe,
+                    )
                     t = mp.col_to_row(t)
                 else:
                     t = self.tmo_dropout_rowwise(
                         self.tri_mul_out(z=t, mask=mask_row),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.row_to_col(t)
                     t = self.tmi_dropout_rowwise(
                         self.tri_mul_in(z=t, mask=mask_col),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.col_to_row(t)
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask_row),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = mp.row_to_col(t)
                     t = self.taen_dropout_columnwise(
                         self.tri_att_end(z=t, mask=mask_col),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
-                    t = self.pair_transition(z=t, mask=mask_col)
+                    t = self.pair_transition(
+                        z=t,
+                        mask=mask_col,
+                        inplace_safe=inplace_safe,
+                    )
                     t = mp.col_to_row(t)
             else:
                 if self.tri_att_first:
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.taen_dropout_columnwise(
                         self.tri_att_end(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.tmo_dropout_rowwise(
                         self.tri_mul_out(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.tmi_dropout_rowwise(
                         self.tri_mul_in(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
-                    t = self.pair_transition(z=t, mask=mask)
+                    t = self.pair_transition(
+                        z=t,
+                        mask=mask,
+                        inplace_safe=inplace_safe,
+                    )
                 else:
                     t = self.tmo_dropout_rowwise(
                         self.tri_mul_out(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.tmi_dropout_rowwise(
                         self.tri_mul_in(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.tasn_dropout_rowwise(
                         self.tri_att_start(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
                     t = self.taen_dropout_columnwise(
                         self.tri_att_end(z=t, mask=mask),
                         add_output_to=t,
+                        inplace=inplace_safe,
                     )
-                    t = self.pair_transition(z=t, mask=mask)
-
-            t_list[i] = t
+                    t = self.pair_transition(
+                        z=t,
+                        mask=mask,
+                        inplace_safe=inplace_safe,
+                    )
+            if not inplace_safe:
+                t_list[i] = t
 
         t = torch.stack(t_list, dim=-4)
         # t: [batch, N_templ, N_res, N_res, c_t]

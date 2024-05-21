@@ -109,6 +109,7 @@ class EvoformerBlock(nn.Module):
         z: torch.Tensor,
         msa_mask: torch.Tensor,
         pair_mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Evoformer Block forward pass.
 
@@ -128,24 +129,24 @@ class EvoformerBlock(nn.Module):
             msa_mask_col = mp.scatter(msa_mask, dim=-1)
 
             if self.opm_first:
-                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
+                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z, inplace_safe=inplace_safe)
                 m = mp.col_to_row(m)
             m = self.msa_dropout_rowwise(self.msa_att_row(m=m, z=z, mask=msa_mask_row), add_output_to=m)
             m = mp.row_to_col(m)
             m = self.msa_att_col(m=m, mask=msa_mask_col)
-            m = self.msa_transition(m=m, mask=msa_mask_col)
+            m = self.msa_transition(m=m, mask=msa_mask_col, inplace_safe=inplace_safe)
             if not self.opm_first:
-                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
+                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z, inplace_safe=inplace_safe)
                 m = mp.col_to_row(m)
         else:
             if self.opm_first:
-                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
+                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z, inplace_safe=inplace_safe)
             m = self.msa_dropout_rowwise(self.msa_att_row(m=m, z=z, mask=msa_mask), add_output_to=m)
             m = self.msa_att_col(m=m, mask=msa_mask)
-            m = self.msa_transition(m=m, mask=msa_mask)
+            m = self.msa_transition(m=m, mask=msa_mask, inplace_safe=inplace_safe)
             if not self.opm_first:
-                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z)
+                z = self.outer_product_mean(m=m, mask=msa_mask, add_output_to=z, inplace_safe=inplace_safe)
 
-        z = self.pair_core(z=z, pair_mask=pair_mask)
+        z = self.pair_core(z=z, pair_mask=pair_mask, inplace_safe=inplace_safe)
 
         return m, z

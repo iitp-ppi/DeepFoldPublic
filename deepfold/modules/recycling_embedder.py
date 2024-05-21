@@ -51,6 +51,7 @@ class RecyclingEmbedder(nn.Module):
         m0_prev: torch.Tensor,
         z_prev: torch.Tensor,
         x_prev: torch.Tensor,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Recycling Embedder forward pass.
 
@@ -80,8 +81,8 @@ class RecyclingEmbedder(nn.Module):
         # m0_update: [batch, N_res, c_m] first row MSA representation update
 
         # Update MSA and pair representations:
-        m = self._msa_update(m, m0_update)
-        z = self._pair_update(z, z_update, d)
+        m = self._msa_update(m, m0_update, inplace_safe)
+        z = self._pair_update(z, z_update, d, inplace_safe)
 
         return m, z
 
@@ -101,17 +102,31 @@ class RecyclingEmbedder(nn.Module):
         )
         return d
 
-    def _msa_update(self, m: torch.Tensor, m0_update: torch.Tensor) -> torch.Tensor:
-        m = m.clone()
-        m[..., 0, :, :] += m0_update
+    def _msa_update(
+        self,
+        m: torch.Tensor,
+        m0_update: torch.Tensor,
+        inplace_safe: bool,
+    ) -> torch.Tensor:
+        if inplace_safe:
+            m[..., 0, :, :] += m0_update
+        else:
+            m = m.clone()
+            m[..., 0, :, :] += m0_update
         return m
 
-    def _pair_update(self, z: torch.Tensor, z_update: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
+    def _pair_update(
+        self,
+        z: torch.Tensor,
+        z_update: torch.Tensor,
+        d: torch.Tensor,
+        inplace_safe: bool,
+    ) -> torch.Tensor:
         if inductor.is_enabled():
             pair_update_fn = _pair_update_jit
         else:
             pair_update_fn = _pair_update_eager
-        z = pair_update_fn(z, z_update, d)
+        z = pair_update_fn(z, z_update, d, inplace_safe)
         return z
 
     def _initialize_buffers(self, dtype: torch.dtype, device: torch.device) -> None:
@@ -151,85 +166,14 @@ def _pair_update_eager(
     z: torch.Tensor,
     z_update: torch.Tensor,
     delta: torch.Tensor,
+    inplace_safe: bool,
 ) -> torch.Tensor:
-    return z + z_update + delta
+    if inplace_safe:
+        z += z_update
+        z += delta
+        return z
+    else:
+        return z + z_update + delta
 
 
 _pair_update_jit = torch.compile(_pair_update_eager)
-
-
-class OpenFoldRecyclingEmbedder(nn.Module):
-
-    def __init__(
-        self,
-        c_m: int,
-        c_z: int,
-        min_bin: float,
-        max_bin: float,
-        num_bins: int,
-        inf: float = 1e8,
-    ):
-        """
-        Args:
-            c_m:
-                MSA channel dimension
-            c_z:
-                Pair embedding channel dimension
-            min_bin:
-                Smallest distogram bin (Angstroms)
-            max_bin:
-                Largest distogram bin (Angstroms)
-            no_bins:
-                Number of distogram bins
-        """
-        super(OpenFoldRecyclingEmbedder, self).__init__()
-
-        self.c_m = c_m
-        self.c_z = c_z
-        self.min_bin = min_bin
-        self.max_bin = max_bin
-        self.no_bins = num_bins
-        self.inf = inf
-
-        self.linear = Linear(self.no_bins, self.c_z, bias=True, init="default")
-        self.layer_norm_m = LayerNorm(self.c_m)
-        self.layer_norm_z = LayerNorm(self.c_z)
-
-    def forward(
-        self,
-        m: torch.Tensor,
-        z: torch.Tensor,
-        m0_prev: torch.Tensor,
-        z_prev: torch.Tensor,
-        x_prev: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-
-        # [*, N, C_m]
-        m0_update = self.layer_norm_m(m0_prev)
-
-        m[..., 0, :, :] += m0_update
-
-        # [*, N, N, C_z]
-        z_update = self.layer_norm_z(z_prev)
-
-        # This squared method might become problematic in FP16 mode.
-        bins = torch.linspace(
-            self.min_bin,
-            self.max_bin,
-            self.no_bins,
-            dtype=x_prev.dtype,
-            device=x_prev.device,
-            requires_grad=False,
-        )
-        squared_bins = bins**2
-        upper = torch.cat([squared_bins[1:], squared_bins.new_tensor([self.inf])], dim=-1)
-        d = torch.sum((x_prev[..., :, None, :] - x_prev[..., None, :, :]) ** 2, dim=-1, keepdim=True)
-
-        # [*, N, N, no_bins]
-        d = ((d > squared_bins) * (d < upper)).type(x_prev.dtype)
-
-        # [*, N, N, C_z]
-        d = self.linear(d)
-        z = z + z_update + d
-
-        return m, z

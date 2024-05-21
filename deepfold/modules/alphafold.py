@@ -23,7 +23,7 @@ from deepfold.modules.template_pair_embedder import TemplatePairEmbedder, Templa
 from deepfold.modules.template_pair_stack import TemplatePairStack
 from deepfold.modules.template_pointwise_attention import TemplatePointwiseAttention
 from deepfold.modules.template_projection import TemplateProjection
-from deepfold.utils.tensor_utils import batched_gather, tensor_tree_map
+from deepfold.utils.tensor_utils import add, batched_gather, tensor_tree_map
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +155,14 @@ class AlphaFold(nn.Module):
     ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         outputs = {}
 
-        # batch_size = feats["aatype"].shape[0]
-        # num_res = feats["aatype"].shape[1]
-        num_clust = feats["msa_feat"].shape[1]
+        batch_dims = feats["target_feat"].shape[:-2]
+        num_batch_dims = len(batch_dims)
+        num_res = feats["target_feat"].shape[-2]
+        num_clust = feats["msa_feat"].shape[-3]  # 1
+
+        # Whehter the model uses in-place operations:
+        inplace_safe = not (self.training or torch.is_grad_enabled())
+        # inplace_safe = False
 
         seq_mask = feats["seq_mask"]
         # seq_mask: [batch, N_res]
@@ -174,6 +179,7 @@ class AlphaFold(nn.Module):
                 target_feat=feats["target_feat"],
                 residue_index=feats["residue_index"],
                 msa_feat=feats["msa_feat"],
+                inplace_safe=inplace_safe,
             )
         else:
             m, z = self.input_embedder(
@@ -183,6 +189,7 @@ class AlphaFold(nn.Module):
                 asym_id=feats["asym_id"],
                 entity_id=feats["entity_id"],
                 sym_id=feats["sym_id"],
+                inplace_safe=inplace_safe,
             )
         # m: [batch, N_clust, N_res, c_m]
         # z: [batch, N_res, N_res, c_z]
@@ -204,6 +211,7 @@ class AlphaFold(nn.Module):
             m0_prev=m0_prev,
             z_prev=z_prev,
             x_prev=x_prev,
+            inplace_safe=inplace_safe,
         )
 
         del m0_prev, z_prev, x_prev
@@ -218,10 +226,12 @@ class AlphaFold(nn.Module):
                 asym_id=feats["asym_id"] if self.config.is_multimer else None,
                 gradient_checkpointing=gradient_checkpointing,
                 multichain_mask_2d=feats.get("template_multichain_mask_2d", None),
+                inplace_safe=inplace_safe,
             )
             # multichain_mask_2d: [batch, N_res, N_res, N_templ]
 
-            z = z + template_embeds["template_pair_embedding"]
+            # z = z + template_embeds["template_pair_embedding"]
+            z = add(z, template_embeds["template_pair_embedding"], inplace_safe)
             # z: [batch, N_res, N_res, c_z]
 
             if self.config.embed_template_torsion_angles:
@@ -264,6 +274,7 @@ class AlphaFold(nn.Module):
             msa_mask=feats["extra_msa_mask"].to(dtype=m.dtype),
             pair_mask=pair_mask.to(dtype=m.dtype),
             gradient_checkpointing=gradient_checkpointing,
+            inplace_safe=inplace_safe,
         )
         # z: [batch, N_res, N_res, c_z]
         del a
@@ -275,6 +286,7 @@ class AlphaFold(nn.Module):
             msa_mask=msa_mask.to(dtype=m.dtype),
             pair_mask=pair_mask.to(dtype=z.dtype),
             gradient_checkpointing=gradient_checkpointing,
+            inplace_safe=inplace_safe,
         )
         # m: [batch, N_seq, N_res, c_m]
         # z: [batch, N_res, N_res, c_z]
@@ -289,6 +301,7 @@ class AlphaFold(nn.Module):
             z=outputs["pair"].to(dtype=torch.float32),
             mask=feats["seq_mask"].to(dtype=s.dtype),
             aatype=feats["aatype"],
+            inplace_safe=inplace_safe,
         )
 
         outputs.update(sm_outputs)
@@ -344,13 +357,28 @@ class AlphaFold(nn.Module):
         gradient_checkpointing: bool,
         asym_id: Optional[torch.Tensor] = None,
         multichain_mask_2d: Optional[torch.Tensor] = None,  # [..., N_res, N_res, N_templ]
+        inplace_safe: bool = False,
     ) -> Dict[str, torch.Tensor]:
         # Embed the templates one at a time:
-        pair_embeds = []
+        num_res = z.shape[-2]
         num_templ = feats["template_aatype"].shape[-2]  # 1
+
+        if inplace_safe:
+            t_pair = z.new_ones(
+                z.shape[:-3]
+                + (
+                    num_templ,
+                    num_res,
+                    num_res,
+                    self.config.template_pair_embedder_config.c_t,
+                )
+            )
+        else:
+            pair_embeds = []
 
         for i in range(num_templ):
             single_template_feats = tensor_tree_map(fn=lambda t: t[:, i], tree=feats)
+
             if multichain_mask_2d is not None:
                 single_multichain_mask_2d = multichain_mask_2d[..., i]
             else:
@@ -392,19 +420,25 @@ class AlphaFold(nn.Module):
                 )
                 # t: [batch, N_res, N_res, c_t]
 
-            pair_embeds.append(t)
+            if inplace_safe:
+                t_pair[..., i, :, :, :] = t
+            else:
+                pair_embeds.append(t)
             del t
 
-        t = torch.stack(pair_embeds, dim=-4)  # 1
-        # t: [batch, N_templ, N_res, N_res, c_t]
-        del pair_embeds
+        if not inplace_safe:
+            t_pair = torch.stack(pair_embeds, dim=-4)  # 1
+            # t_pair: [batch, N_templ, N_res, N_res, c_t]
+            del pair_embeds
 
         t = self.template_pair_stack(
-            t=t,
+            t=t_pair,
             mask=pair_mask.to(dtype=z.dtype),
             gradient_checkpointing=gradient_checkpointing,
+            inplace_safe=inplace_safe,
         )
         # t: [batch, N_templ, N_res, N_res, c_t]
+        del t_pair
 
         if self.config.is_multimer:
             t = self.template_projection(t=t)
@@ -414,7 +448,12 @@ class AlphaFold(nn.Module):
                 z=z,
                 template_mask=feats["template_mask"].to(dtype=z.dtype),
             )
-            t = _apply_template_mask(t=t, template_mask=feats["template_mask"])
+            t = _apply_template_mask(
+                t=t,
+                template_mask=feats["template_mask"],
+                inplace_safe=inplace_safe,
+            )
+
         # t: [batch, N_res, N_res, c_z]
 
         template_embeds = {}
@@ -496,22 +535,33 @@ def _pseudo_beta(
     )
 
 
-def _apply_template_mask_eager(t: torch.Tensor, template_mask: torch.Tensor) -> torch.Tensor:
+def _apply_template_mask_eager(
+    t: torch.Tensor,
+    template_mask: torch.Tensor,
+    inplace_safe: bool,
+) -> torch.Tensor:
     t_mask = (torch.sum(template_mask, dim=1) > 0).to(dtype=t.dtype)
     t_mask = t_mask.unsqueeze(1).unsqueeze(2).unsqueeze(3)
-    t = t * t_mask
+    if inplace_safe:
+        t *= t_mask
+    else:
+        t = t * t_mask
     return t
 
 
 _apply_template_mask_jit = torch.compile(_apply_template_mask_eager)
 
 
-def _apply_template_mask(t: torch.Tensor, template_mask: torch.Tensor) -> torch.Tensor:
+def _apply_template_mask(
+    t: torch.Tensor,
+    template_mask: torch.Tensor,
+    inplace_safe: bool,
+) -> torch.Tensor:
     if inductor.is_enabled():
         apply_template_mask_fn = _apply_template_mask_jit
     else:
         apply_template_mask_fn = _apply_template_mask_eager
-    return apply_template_mask_fn(t, template_mask)
+    return apply_template_mask_fn(t, template_mask, inplace_safe)
 
 
 def _build_extra_msa_feat_eager(

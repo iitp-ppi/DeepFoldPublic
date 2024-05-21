@@ -51,6 +51,7 @@ class OuterProductMean(nn.Module):
         m: torch.Tensor,
         mask: torch.Tensor,
         add_output_to: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """Outer Product Mean forward pass.
 
@@ -65,15 +66,16 @@ class OuterProductMean(nn.Module):
         """
         if is_fp16_enabled():
             with torch.cuda.amp.autocast(enabled=False):
-                return self._forward(m.float(), mask, add_output_to)
+                return self._forward(m.float(), mask, add_output_to, inplace_safe)
         else:
-            return self._forward(m, mask, add_output_to)
+            return self._forward(m, mask, add_output_to, inplace_safe)
 
     def _forward(
         self,
         m: torch.Tensor,
         mask: torch.Tensor,
         add_output_to: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         m = self.layer_norm(m)
         # m: [batch, N_seq, N_res, c_m]
@@ -130,7 +132,7 @@ class OuterProductMean(nn.Module):
         if mp.is_enabled():
             norm = mp.scatter(norm, dim=-3)
 
-        outer = _forward_normalize_add(norm, outer, add_output_to, self.eps)
+        outer = _forward_normalize_add(norm, outer, add_output_to, self.eps, inplace_safe)
         # outer: [batch, N_res, N_res, c_z]
 
         return outer
@@ -239,9 +241,15 @@ def _forward_normalize_add_eager(
     outer: torch.Tensor,
     z: torch.Tensor,
     eps: float,
+    inplace: bool,
 ) -> torch.Tensor:
-    outer = outer / (norm + eps)
-    return z + outer
+    if inplace:
+        outer /= norm + eps
+        z += outer
+        return z
+    else:
+        outer = outer / (norm + eps)
+        return z + outer
 
 
 _forward_normalize_add_jit = torch.compile(_forward_normalize_add_eager)
@@ -252,9 +260,10 @@ def _forward_normalize_add(
     outer: torch.Tensor,
     z: torch.Tensor,
     eps: float,
+    inplace: bool,
 ) -> torch.Tensor:
     if inductor.is_enabled():
         forward_normalize_add_fn = _forward_normalize_add_jit
     else:
         forward_normalize_add_fn = _forward_normalize_add_eager
-    return forward_normalize_add_fn(norm, outer, z, eps)
+    return forward_normalize_add_fn(norm, outer, z, eps, inplace)

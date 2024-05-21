@@ -184,7 +184,7 @@ def create_all_seq_msa_features(
 
 
 @dataclasses.dataclass(frozen=False)
-class Complex:
+class ComplexInfo:
     descriptions: List[str] = dataclasses.field(default_factory=list)
     num_units: List[int] = dataclasses.field(default_factory=list)
 
@@ -194,7 +194,7 @@ class Complex:
 
 
 def process(
-    complex: Complex,
+    complex: ComplexInfo,
     all_monomer_features: Mapping[str, dict],
     msas_with_identifiers: Mapping[str, str],
     max_num_clusters: int = 512,

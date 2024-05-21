@@ -91,6 +91,7 @@ class EvoformerBlockPairCore(nn.Module):
         self,
         z: torch.Tensor,
         pair_mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """Evoformer Block Core forward pass.
 
@@ -103,62 +104,72 @@ class EvoformerBlockPairCore(nn.Module):
 
         """
         if mp.is_enabled():
-            z = self._forward_dap(z=z, pair_mask=pair_mask)
+            z = self._forward_dap(z=z, pair_mask=pair_mask, inplace_safe=inplace_safe)
         else:
-            z = self._forward(z=z, pair_mask=pair_mask)
+            z = self._forward(z=z, pair_mask=pair_mask, inplace_safe=inplace_safe)
         return z
 
     def _forward(
         self,
         z: torch.Tensor,
         pair_mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask),
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = self.tmi_dropout_rowwise(
             self.tri_mul_in(z=z, mask=pair_mask),
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = self.tasn_dropout_rowwise(
             self.tri_att_start(z=z, mask=pair_mask),
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = self.taen_dropout_columnwise(
             self.tri_att_end(z=z, mask=pair_mask),
             add_output_to=z,
+            inplace=inplace_safe,
         )
-        z = self.pair_transition(z, mask=pair_mask)
+        z = self.pair_transition(z, mask=pair_mask, inplace_safe=inplace_safe)
         return z
 
     def _forward_dap(
         self,
         z: torch.Tensor,
         pair_mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         pair_mask_row = mp.scatter(pair_mask, dim=-2)
         pair_mask_col = mp.scatter(pair_mask, dim=-1)
         z = self.tmo_dropout_rowwise(
             self.tri_mul_out(z=z, mask=pair_mask_row),
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = mp.row_to_col(z)
         z = self.tmi_dropout_rowwise(
             self.tri_mul_in(z=z, mask=pair_mask_col),
             dap_scattered_dim=-2,
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = mp.col_to_row(z)
         z = self.tasn_dropout_rowwise(
             self.tri_att_start(z=z, mask=pair_mask_row),
             add_output_to=z,
+            inplace=inplace_safe,
         )
         z = mp.row_to_col(z)
         z = self.taen_dropout_columnwise(
             self.tri_att_end(z=z, mask=pair_mask_col),
             add_output_to=z,
+            inplace=inplace_safe,
         )
-        z = self.pair_transition(z, mask=pair_mask_col)
+        z = self.pair_transition(z, mask=pair_mask_col, inplace_safe=inplace_safe)
         z = mp.col_to_row(z)
         return z

@@ -10,7 +10,7 @@ from deepfold.modules.linear import Linear
 from deepfold.utils.geometry import Rigid3Array, Vec3Array, square_euclidean_distance
 from deepfold.utils.precision import is_fp16_enabled
 from deepfold.utils.rigid_utils import Rigid
-from deepfold.utils.tensor_utils import flatten_final_dims
+from deepfold.utils.tensor_utils import add, flatten_final_dims
 
 
 class InvariantPointAttention(nn.Module):
@@ -91,6 +91,7 @@ class InvariantPointAttention(nn.Module):
         z: torch.Tensor,
         r: Rigid,
         mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """Invariant Point Attention (IPA) forward pass.
 
@@ -201,18 +202,7 @@ class InvariantPointAttention(nn.Module):
             forward_a_fn = _forward_a_jit
         else:
             forward_a_fn = _forward_a_eager
-        a = forward_a_fn(
-            a,
-            bias,
-            q_pts,
-            k_pts,
-            mask,
-            self.c_hidden,
-            self.num_heads,
-            self.head_weights,
-            self.num_qk_points,
-            self.inf,
-        )
+        a = forward_a_fn(a, bias, q_pts, k_pts, mask, self.c_hidden, self.num_heads, self.head_weights, self.num_qk_points, self.inf, inplace_safe)
         # a: [batch, num_heads, N_res, N_res]
 
         ################
@@ -304,6 +294,7 @@ def _forward_a_eager(
     head_weights: torch.Tensor,
     num_qk_points: int,
     inf: float,
+    inplace: bool,
 ) -> torch.Tensor:
     # a: [batch, num_heads, N_res, N_res]
     # b: [batch, N_res, N_res, num_heads]
@@ -311,12 +302,19 @@ def _forward_a_eager(
     # k_pts: [batch, N_res, num_heads, num_qk_points, 3]
     # mask: [batch, N_res]
 
-    a = a * math.sqrt(1.0 / (3 * c_hidden))
-    a = a + (math.sqrt(1.0 / 3) * b.movedim(-1, -3))
+    if inplace:
+        a *= math.sqrt(1.0 / (3 * c_hidden))
+        a += math.sqrt(1.0 / 3) * b.movedim(-1, -3)
+    else:
+        a = a * math.sqrt(1.0 / (3 * c_hidden))
+        a = a + (math.sqrt(1.0 / 3) * b.movedim(-1, -3))
     # a: [batch, num_heads, N_res, N_res]
 
     pt_att = q_pts.unsqueeze(-4) - k_pts.unsqueeze(-5)  # outer subtraction
-    pt_att = pt_att**2
+    if inplace:
+        pt_att *= pt_att
+    else:
+        pt_att = pt_att**2
     # pt_att: [batch, N_res, N_res, num_heads, num_qk_points, 3]
 
     pt_att = sum(torch.unbind(pt_att, dim=-1))
@@ -324,10 +322,16 @@ def _forward_a_eager(
 
     head_weights = F.softplus(head_weights)
     head_weights = head_weights.view((1,) * (pt_att.ndim - 2) + (num_heads, 1))
-    head_weights = head_weights * math.sqrt(1.0 / (3 * (num_qk_points * 9.0 / 2)))
+    if inplace:
+        head_weights *= math.sqrt(1.0 / (3 * (num_qk_points * 9.0 / 2)))
+    else:
+        head_weights = head_weights * math.sqrt(1.0 / (3 * (num_qk_points * 9.0 / 2)))
     # head_weights: [1, 1, 1, num_heads, 1]
 
-    pt_att = pt_att * head_weights
+    if inplace:
+        pt_att *= head_weights
+    else:
+        pt_att = pt_att * head_weights
     # pt_att: [batch, N_res, N_res, num_heads, num_qk_points]
 
     pt_att = -0.5 * torch.sum(pt_att, dim=-1)
@@ -340,10 +344,16 @@ def _forward_a_eager(
     pt_att = pt_att.movedim(-1, -3)
     # square_mask: [batch, num_heads, N_res, N_res]
 
-    a = a + pt_att
+    if inplace:
+        a += pt_att
+    else:
+        a = a + pt_att
     # a: [batch, num_heads, N_res, N_res]
 
-    a = a + square_mask.unsqueeze(-3)
+    if inplace:
+        a += square_mask.unsqueeze(-3)
+    else:
+        a = a + square_mask.unsqueeze(-3)
     # a: [batch, num_heads, N_res, N_res]
 
     a = torch.softmax(a, dim=-1)
@@ -473,6 +483,7 @@ class InvariantPointAttentionMultimer(nn.Module):
         z: torch.Tensor,
         r: Rigid3Array,
         mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """
         Args:
@@ -511,7 +522,7 @@ class InvariantPointAttentionMultimer(nn.Module):
         pt_att = square_euclidean_distance(q_pts.unsqueeze(-3), k_pts.unsqueeze(-4), epsilon=0.0)
         pt_att = torch.sum(pt_att * point_weights[..., None], dim=-1) * (-0.5)
         pt_att = pt_att.to(dtype=s.dtype)
-        a = a + pt_att
+        a = add(a, pt_att, inplace_safe)
 
         scalar_variance = max(self.c_hidden, 1) * 1.0
         scalar_weights = math.sqrt(1.0 / scalar_variance)
@@ -524,8 +535,12 @@ class InvariantPointAttentionMultimer(nn.Module):
         q = q.view(q.shape[:-1] + (self.num_heads, -1))
         k = k.view(k.shape[:-1] + (self.num_heads, -1))
 
-        q = q * scalar_weights
-        a = a + torch.einsum("...qhc,...khc->...qkh", q, k)
+        if inplace_safe:
+            q *= scalar_weights
+            a += torch.einsum("...qhc,...khc->...qkh", q, k)
+        else:
+            q = q * scalar_weights
+            a = a + torch.einsum("...qhc,...khc->...qkh", q, k)
 
         ##########################
         # Compute attention scores
@@ -533,14 +548,21 @@ class InvariantPointAttentionMultimer(nn.Module):
         # [*, N_res, N_res, H]
         b = self.linear_b(z)
 
-        a = a + b
+        if inplace_safe:
+            a += b
+        else:
+            a = a + b
 
         # [*, N_res, N_res]
         square_mask = mask.unsqueeze(-1) * mask.unsqueeze(-2)
         square_mask = self.inf * (square_mask - 1)
 
-        a = a + square_mask.unsqueeze(-1)
-        a = a * math.sqrt(1.0 / 3)  # Normalize by number of logit terms (3)
+        if inplace_safe:
+            a += square_mask.unsqueeze(-1)
+            a *= math.sqrt(1.0 / 3)  # Normalize by number of logit terms (3)
+        else:
+            a = a + square_mask.unsqueeze(-1)
+            a = a * math.sqrt(1.0 / 3)  # Normalize by number of logit terms (3)
         a = self.softmax(a)
 
         # [*, N_res, H * C_hidden]

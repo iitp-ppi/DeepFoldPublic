@@ -29,7 +29,6 @@ class Dropout(nn.Module):
         self,
         p: float,
         share_dim: Union[int, Tuple[int, ...]] = (),
-        inplace: bool = False,
     ) -> None:
         super().__init__()
         assert 0.0 <= p <= 1.0
@@ -39,13 +38,13 @@ class Dropout(nn.Module):
         else:
             assert isinstance(share_dim, tuple)
         self.share_dim = share_dim
-        self.inplace = inplace
 
     def forward(
         self,
         x: torch.Tensor,
         add_output_to: torch.Tensor,
         dap_scattered_dim: Optional[int] = None,
+        inplace: bool = False,
     ) -> torch.Tensor:
         shape = list(x.shape)
         for d in self.share_dim:
@@ -57,12 +56,17 @@ class Dropout(nn.Module):
             input=mask,
             p=self.p,
             training=self.training,
-            inplace=self.inplace,
+            inplace=False,
         )
         if dap_scattered_dim is not None:
             mask = mp.scatter(mask, dim=dap_scattered_dim)
-        x = _mul_add(x, mask, add_output_to)
-        return x
+        if inplace:
+            x *= mask
+            add_output_to += x
+            return add_output_to
+        else:
+            x = _mul_add(x, mask, add_output_to)
+            return x
 
 
 class DropoutRowwise(Dropout):

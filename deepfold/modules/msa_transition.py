@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
-from deepfold.utils.iter_utils import slice_generator
 
 
 class MSATransition(nn.Module):
@@ -36,6 +35,7 @@ class MSATransition(nn.Module):
         self,
         m: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
+        inplace_safe: bool = False,
     ) -> torch.Tensor:
         """MSA Transition forward pass.
 
@@ -66,6 +66,7 @@ class MSATransition(nn.Module):
             self.linear_2.weight,
             self.linear_2.bias,
             m,
+            inplace_safe,
         )
 
 
@@ -77,12 +78,17 @@ def _forward_eager(
     w2: torch.Tensor,
     b2: torch.Tensor,
     out: torch.Tensor,
+    inplace: bool,
 ) -> torch.Tensor:
     m = F.linear(m, w1, b1)
     m = torch.relu(m)
     m = F.linear(m, w2, b2)
-    m = m * mask
-    m = out + m
+    if inplace:
+        m *= mask
+        m += out
+    else:
+        m = m * mask
+        m = out + m
     return m
 
 

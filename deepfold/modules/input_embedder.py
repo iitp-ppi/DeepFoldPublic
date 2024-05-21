@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 import deepfold.modules.inductor as inductor
 from deepfold.modules.linear import Linear
+from deepfold.utils.tensor_utils import add
 
 
 class InputEmbedder(nn.Module):
@@ -50,6 +51,7 @@ class InputEmbedder(nn.Module):
         target_feat: torch.Tensor,
         residue_index: torch.Tensor,
         msa_feat: torch.Tensor,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Input Embedder forward pass.
 
@@ -65,7 +67,7 @@ class InputEmbedder(nn.Module):
             pair_emb: [batch, N_res, N_res, c_z]
 
         """
-        pair_emb = self._forward_pair_embedding(target_feat, residue_index)
+        pair_emb = self._forward_pair_embedding(target_feat, residue_index, inplace_safe=inplace_safe)
         # pair_emb: [batch, N_res, N_res, c_z]
 
         msa_emb = self._forward_msa_embedding(msa_feat, target_feat)
@@ -77,6 +79,7 @@ class InputEmbedder(nn.Module):
         self,
         target_feat: torch.Tensor,
         residue_index: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         if inductor.is_enabled():
             forward_pair_embedding_fn = _forward_pair_embedding_jit
@@ -92,6 +95,7 @@ class InputEmbedder(nn.Module):
             self.linear_relpos.weight,
             self.linear_relpos.bias,
             self.max_relative_index,
+            inplace_safe,
         )
 
     def _forward_msa_embedding(
@@ -158,6 +162,7 @@ def _forward_pair_embedding_eager(
     w_relpos: torch.Tensor,
     b_relpos: torch.Tensor,
     relpos_k: int,
+    inplace_safe: bool,
 ) -> torch.Tensor:
     tf_emb_i = F.linear(target_feat, w_tf_z_i, b_tf_z_i)  # a_i
     # tf_emb_i: [batch, N_res, c_z]
@@ -165,8 +170,10 @@ def _forward_pair_embedding_eager(
     # tf_emb_j: [batch, N_res, c_z]
     residue_index = residue_index.to(dtype=target_feat.dtype)
     pair_emb = _forward_relpos(residue_index, w_relpos, b_relpos, relpos_k)
-    pair_emb = pair_emb + tf_emb_i.unsqueeze(-2)
-    pair_emb = pair_emb + tf_emb_j.unsqueeze(-3)
+    # pair_emb = pair_emb + tf_emb_i.unsqueeze(-2)
+    pair_emb = add(pair_emb, tf_emb_i.unsqueeze(-3), inplace_safe)
+    # pair_emb = pair_emb + tf_emb_j.unsqueeze(-3)
+    pair_emb = add(pair_emb, tf_emb_j.unsqueeze(-3), inplace_safe)
     # pair_emb: [batch, N_res, N_res, c_z]
     return pair_emb
 
@@ -298,6 +305,7 @@ class InputEmbedderMultimer(nn.Module):
         asym_id: torch.Tensor,
         entity_id: torch.Tensor,
         sym_id: torch.Tensor,
+        inplace_safe: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Input Embedder forward pass."""
 
@@ -306,17 +314,20 @@ class InputEmbedderMultimer(nn.Module):
         # tf_emb_i: [batch, N_res, c_z]
         tf_emb_j = self.linear_tf_z_j(target_feat)
         # tf_emb_i: [batch, N_res, c_z]
-        pair_emb = tf_emb_i[..., :, None, :] + tf_emb_j[..., None, :, :]
-        pair_emb = pair_emb + self.relpos(residue_index, asym_id, entity_id, sym_id)
+        pair_emb = self.relpos(residue_index, asym_id, entity_id, sym_id)
+        # pair_emb = tf_emb_i[..., :, None, :] + tf_emb_j[..., None, :, :]
+        pair_emb = add(pair_emb, tf_emb_i[..., :, None, :], inplace_safe)
+        pair_emb = add(pair_emb, tf_emb_j[..., None, :, :], inplace_safe)
         # pair_emb: [batch, N_res, N_res, c_z]
 
         # MSA Embedding
+        msa_emb = self.linear_msa_m(msa_feat)
         # n_clust = msa_feat.shape[-3]
         tf_m = (
             self.linear_tf_m(target_feat).unsqueeze(-3)
             # .expand(((-1,) * len(target_feat.shape[:-2]) + (n_clust, -1, -1)))
         )
-        msa_emb = self.linear_msa_m(msa_feat) + tf_m
+        msa_emb = add(msa_emb, tf_m, inplace_safe)
         # msa_emb: [batch, N_clust, N_res, c_m]
 
         return msa_emb, pair_emb

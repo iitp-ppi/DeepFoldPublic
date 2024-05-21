@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
-from deepfold.utils.iter_utils import slice_generator
 
 
 class SingleTransition(nn.Module):
@@ -33,7 +32,11 @@ class SingleTransition(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
         self.layer_norm = LayerNorm(c_s)
 
-    def forward(self, s: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        s: torch.Tensor,
+        inplace_safe: bool,
+    ) -> torch.Tensor:
         if inductor.is_enabled():
             forward_fn = _forward_jit
         else:
@@ -46,6 +49,7 @@ class SingleTransition(nn.Module):
             self.linear_2.bias,
             self.linear_3.weight,
             self.linear_3.bias,
+            inplace_safe,
         )
         s = self.layer_norm(self.dropout(s))
         return s
@@ -59,13 +63,17 @@ def _forward_eager(
     b2: torch.Tensor,
     w3: torch.Tensor,
     b3: torch.Tensor,
+    inplace: bool,
 ) -> torch.Tensor:
     x = F.linear(s, w1, b1)
     x = torch.relu(x)
     x = F.linear(x, w2, b2)
     x = torch.relu(x)
     x = F.linear(x, w3, b3)
-    s = s + x
+    if inplace:
+        s += x
+    else:
+        s = s + x
     return s
 
 

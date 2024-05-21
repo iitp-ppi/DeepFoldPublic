@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import deepfold.modules.inductor as inductor
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
-from deepfold.utils.iter_utils import slice_generator
 
 
 class PairTransition(nn.Module):
@@ -35,6 +34,7 @@ class PairTransition(nn.Module):
         self,
         z: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
+        inplace_safe: bool = False,
     ) -> torch.Tensor:
         """Pair Transition forward pass.
 
@@ -74,44 +74,11 @@ class PairTransition(nn.Module):
             self.linear_2.weight,
             self.linear_2.bias,
             input_z,
+            inplace_safe,
         )
 
         z = z.view(original_shape)
         return z
-
-    # def forward(
-    #     self,
-    #     z: torch.Tensor,
-    #     mask: torch.Tensor,
-    # ) -> torch.Tensor:
-    #     """Pair Transition forward pass.
-
-    #     Args:
-    #         z: [batch, N_res, N_res, c_z] pair representation
-    #         mask: [batch, N_res, N_res] pair mask
-
-    #     Returns:
-    #         z: [batch, N_res, N_res, c_z] updated pair representation
-
-    #     """
-    #     # DeepMind forgets to apply the pair mask here.
-    #     # TODO: why can't we just use this code which is similar to MSA transition?
-    #     if inductor.is_enabled_on_ampere():
-    #         forward_fn = _forward_jit
-    #     elif inductor.is_enabled_on_hopper() and dap.size() in {2, 8}:
-    #         forward_fn = _forward_jit
-    #     elif inductor.is_enabled_on_hopper_and_autograd_off():
-    #         forward_fn = _forward_jit
-    #     else:
-    #         forward_fn = _forward_eager
-    #     return forward_fn(
-    #         self.layer_norm(z),
-    #         self.linear_1.weight,
-    #         self.linear_1.bias,
-    #         self.linear_2.weight,
-    #         self.linear_2.bias,
-    #         z,
-    #     )
 
 
 def _linear_relu_eager(
@@ -131,11 +98,16 @@ def _linear_view_add_eager(
     w: torch.Tensor,
     b: torch.Tensor,
     out: torch.Tensor,
+    inplace: bool,
 ) -> torch.Tensor:
     z = F.linear(z, w, b)
     z = z.view(out.shape)
-    z = z * mask
-    z = out + z
+    if inplace:
+        z *= mask
+        z += out
+    else:
+        z = z * mask
+        z = out + z
     return z
 
 

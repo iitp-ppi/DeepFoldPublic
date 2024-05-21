@@ -11,9 +11,10 @@ from deepfold.modules.invariant_point_attention import InvariantPointAttention, 
 from deepfold.modules.layer_norm import LayerNorm
 from deepfold.modules.linear import Linear
 from deepfold.modules.single_transition import SingleTransition
-from deepfold.utils.geometry import Rigid3Array, Vec3Array, square_euclidean_distance
+from deepfold.utils.geometry import Rigid3Array
 from deepfold.utils.geometry.quat_rigid import QuatRigid
 from deepfold.utils.rigid_utils import Rigid, Rotation
+from deepfold.utils.tensor_utils import add
 
 
 class StructureModule(nn.Module):
@@ -130,11 +131,12 @@ class StructureModule(nn.Module):
         z: torch.Tensor,
         mask: torch.Tensor,
         aatype: torch.Tensor,
+        inplace_safe: bool,
     ) -> Dict[str, torch.Tensor]:
         if self.is_multimer:  # is_multimer
-            outputs = self._forward_multimer(s, z, mask, aatype)
+            outputs = self._forward_multimer(s, z, mask, aatype, inplace_safe)
         else:
-            outputs = self._forward_monomer(s, z, mask, aatype)
+            outputs = self._forward_monomer(s, z, mask, aatype, inplace_safe)
         return outputs
 
     def _forward_monomer(
@@ -143,6 +145,7 @@ class StructureModule(nn.Module):
         z: torch.Tensor,
         mask: torch.Tensor,
         aatype: torch.Tensor,
+        inplace_safe: bool,
     ) -> Dict[str, torch.Tensor]:
         """Structure Module forward pass.
 
@@ -188,12 +191,12 @@ class StructureModule(nn.Module):
         outputs = []
 
         for _ in range(self.num_blocks):
-            s = s + self.ipa(s=s, z=z, r=rigids, mask=mask)
+            s = add(s, self.ipa(s=s, z=z, r=rigids, mask=mask, inplace_safe=inplace_safe), inplace_safe)
             s = self.ipa_dropout(s)
             s = self.layer_norm_ipa(s)
             # s: [batch, N_res, c_s]
 
-            s = self.transition(s)
+            s = self.transition(s, inplace_safe)
             # s: [batch, N_res, c_s]
 
             rigids = rigids.compose_q_update_vec(self.bb_update(s))
@@ -313,6 +316,7 @@ class StructureModule(nn.Module):
         z: torch.Tensor,
         mask: torch.Tensor,
         aatype: torch.Tensor,
+        inplace_safe: bool,
     ):
         self._initialize_buffers(dtype=s.dtype, device=s.device)
 
@@ -334,11 +338,11 @@ class StructureModule(nn.Module):
 
         for _ in range(self.num_blocks):
             # [*, N, C_s]
-            s = s + self.ipa(s=s, z=z, r=rigids, mask=mask)
+            s = add(s, self.ipa(s=s, z=z, r=rigids, mask=mask, inplace_safe=inplace_safe), inplace_safe)
             s = self.ipa_dropout(s)
             s = self.layer_norm_ipa(s)
 
-            s = self.transition(s)
+            s = self.transition(s, inplace_safe)
 
             # [*, N]
             rigids = rigids @ self.bb_update(s)

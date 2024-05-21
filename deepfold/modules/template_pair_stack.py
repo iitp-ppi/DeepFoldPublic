@@ -70,6 +70,7 @@ class TemplatePairStack(nn.Module):
         t: torch.Tensor,
         mask: torch.Tensor,
         gradient_checkpointing: bool,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         """Template Pair Stack forward pass.
 
@@ -86,7 +87,7 @@ class TemplatePairStack(nn.Module):
             assert torch.is_grad_enabled()
             t = self._forward_blocks_with_gradient_checkpointing(t=t, mask=mask)
         else:
-            t = self._forward_blocks(t=t, mask=mask)
+            t = self._forward_blocks(t=t, mask=mask, inplace_safe=inplace_safe)
         t = self.layer_norm(t)
         return t
 
@@ -94,6 +95,7 @@ class TemplatePairStack(nn.Module):
         self,
         t: torch.Tensor,
         mask: torch.Tensor,
+        inplace_safe: bool,
     ) -> torch.Tensor:
         if mp.is_enabled():
             pad_size = get_pad_size(t, -2, mp.size())
@@ -104,7 +106,7 @@ class TemplatePairStack(nn.Module):
             mask = pad_tensor(mask, -2, pad_size)
 
         for block in self.blocks:
-            t = block(t=t, mask=mask)
+            t = block(t=t, mask=mask, inplace_safe=inplace_safe)
 
         if mp.is_enabled():
             t = mp.gather(t, dim=-3)
