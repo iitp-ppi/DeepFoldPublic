@@ -1,5 +1,7 @@
 import numpy as np
 
+from deepfold.data.search.parsers import parse_fasta
+
 
 def crop_features(feats: dict, start: int, end: int):
     """
@@ -39,3 +41,38 @@ def crop_features(feats: dict, start: int, end: int):
         new_feats["template_sequence"] = [s[start - 1 : end] for s in feats["template_sequence"]]
 
     return new_feats
+
+
+def crop_a3m_string(a3m_string: str, start: int, end: int) -> str:
+    assert start > 0
+    assert end >= start
+
+    sequences, descriptions = parse_fasta(a3m_string)
+
+    subsequences = []
+
+    for seq in sequences:
+        actual_start = -1
+        actual_end = -1
+
+        count = 0
+        for idx, char in enumerate(seq):
+            if count == start - 1:
+                actual_start = idx
+            if count == end - 1:
+                actual_end = idx
+                break
+            if char.isupper() or char == "-":
+                count += 1
+
+        assert actual_start != -1
+        assert actual_end != -1
+
+        subsequences.append(seq[actual_start : actual_end + 1])
+
+    lines = []
+    for seq, desc in zip(subsequences, descriptions):
+        lines.append(f">{desc}")
+        lines.append(seq)
+
+    return "\n".join(lines)
