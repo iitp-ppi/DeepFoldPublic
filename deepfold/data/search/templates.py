@@ -681,7 +681,7 @@ def extract_template_features(
 
     template_features = {
         "template_domain_names": f"{template_id}",
-        "template_sequence": np.array(output_template_sequence, np.object_),
+        "template_sequence": output_template_sequence,
         "template_aatype": np.array(template_aatype, dtype=np.int32),
         "template_all_atom_positions": np.array(template_all_atom_positions, dtype=np.float32),
         "template_all_atom_mask": np.array(template_all_atom_mask, dtype=np.float32),
