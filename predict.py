@@ -250,12 +250,14 @@ def _save_summary(
     *,
     model_name: str = "",
     preset: str = "",
+    suffix: str = "",
     seed: int = -1,
 ) -> None:
     """Save model summary in JSON format.
 
     The summary includes:
     - model_name
+    - suffix
     - preset
     - seed
     - sequence
@@ -271,6 +273,7 @@ def _save_summary(
 
     summary["model_name"] = model_name
     summary["preset"] = preset
+    summary["suffix"] = suffix
     summary["seed"] = seed
 
     aatype = processed_features["aatype"]
@@ -495,6 +498,7 @@ def predict(args: argparse.Namespace) -> None:
             out,
             summary_filepath,
             model_name=model_name,
+            suffix=suffix,
             preset=args.preset,
             seed=seed,
         )
