@@ -187,6 +187,8 @@ class TemplateHitFeaturizer:
                 "template_all_atom_positions",
                 "template_all_atom_mask",
                 "template_sum_probs",
+                "template_sequence",
+                "template_domain_names",
             ):
                 template_features[key] = np.stack(template_features[key], axis=0)
         else:
@@ -237,8 +239,8 @@ def load_pdb_obsolete_mapping(pdb_obsolete_filepath: Path) -> Dict[str, str]:
 
 def create_empty_template_feats(seqlen: int) -> dict:
     return {
-        "template_domain_names": [],
-        "template_sequence": [],
+        "template_domain_names": np.array(["".encode()], dtype=np.object_),
+        "template_sequence": np.array(["".encode()], dtype=np.object_),
         "template_aatype": np.zeros(shape=(0, seqlen, 22), dtype=np.int32),
         "template_all_atom_positions": np.zeros(shape=(0, seqlen, rc.atom_type_num, 3), dtype=np.float32),
         "template_all_atom_mask": np.zeros(shape=(0, seqlen, rc.atom_type_num), dtype=np.float32),
@@ -680,8 +682,8 @@ def extract_template_features(
     template_aatype = rc.sequence_to_onehot(output_template_sequence, rc.HHBLITS_AA_TO_ID)
 
     template_features = {
-        "template_domain_names": f"{template_id}",
-        "template_sequence": output_template_sequence,
+        "template_domain_names": f"{template_id}".encode(),
+        "template_sequence": output_template_sequence.encode(),
         "template_aatype": np.array(template_aatype, dtype=np.int32),
         "template_all_atom_positions": np.array(template_all_atom_positions, dtype=np.float32),
         "template_all_atom_mask": np.array(template_all_atom_mask, dtype=np.float32),
