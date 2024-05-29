@@ -1,4 +1,4 @@
-# Copyright 2023 DeepFold Team
+# Copyright 2024 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
 # Copyright 2021 DeepMind Technologies Limited
 #
@@ -17,13 +17,12 @@
 """Constants used in AlphaFold."""
 
 import collections
+import copy
 import functools
 from importlib import resources
 from typing import List, Mapping, Tuple
 
 import numpy as np
-
-from deepfold.utils.tensor_utils import tree_map
 
 # pylint: disable=invalid-name
 
@@ -382,20 +381,29 @@ van_der_waals_radius = {
 }
 
 Bond = collections.namedtuple("Bond", ["atom1_name", "atom2_name", "length", "stddev"])
-BondAngle = collections.namedtuple(
-    "BondAngle",
-    ["atom1_name", "atom2_name", "atom3name", "angle_rad", "stddev"],
-)
+BondAngle = collections.namedtuple("BondAngle", ["atom1_name", "atom2_name", "atom3name", "angle_rad", "stddev"])
+
+
+def map_structure_with_atom_order(in_list: list, first_call: bool = True) -> list:
+    # Maps strings in a nested list structure to their corresponding index in atom_order
+    if first_call:
+        in_list = copy.deepcopy(in_list)
+    for i in range(len(in_list)):
+        if isinstance(in_list[i], list):
+            in_list[i] = map_structure_with_atom_order(in_list[i], first_call=False)
+        elif isinstance(in_list[i], str):
+            in_list[i] = atom_order[in_list[i]]
+        else:
+            raise ValueError("Unexpected type when mapping nested lists!")
+    return in_list
 
 
 @functools.lru_cache(maxsize=None)
-def load_stereo_chemical_props() -> (
-    Tuple[
-        Mapping[str, List[Bond]],
-        Mapping[str, List[Bond]],
-        Mapping[str, List[BondAngle]],
-    ]
-):
+def load_stereo_chemical_props() -> Tuple[
+    Mapping[str, List[Bond]],
+    Mapping[str, List[Bond]],
+    Mapping[str, List[BondAngle]],
+]:
     """Load stereo_chemical_props.txt into a nice structure.
 
     Load literature values for bond lengths and bond angles and translate
@@ -408,7 +416,7 @@ def load_stereo_chemical_props() -> (
       residue_bond_angles: Dict that maps resname -> list of BondAngle tuples
     """
     # TODO: Edit if the project name has been changed
-    stereo_chemical_props = resources.read_text("deepfold.resources", "stereo_chemical_props.txt")
+    stereo_chemical_props = resources.read_text("deepfold.common", "stereo_chemical_props.txt")
 
     lines_iter = iter(stereo_chemical_props.splitlines())
     # Load bond lengths.
@@ -532,7 +540,7 @@ atom_order = {atom_type: i for i, atom_type in enumerate(atom_types)}
 atom_type_num = len(atom_types)  # := 37.
 
 # A compact atom encoding with 14 columns
-# pylint: disable=line-too-long
+
 restype_name_to_atom14_names = {
     "ALA": ["N", "CA", "C", "O", "CB", "", "", "", "", "", "", "", "", ""],
     "ARG": ["N", "CA", "C", "O", "CB", "CG", "CD", "NE", "CZ", "NH1", "NH2", "", "", ""],
@@ -557,7 +565,6 @@ restype_name_to_atom14_names = {
     "UNK": ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 }
 
-# pylint: enable=line-too-long
 # This is the standard residue order when coding AA type as a number.
 # Reproduce it by taking 3-letter AA codes and sorting them alphabetically.
 restypes = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
@@ -590,9 +597,7 @@ def sequence_to_onehot(sequence: str, mapping: Mapping[str, int], map_unknown_to
     num_entries = max(mapping.values()) + 1
 
     if sorted(set(mapping.values())) != list(range(num_entries)):
-        raise ValueError(
-            f"The mapping must have values from 0 to num_unique_aas-1 without any gaps. Got: {sorted(mapping.values())}"
-        )
+        raise ValueError(f"The mapping must have values from 0 to num_unique_aas-1 without any gaps. Got: {sorted(mapping.values())}")
 
     one_hot_arr = np.zeros((len(sequence), num_entries), dtype=np.int32)
 
@@ -709,10 +714,9 @@ ID_TO_HHBLITS_AA = {
     21: "-",
 }
 
+# fmt: off
 restypes_with_x_and_gap = restypes + ["X", "-"]
-MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(
-    restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap))
-)
+MAP_HHBLITS_AATYPE_TO_OUR_AATYPE = tuple(restypes_with_x_and_gap.index(ID_TO_HHBLITS_AA[i]) for i in range(len(restypes_with_x_and_gap)))
 
 
 def _make_standard_atom_mask() -> np.ndarray:
@@ -759,13 +763,10 @@ chi_atom_1_one_hot = chi_angle_atom(1)
 chi_atom_2_one_hot = chi_angle_atom(2)
 
 # An array like chi_angles_atoms but using indices rather than names.
-chi_angles_atom_indices = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
-# chi_angles_atom_indices = tree.map_structure(lambda atom_name: atom_order[atom_name], chi_angles_atom_indices)
-# chi_angles_atom_indices = [atom_order[atom_name] for atom_name in chi_angles_atom_indices]
-chi_angles_atom_indices = tree_map(lambda atom_name: atom_order[atom_name], chi_angles_atom_indices, leaf_type=str)
-chi_angles_atom_indices = np.array(
-    [chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices]
-)
+chi_angles_atom_indices_list: List[List[List[str]]] = [chi_angles_atoms[restype_1to3[r]] for r in restypes]
+chi_angles_atom_indices_ours: list = map_structure_with_atom_order(chi_angles_atom_indices_list)
+chi_angles_atom_indices = [chi_atoms + ([[0, 0, 0, 0]] * (4 - len(chi_atoms))) for chi_atoms in chi_angles_atom_indices_list] 
+chi_angles_atom_indices = np.array(chi_angles_atom_indices)
 
 # Mapping from (res_name, atom_name) pairs to the atom's chi group index
 # and atom index within that group.

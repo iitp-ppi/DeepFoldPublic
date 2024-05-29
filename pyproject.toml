@@ -1,10 +1,22 @@
+# [build-system]
+# requires = ["setuptools", "wheel"]
+# build-backend = "setuptools.build_meta"
+
 [tool.black]
-line-length = 120
+line-length = 150
 target-version = ['py310']
 include = '\.pyi?$'
+exclude = "csrc/*"
 
 [tool.isort]
 profile = "black"
-line_length = 120
+line_length = 150
 py_version = 39
-skip_glob = ["_runs/*"]
+skip_glob = ["_runs/*", "csrc/*"]
+
+[tool.pyright]
+include = ["deepfold", "tests"]
+exclude = ["**/node_modules", "**/__pycache__"]
+
+pythonVersion = "3.10"
+pythonPlatform = "Linux"

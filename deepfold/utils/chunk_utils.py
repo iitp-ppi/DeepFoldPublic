@@ -1,34 +1,48 @@
-# Coypright 2023 DeepFold Team
 # Copyright 2021 AlQuraishi Laboratory
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-import math
+
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 import torch
 
-from deepfold.utils.tensor_utils import tensor_tree_map, tree_map
+from deepfold.utils.tensor_utils import tensor_tree_map
 
 
-def _fetch_dims(tree: Any) -> List[int]:
-    shape = []
+def _fetch_dims(tree):
+    shapes = []
     tree_type = type(tree)
     if tree_type is dict:
         for v in tree.values():
-            shape.extend(_fetch_dims(v))
-    elif (tree_type is list) or (tree_type is tuple):
+            shapes.extend(_fetch_dims(v))
+    elif tree_type is list or tree_type is tuple:
         for t in tree:
-            shape.extend(_fetch_dims(t))
+            shapes.extend(_fetch_dims(t))
     elif tree_type is torch.Tensor:
-        shape.append(tree.shape)
+        shapes.append(tree.shape)
     else:
-        raise ValueError(f"Not supporting type: {tree_type}")
+        raise ValueError("Not supported")
 
-    return shape
+    return shapes
 
 
 @torch.jit.ignore
-def _flat_idx_to_idx(flat_idx: int, dims: Sequence[int]) -> Tuple[int]:
+def _flat_idx_to_idx(
+    flat_idx: int,
+    dims: Tuple[int],
+) -> Tuple[int]:
     idx = []
     for d in reversed(dims):
         idx.append(flat_idx % d)
@@ -44,7 +58,7 @@ def _get_minimal_slice_set(
     dims: int,
     start_edges: Optional[Sequence[bool]] = None,
     end_edges: Optional[Sequence[bool]] = None,
-) -> List[Tuple[int]]:
+) -> Sequence[Tuple[int]]:
     """
     Produces an ordered sequence of tensor slices that, when used in
     sequence on a tensor with shape dims, yields tensors that contain every
@@ -158,7 +172,7 @@ def _chunk_slice(
     """
     Equivalent to
 
-        t.reshape((-1,) + t.shape[num_batch_dims:])[flat_start:flat_end]
+        t.reshape((-1,) + t.shape[no_batch_dims:])[flat_start:flat_end]
 
     but without the need for the initial reshape call, which can be
     memory-intensive in certain situations. The only reshape operations
@@ -185,13 +199,13 @@ def _chunk_slice(
 
 def chunk_layer(
     layer: Callable,
-    inputs: Dict[str, torch.Tensor],
+    inputs: Dict[str, Any],
     chunk_size: int,
     num_batch_dims: int,
     low_mem: bool = False,
-    _out: torch.Tensor = None,
+    _out: Any = None,
     _add_into_out: bool = False,
-) -> torch.Tensor:
+) -> Any:
     """
     Implements the "chunking" procedure described in section 1.11.8.
 
@@ -206,8 +220,11 @@ def chunk_layer(
             A (non-nested) dictionary of keyworded inputs. All leaves must
             be tensors and must share the same batch dimensions.
         chunk_size:
-            The number of sub-batches per chunk.
-        num_batch_dims:
+            The number of sub-batches per chunk. If multiple batch
+            dimensions are specified, a "sub-batch" is defined as a single
+            indexing of all batch dimensions simultaneously (s.t. the
+            number of sub-batches is the product of the batch dimensions).
+        no_batch_dims:
             How many of the initial dimensions of each input tensor can
             be considered batch dimensions.
         low_mem:
@@ -217,7 +234,6 @@ def chunk_layer(
     Returns:
         The reassembled output of the layer on the inputs.
     """
-
     if not (len(inputs) > 0):
         raise ValueError("Must provide at least one input")
 
@@ -252,12 +268,7 @@ def chunk_layer(
         if not low_mem:
             select_chunk = lambda t: t[i : i + chunk_size] if t.shape[0] != 1 else t
         else:
-            select_chunk = partial(
-                _chunk_slice,
-                flat_start=i,
-                flat_end=min(flat_batch_dim, i + chunk_size),
-                num_batch_dims=len(orig_batch_dims),
-            )
+            select_chunk = partial(_chunk_slice, flat_start=i, flat_end=min(flat_batch_dim, i + chunk_size), no_batch_dims=len(orig_batch_dims))
 
         chunks = tensor_tree_map(select_chunk, prepped_inputs)
 

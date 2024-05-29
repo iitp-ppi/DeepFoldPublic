@@ -1,9 +1,11 @@
-# Copyright 2023 DeepFold Team
+# Copyright 2024 DeepFold Team
+
 
 """Package constants."""
 
+
 MAJOR = 2
-MINOR = 0
+MINOR = 1
 PATCH = 0
 PRE_RELEASE = ""
 

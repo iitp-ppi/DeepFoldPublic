@@ -1,0 +1,51 @@
+name: deepfold2-dev
+channels:
+  - pytorch
+  - nvidia
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - biopython=1.81
+  - modelcif=0.7
+  - hydra-core
+  - omegaconf=2.3.0
+  - networkx=3.2.1
+  - ply
+  - pytorch=2.2.2
+  - torchaudio
+  - torchvision
+  - pytorch-cuda=11.8
+  # - cuda-compiler=11.8
+  # - cuda-nvcc=11.8
+  # - cuda-libraries=11.8
+  # - cuda-libraries-dev=11.8
+  - dacite
+  - tqdm
+  - hmmer=3.3.2
+  - hhsuite=3.3.0
+  - kalign2=2.04
+  - mmseqs2=15.6f452
+  - foldseek=9.427df8a
+  - openmm=8.0.0
+  - cudatoolkit=11.8
+  - pdbfixer
+  - python-dotenv
+  - pre_commit
+  - isort
+  - black
+  - pip:
+      - mkdocs
+      - mkdocs-literate-nav
+      - mkdocs-material
+      - mkdocstrings
+      - mkdocstrings-python
+      # - jax[cpu]==0.4.20
+      # - dm-haiku==0.0.11
+      # - dm-tree==0.1.8
+      - wandb
