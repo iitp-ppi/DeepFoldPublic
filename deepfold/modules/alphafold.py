@@ -135,12 +135,8 @@ class AlphaFold(nn.Module):
         )
         del prevs
 
-        if save_all:
-            outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
-            outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
-        else:
-            outputs.pop("msa", None)
-            outputs.pop("pair", None)
+        outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
+        outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
 
         # Run auxiliary heads:
@@ -149,6 +145,10 @@ class AlphaFold(nn.Module):
 
         if recycle_hook is not None:  # Inference
             recycle_hook(recycle_iter, feats, outputs)
+
+        if not save_all:
+            outputs.pop("msa", None)
+            outputs.pop("pair", None)
 
         return outputs
 
