@@ -2,6 +2,8 @@ import torch
 
 
 def pad_tensor(tensor: torch.Tensor, dim: int, pad_size: int) -> torch.Tensor:
+    if pad_size == 0:
+        return tensor
     if dim < 0:
         pad = [0, 0] * -dim
     else:
