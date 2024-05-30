@@ -323,7 +323,7 @@ def _allocate_memory():
     torch.cuda.empty_cache()
     free_mem, total_mem = torch.cuda.mem_get_info()
     used_mem = total_mem - free_mem
-    size = int(total_mem * 0.90 - used_mem) // 4
+    size = int(total_mem * 0.95 - used_mem) // 4
     t = torch.empty(size, dtype=torch.float32, device="cuda")
     del t
     torch.cuda.reset_peak_memory_stats()
