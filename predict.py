@@ -336,9 +336,12 @@ def predict(args: argparse.Namespace) -> None:
     # Setup suffix:
     suffix = f"_{args.suffix}" if args.suffix else ""
 
+    # Create output directory:
+    args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
+
     # Setup logging:
     if dist.is_main_process():
-        setup_logging(f"predict.{model_name}{suffix}.log")
+        setup_logging(args.output_dirpath / f"predict.{model_name}{suffix}.log")
 
     if args.mp_size > 0:
         # Assuming model parallelized prediction:
@@ -372,11 +375,6 @@ def predict(args: argparse.Namespace) -> None:
                 group=mp.group(),
                 device_ids=[dist.local_rank()],
             )
-
-    # Create output directory:
-    args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
-    # figures_dirpath = args.output_dirpath / "figures"
-    # figures_dirpath.mkdir(parents=True, exist_ok=args.force)
 
     # Maximum recycling iterations:
     if args.max_recycling_iters > 0:
