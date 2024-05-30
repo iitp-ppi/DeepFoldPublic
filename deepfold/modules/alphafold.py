@@ -93,6 +93,7 @@ class AlphaFold(nn.Module):
         self,
         batch: Dict[str, torch.Tensor],
         recycle_hook: Callable[[int, dict, dict], None] | None = None,
+        return_all: bool = True,
     ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
@@ -134,8 +135,12 @@ class AlphaFold(nn.Module):
         )
         del prevs
 
-        outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
-        outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
+        if return_all:
+            outputs["msa"] = outputs["msa"].to(dtype=torch.float32)
+            outputs["pair"] = outputs["pair"].to(dtype=torch.float32)
+        else:
+            outputs.pop("msa", None)
+            outputs.pop("pair", None)
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
 
         # Run auxiliary heads:

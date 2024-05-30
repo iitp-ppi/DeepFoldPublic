@@ -112,6 +112,11 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of recycling iterations.",
     )
     parser.add_argument(
+        "--save_all",
+        action="store_true",
+        help="Save msa representation and pair representation.",
+    )
+    parser.add_argument(
         "--benchmark",
         action="store_true",
         help="Don't write result pickle.",
@@ -472,6 +477,7 @@ def predict(args: argparse.Namespace) -> None:
     out = model(
         batch,
         recycle_hook=recycle_hook,
+        save_all=args.save_all,
     )
 
     if args.mp_size > 0:
