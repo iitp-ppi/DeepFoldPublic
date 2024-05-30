@@ -77,6 +77,12 @@ def parse_args() -> argparse.Namespace:
         help="Model parallelism (MP) size. Set 0 to disable mp.",
     )
     parser.add_argument(
+        "--precision",
+        type=str,
+        default="fp32",
+        help="Floating-point data type used in prediction.",
+    )
+    parser.add_argument(
         "--save_recycle",
         action="store_true",
         help="Whether to save a recycling outputs.",
@@ -114,6 +120,7 @@ def parse_args() -> argparse.Namespace:
     #
     if args.mp_size != 0:
         assert torch.cuda.device_count() == args.mp_size
+    assert args.precision in ("fp32", "bf16")
     #
     return args
 
@@ -129,6 +136,10 @@ def create_alphafold_module(
     np.random.seed(seed % NUMPY_SEED_MODULUS)
     torch.manual_seed(seed)
     alphafold = AlphaFold(config=alphafold_config)
+    if alphafold_config == "bf16":
+        alphafold.to(dtype=torch.bfloat16)
+        alphafold.structure_module.to(dtype=torch.float32)
+        alphafold.auxiliary_heads.to(dtype=torch.float32)
     alphafold.to(device=device)
     torch.cuda.set_rng_state(torch_cuda_rng_state, device=device)
     torch.set_rng_state(torch_rng_state)
@@ -372,7 +383,10 @@ def predict(args: argparse.Namespace) -> None:
         feat_cfg_kwargs["max_recycling_iters"] = args.max_recycling_iters
 
     # Get configs:
-    model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
+    model_config = AlphaFoldConfig.from_preset(
+        precision=args.precision,
+        **model_cfg_kwargs,
+    )
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
         seed=seed,
