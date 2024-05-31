@@ -9,6 +9,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import deepfold.common.residue_constants as rc
 from deepfold.eval.distogram import compute_distogram, compute_predicted_distogram
+from deepfold.eval.msa import compute_neff_v2 as compute_neff
 
 
 def _set_size(
@@ -294,6 +295,11 @@ def plot_msa(
     for j in nn[1:-1]:
         ax.plot([0, lines.shape[1]], [j - 0.5, j - 0.5], color="black", alpha=0.6)
 
+    neff = compute_neff(msa)
+    title = "MSA Depth"
+    title += r" ($N_{eff}=$"
+    title += f"{neff:6.3f})"
+    ax.set_title(title)
     ax.plot((np.isnan(lines) == False).sum(0), color="black")
     ax.set_xlim(0, lines.shape[1])
     ax.set_ylim(0, max(lines.shape[0], 100))
