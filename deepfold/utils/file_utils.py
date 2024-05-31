@@ -38,7 +38,7 @@ def load_pickle(path: os.PathLike) -> Any:
         else:
             return _load_pkl(path)
     except FileNotFoundError:
-        warnings.warn(f"File not found: {path}")
+        raise
 
 
 def _load_gz_pkl(path: os.PathLike) -> Any:
@@ -55,7 +55,7 @@ def _load_pkl(path: os.PathLike) -> Any:
         return pickle.load(fp)
 
 
-def dump_pickle(obj: Any, path: os.PathLike, level: int = 6) -> None:
+def dump_pickle(obj: Any, path: os.PathLike, level: int = 5) -> None:
     f, ext = os.path.splitext(path)
     assert ext in (".pkl", ".pkz", ".gz")
     if ext == ".pkl":
