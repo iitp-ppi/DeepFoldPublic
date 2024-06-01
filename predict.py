@@ -417,7 +417,7 @@ def predict(args: argparse.Namespace) -> None:
     if args.multimer_templates != "":
         templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
-            logger.info(f"Multimer template enabled for {','.join(map(str, templ_idx))}")
+            logger.info(f"Multimer template enabled for {templ_idx}")
         # Initialize:
         mask = torch.zeros([seqlen, seqlen, feat_config.max_templates, feat_config.max_recycling_iters])
         asym_id = batch["asym_id"][..., 0]
@@ -426,7 +426,7 @@ def predict(args: argparse.Namespace) -> None:
         assert all([i < feat_config.max_templates for i in templ_idx])
         for i in range(feat_config.max_templates):
             if i in templ_idx:
-                mask[..., i, :] = 1.0
+                mask[..., i, :].fill_(1.0)
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
 
