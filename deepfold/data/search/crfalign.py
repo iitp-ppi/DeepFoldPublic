@@ -60,7 +60,6 @@ def parse_pir(pir_string: str, index: int = 0) -> TemplateHit:
             elif reading_hit:
                 hit_sequence.extend(line.strip().strip("*"))
 
-    # Create the `TemplateHit` object for the single hit:
     hit_sequence_str = "".join(hit_sequence)  # .replace("-", "")
     query_sequence_str = "".join(query_sequence)  # .replace("-", "")
 
