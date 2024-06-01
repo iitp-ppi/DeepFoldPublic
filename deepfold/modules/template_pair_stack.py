@@ -110,7 +110,8 @@ class TemplatePairStack(nn.Module):
 
         if mp.is_enabled():
             t = mp.gather(t, dim=-3)
-            t = t[..., :, : t.size(-3) - pad_size, : t.size(-2) - pad_size, :]
+            if pad_size != 0:
+                t = t[..., :, : t.size(-3) - pad_size, : t.size(-2) - pad_size, :]
 
         return t
 

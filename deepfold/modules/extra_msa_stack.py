@@ -160,7 +160,8 @@ class ExtraMSAStack(nn.Module):
 
         if mp.is_enabled():
             z = mp.gather(z, dim=-3)
-            z = z[..., : z.size(-3) - pair_pad_size, : z.size(-2) - pair_pad_size, :]
+            if pair_pad_size != 0:
+                z = z[..., : z.size(-3) - pair_pad_size, : z.size(-2) - pair_pad_size, :]
 
         return z
 
