@@ -423,6 +423,7 @@ def predict(args: argparse.Namespace) -> None:
         asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
+        assert all([i < feat_config.max_templates for i in templ_idx])
         for i in range(feat_config.max_templates):
             if i in templ_idx:
                 mask[..., i, :] = 1.0
