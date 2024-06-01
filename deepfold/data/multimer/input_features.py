@@ -1,7 +1,6 @@
 import collections
 import copy
 import dataclasses
-import itertools
 from typing import Iterable, List, Mapping, MutableMapping, Sequence
 
 import numpy as np
@@ -66,7 +65,7 @@ def convert_monomer_features(
         elif feature_name == "template_aatype":
             feature = np.argmax(feature, axis=-1).astype(np.int32)
             new_order_list = rc.MAP_HHBLITS_AATYPE_TO_OUR_AATYPE
-            feature = np.take(new_order_list, feature.astype(np.int32), axis=0)
+            feature = np.take(new_order_list, feature, axis=0)
         elif feature_name == "template_all_atom_masks":
             feature_name = "template_all_atom_mask"
         converted[feature_name] = feature
@@ -107,8 +106,8 @@ def process_single_chain(
         a3m_strings_for_paring = [""]
     if not is_homomer_or_monomer:
         all_seq_msa_features = create_all_seq_msa_features(
-            chain_features["sequence"].item().decode("utf-8"),
             a3m_strings_for_paring,
+            sequence=chain_features["sequence"].item().decode("utf-8"),
         )
         new_chain_features.update(all_seq_msa_features)
     return new_chain_features
@@ -133,7 +132,7 @@ def add_assembly_features(
     seq_to_entity_id = {}
     grouped_chains = collections.defaultdict(list)
     for chain_id, chain_features in all_chain_features.items():
-        seq = chain_features["sequence"].item().decode("utf8")
+        seq = chain_features["sequence"].item().decode("utf-8")
         if seq not in seq_to_entity_id:
             seq_to_entity_id[seq] = len(seq_to_entity_id) + 1
         grouped_chains[seq_to_entity_id[seq]].append(chain_features)
@@ -144,9 +143,9 @@ def add_assembly_features(
         for sym_id, chain_features in enumerate(group_chain_features, start=1):
             new_all_chain_features[f"{int_id_to_str_id(entity_id)}_{sym_id}"] = chain_features
             seq_length = chain_features["seq_length"]
-            chain_features["asym_id"] = chain_id * np.ones(seq_length)
-            chain_features["sym_id"] = sym_id * np.ones(seq_length)
-            chain_features["entity_id"] = entity_id * np.ones(seq_length)
+            chain_features["asym_id"] = (chain_id * np.ones(seq_length)).astype(np.int64)
+            chain_features["sym_id"] = (sym_id * np.ones(seq_length)).astype(np.int64)
+            chain_features["entity_id"] = (entity_id * np.ones(seq_length)).astype(np.int64)
             chain_id += 1
 
     return new_all_chain_features
@@ -163,14 +162,14 @@ def pad_msa(example: dict, min_num_cluster) -> dict:
 
 
 def create_all_seq_msa_features(
-    sequence: str,
     a3m_strings: Sequence[str],
+    sequence: str | None = None,
 ) -> dict:
     """Get MSA features for paring."""
 
     all_seq_features = create_msa_features(
-        sequence,
         a3m_strings,
+        sequence=sequence,
         use_identifiers=True,
     )
 
@@ -193,10 +192,28 @@ class ComplexInfo:
         assert all(n > 0 for n in self.num_units)
 
 
-def process(
+def create_multimer_features(
+    paired_a3m_strings: List[str],
+    sequence: str | None = None,
+) -> dict:
+    """Create multimer features from paired MSA strings."""
+    valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")
+    return {
+        f"{k}_all_seq": v
+        for k, v in create_msa_features(
+            paired_a3m_strings,
+            sequence=sequence,
+            use_identifiers=True,
+        ).items()
+        if k in valid_feats
+    }
+
+
+def process_multimer_features(
     complex: ComplexInfo,
     all_monomer_features: Mapping[str, dict],
-    msas_with_identifiers: Mapping[str, str],
+    a3m_strings_with_identifiers: Mapping[str, str],
+    paired_a3m_strings: Mapping[str, str] = dict(),
     max_num_clusters: int = 512,
 ) -> dict:
     """Create a multimer input features."""
@@ -207,19 +224,38 @@ def process(
     for cid, desc, num in zip(protein.PDB_CHAIN_IDS, complex.descriptions, complex.num_units):
         assert cid is not None
         chain_features = all_monomer_features[desc]
+
+        # Process UniProt features:
         chain_features = process_single_chain(
             chain_features,
             is_homomer_or_monomer,
-            a3m_strings_for_paring=[msas_with_identifiers[desc]],
+            a3m_strings_for_paring=[a3m_strings_with_identifiers[desc]],
         )
+
+        # Process custom paired MSA:
+        paired_a3m_str = paired_a3m_strings.get(desc, "")
+        multimer_features = create_multimer_features(
+            [paired_a3m_str],
+            sequence=chain_features["sequence"].item().decode("utf-8"),
+        )
+
+        if is_homomer_or_monomer:
+            chain_features.update(multimer_features)
+        else:
+            for k, v in multimer_features.items():
+                chain_features[k] = np.concatenate([chain_features[k], v], axis=0)
+
+        # Convert monomer features to multimer features:
         chain_features = convert_monomer_features(chain_features)
 
         for i in range(num):
             chain_id = f"{cid}_{i+1}"
             all_chain_features[chain_id] = copy.deepcopy(chain_features)
 
+    # Add assembly features:
     all_chain_features = add_assembly_features(all_chain_features)
 
+    # Pair and merge features:
     example = pair_and_merge(all_chain_features)
 
     example = pad_msa(example, max_num_clusters)
@@ -259,6 +295,9 @@ def pair_and_merge(all_chain_features: MutableMapping[str, dict]) -> dict:
         pair_msa_sequences=pair_msa_sequences,
         max_templates=MAX_TEMPLATES,
     )
+    # `merge_chain_features` crashes if there are additional features only present in one chain.
+    common_features = set([*np_chains_list[0]]).intersection(*np_chains_list)
+    np_chains_list = [{k: v for k, v in chain.items() if k in common_features} for chain in np_chains_list]
     np_example = msa_pairing.merge_chain_features(
         np_chains_list=np_chains_list,
         pair_msa_sequences=pair_msa_sequences,
@@ -394,8 +433,8 @@ def process_unmerged_features(all_chain_features: MutableMapping[str, dict]):
 
         # Add all_atom_mask and dummy all_atom_positions based on aatype.
         all_atom_mask = rc.STANDARD_ATOM_MASK[chain_features["aatype"]]
-        chain_features["all_atom_mask"] = all_atom_mask
-        chain_features["all_atom_positions"] = np.zeros(list(all_atom_mask.shape) + [3])
+        chain_features["all_atom_mask"] = all_atom_mask.astype(dtype=np.float32)
+        chain_features["all_atom_positions"] = np.zeros(list(all_atom_mask.shape) + [3], dtype=np.float32)
 
         # Add assembly_num_chains.
         chain_features["assembly_num_chains"] = np.asarray(num_chains)

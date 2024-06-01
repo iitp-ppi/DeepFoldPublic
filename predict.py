@@ -155,7 +155,7 @@ def create_alphafold_module(
 def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
     is_multimer = "multimer" in preset
     enable_ptm = "ptm" in preset or is_multimer
-    enable_templates = not any(preset.endswith(x) for x in ["_3", "_4", "_5"])
+    enable_templates = not any(preset.endswith(x) for x in ["_3", "_4", "_5"]) or is_multimer
     fuse_projection_weights = preset.endswith("multimer_v3")
 
     model_cfg_kwargs = dict(
@@ -392,6 +392,7 @@ def predict(args: argparse.Namespace) -> None:
     )
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
+        # subsample_templates=True,
         seed=seed,
         **feat_cfg_kwargs,
     )

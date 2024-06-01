@@ -235,9 +235,10 @@ class AlphaFold(nn.Module):
             )
             # multichain_mask_2d: [batch, N_res, N_res, N_templ]
 
-            # z = z + template_embeds["template_pair_embedding"]
-            z = add(z, template_embeds["template_pair_embedding"], inplace_safe)
+            t = template_embeds["template_pair_embedding"]
+            z = add(z, t, inplace_safe)
             # z: [batch, N_res, N_res, c_z]
+            del t
 
             if self.config.embed_template_torsion_angles:
                 m = torch.cat([m, template_embeds["template_angle_embedding"]], dim=-3)
