@@ -98,7 +98,10 @@ def main(args: argparse.Namespace) -> None:
                 else:
                     raise RuntimeError(f"Not supported MSA search extensions: {suffix}")
             a3m_strings.append(a3m_str)
-    msa_features = create_msa_features(query_sequence, a3m_strings)
+    msa_features = create_msa_features(
+        a3m_strings,
+        sequence=query_sequence,
+    )
 
     logger.info("Write input features on {}".format(args.output_filepath))
     args.output_filepath.parent.mkdir(parents=True, exist_ok=True)
