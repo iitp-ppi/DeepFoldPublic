@@ -52,6 +52,7 @@ class AuxiliaryHeads(nn.Module):
             aux_outputs["tm_logits"] = self.tm(outputs["pair"])
             aux_outputs["ptm_score"] = compute_tm(
                 logits=aux_outputs["tm_logits"],
+                residue_weights=seq_mask,
                 max_bin=self.tm.max_bin,
                 num_bins=self.tm.num_bins,
             )

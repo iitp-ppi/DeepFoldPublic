@@ -1,4 +1,5 @@
 import argparse
+import gc
 import json
 import logging
 import os
@@ -26,7 +27,7 @@ from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
 from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.random import NUMPY_SEED_MODULUS
-from deepfold.utils.tensor_utils import tensor_tree_map
+from deepfold.utils.tensor_utils import masked_mean, tensor_tree_map
 
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
@@ -220,7 +221,7 @@ def _recycle_hook(
     save_recycle: bool = False,
 ) -> None:
     # Calculate mean plDDT
-    outputs["mean_plddt"] = torch.mean(outputs["plddt"])
+    outputs["mean_plddt"] = torch.sum(outputs["plddt"] * feats["seq_mask"]) / torch.sum(feats["seq_mask"])
 
     print_line = ""
     for k, v in [
@@ -230,7 +231,7 @@ def _recycle_hook(
         ("weighted_ptm_score", "Confidence"),
     ]:
         if k in outputs:
-            print_line += f" {v}={outputs[k]:.3g}"
+            print_line += f" {v}={outputs[k]:5.3g}"
 
     logger.info(f"Pred: recycle={recycle_iter}{print_line}")
 
@@ -278,6 +279,7 @@ def _save_summary(
     - seed
     - sequence
     - asym_id
+    - seq_mask
     - residue_index
     - plddt
     - ptm
@@ -301,6 +303,9 @@ def _save_summary(
         summary["chain_index"] = chain_id.tolist()
     else:
         summary["chain_index"] = [0] * len(aatype)
+    seq_mask = processed_features.get("seq_mask", None)
+    if seq_mask is not None:
+        summary["seq_mask"] = seq_mask.astype(np.int64).tolist()
 
     residue_index = processed_features["residue_index"] + 1
     summary["residue_index"] = residue_index.tolist()
@@ -483,6 +488,8 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if args.mp_size > 0:
+        gc.collect()
+        torch.cuda.empty_cache()
         torch.distributed.barrier()
 
     if dist.is_master_process():
