@@ -115,7 +115,7 @@ class AlphaFold(nn.Module):
                 )
 
                 if recycle_hook is not None:  # Inference
-                    aux_outputs = self.auxiliary_heads(outputs, asym_id)
+                    aux_outputs = self.auxiliary_heads(outputs, feats["seq_mask"], asym_id)
                     outputs.update(aux_outputs)
                     recycle_hook(recycle_iter, feats, outputs)
 
@@ -140,7 +140,7 @@ class AlphaFold(nn.Module):
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
 
         # Run auxiliary heads:
-        aux_outputs = self.auxiliary_heads(outputs, asym_id)
+        aux_outputs = self.auxiliary_heads(outputs, feats["seq_mask"], asym_id)
         outputs.update(aux_outputs)
 
         if recycle_hook is not None:  # Inference

@@ -458,7 +458,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
-        logger.info(f"seqlen={seqlen} -> {batch["seq_mask"].shape[-2]}")
+        logger.info(f"seqlen={seqlen} -> {batch['seq_mask'].shape[-2]}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:

@@ -39,6 +39,7 @@ class AuxiliaryHeads(nn.Module):
     def forward(
         self,
         outputs: Dict[str, torch.Tensor],
+        seq_mask: Optional[torch.Tensor] = None,
         asym_id: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         aux_outputs = {}
@@ -57,6 +58,7 @@ class AuxiliaryHeads(nn.Module):
             if asym_id is not None:
                 aux_outputs["iptm_score"] = compute_tm(
                     logits=aux_outputs["tm_logits"],
+                    residue_weights=seq_mask,
                     asym_id=asym_id,
                     interface=True,
                     max_bin=self.tm.max_bin,
