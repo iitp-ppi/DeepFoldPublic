@@ -231,7 +231,7 @@ def _recycle_hook(
         ("weighted_ptm_score", "Confidence"),
     ]:
         if k in outputs:
-            print_line += f" {v}={outputs[k]:5.3g}"
+            print_line += f" {v}={outputs[k]:05.3f}"
 
     logger.info(f"Pred: recycle={recycle_iter}{print_line}")
 
