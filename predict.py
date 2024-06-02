@@ -323,7 +323,7 @@ def _allocate_memory():
     torch.cuda.empty_cache()
     free_mem, total_mem = torch.cuda.mem_get_info()
     used_mem = total_mem - free_mem
-    size = int(total_mem * 0.85 - used_mem) // 4
+    size = int(total_mem * 0.9 - used_mem) // 4
     t = torch.empty(size, dtype=torch.float32, device="cuda")
     del t
     torch.cuda.reset_peak_memory_stats()
@@ -458,7 +458,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
-        logger.info(f"seqlen={seqlen}")
+        logger.info(f"seqlen={seqlen} -> {batch["seq_mask"].shape[-2]}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:
