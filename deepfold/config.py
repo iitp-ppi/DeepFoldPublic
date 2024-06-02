@@ -592,7 +592,7 @@ class FeaturePipelineConfig:
     max_templates: int = 4  # Number of templates (N_templ)
     # max_template_hits: int = 4
     shuffle_top_k_prefiltered: int = 20
-    subsample_templates: bool = False  # OpenFold
+    subsample_templates: bool = False
 
     # Template related raw features names:
     template_raw_feature_names: List[str] = field(
@@ -695,7 +695,7 @@ def _predict_mode(is_multimer: bool = False) -> dict:
         "fixed_size": True,
         "subsample_templates": False,
         "block_delete_msa_enabled": False,
-        "max_msa_clusters": 512,
+        "max_msa_clusters": 508,
         "max_extra_msa": 1024,
         "max_templates": 4,
         "residue_cropping_enabled": False,
@@ -705,7 +705,7 @@ def _predict_mode(is_multimer: bool = False) -> dict:
     if is_multimer:
         dic.update(
             {
-                "max_msa_clusters": 512,
+                "max_msa_clusters": 508,
                 "max_extra_msa": 2048,
             }
         )
@@ -729,7 +729,7 @@ def _eval_mode(is_multimer: bool = False) -> dict:
     if is_multimer:
         dic.update(
             {
-                "max_msa_clusters": 512,
+                "max_msa_clusters": 508,
                 "max_extra_msa": 2048,
             }
         )
@@ -760,7 +760,7 @@ def _train_mode(is_multimer: bool = False) -> dict:
     if is_multimer:
         dic.update(
             {
-                "max_msa_clusters": 512,
+                "max_msa_clusters": 508,
                 "max_extra_msa": 2048,
                 "block_delete_msa_enabled": False,
                 "crop_size": 640,
