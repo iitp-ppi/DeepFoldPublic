@@ -176,6 +176,9 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         fuse_projection_weights=fuse_projection_weights,
     )
 
+    if preset.startswith("deepfold"):
+        feat_cfg_kwargs["max_recycling_iters"] = 10
+
     model_name = {
         "deepfold_model_1": "model_1",
         "deepfold_model_2": "model_2",
