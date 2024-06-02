@@ -214,7 +214,7 @@ def process_multimer_features(
     all_monomer_features: Mapping[str, dict],
     a3m_strings_with_identifiers: Mapping[str, str],
     paired_a3m_strings: Mapping[str, str] = dict(),
-    max_num_clusters: int = 512,
+    max_num_clusters: int = 508,
 ) -> dict:
     """Create a multimer input features."""
 
