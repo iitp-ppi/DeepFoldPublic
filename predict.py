@@ -13,6 +13,7 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed
+import torch.nn.functional as F
 
 import deepfold.distributed as dist
 import deepfold.distributed.model_parallel as mp
@@ -440,7 +441,7 @@ def predict(args: argparse.Namespace) -> None:
 
         num_chunks = 8
         pad_width = (seqlen + num_chunks - 1) // num_chunks * num_chunks
-        mask = np.pad(mask, ((0, pad_width), (0, pad_width), (0, 0), (0, 0)))
+        mask = F.pad(mask, (0, 0, 0, 0, 0, pad_width, 0, pad_width))
 
         batch["template_multichain_mask_2d"] = mask
 
