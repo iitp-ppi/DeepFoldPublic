@@ -447,7 +447,7 @@ def predict(args: argparse.Namespace) -> None:
     pipeline_duration = time.perf_counter() - start_time
     if dist.is_master_process():
         logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
-    batch_last = {k: np.array(v[..., -1].squeeze(0).cpu()) for k, v in batch.items()}
+    batch_last = {k: np.array(v[..., -1].cpu()) for k, v in batch.items()}
 
     # Add batch dimension and copy processed features:
     batch = {k: torch.as_tensor(v[None, ...]).to(device=device) for k, v in batch.items()}
