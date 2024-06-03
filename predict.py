@@ -417,6 +417,7 @@ def predict(args: argparse.Namespace) -> None:
     # Load input features:
     feats = load_pickle(args.input_features_filepath)
     seqlen = feats["residue_index"].shape[-1]
+    asym_id = torch.from_numpy(feats["asym_id"]).to(torch.int64)
 
     # Process input features:
     start_time = time.perf_counter()
@@ -429,7 +430,6 @@ def predict(args: argparse.Namespace) -> None:
             logger.info(f"Multimer template enabled for {templ_idx}")
         # Initialize:
         mask = torch.zeros([seqlen, seqlen, feat_config.max_templates, feat_config.max_recycling_iters])
-        asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
         assert all([i < feat_config.max_templates for i in templ_idx])
