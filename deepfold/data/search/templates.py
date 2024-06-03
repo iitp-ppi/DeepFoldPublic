@@ -435,7 +435,7 @@ def _featurize_template_hit(
         if template_hit_pdb_id in pdb_obsolete_mapping:
             template_hit_pdb_id = pdb_obsolete_mapping[template_hit_pdb_id]
 
-    index_mapping = _build_query_to_hit_index_mapping(
+    index_mapping = build_query_to_hit_index_mapping(
         original_query_sequence=query_sequence,
         hit_query_sequence=template_hit.query,
         hit_sequence=template_hit.hit_sequence,
@@ -503,7 +503,7 @@ def _featurize_template_hit(
         return TemplateFeaturesResult(features=None, error=error, warning=None)
 
 
-def _build_query_to_hit_index_mapping(
+def build_query_to_hit_index_mapping(
     original_query_sequence: str,
     hit_query_sequence: str,
     hit_sequence: str,
