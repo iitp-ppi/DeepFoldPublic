@@ -36,7 +36,7 @@ def crop_features(feats: dict, start: int, end: int):
     new_feats["sequence"] = np.array([feats["sequence"].item()[start - 1 : end]], dtype=np.object_)
 
     if isinstance(feats["template_sequence"], np.ndarray):
-        new_feats["template_sequence"] = [s.item()[start - 1 : end] for s in feats["template_sequence"]]
+        new_feats["template_sequence"] = [s[start - 1 : end] for s in feats["template_sequence"]]
     else:
         new_feats["template_sequence"] = [s[start - 1 : end] for s in feats["template_sequence"]]
 

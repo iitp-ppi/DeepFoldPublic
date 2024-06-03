@@ -49,6 +49,7 @@ def main(args: argparse.Namespace) -> None:
         with open(args.template_filepath, "r") as fp:
             template_str = fp.read()
 
+        sort_by_sum_probs = True
         if suffix == ".sto":
             template_hits = parse_hmmsearch_sto(query_sequence, template_str)
         elif suffix == ".a3m":
@@ -64,6 +65,7 @@ def main(args: argparse.Namespace) -> None:
                     query_id=domain_name,
                     alignment_dir=args.crf_alignment_dirpath,
                 )
+                sort_by_sum_probs = False
         else:
             raise RuntimeError(f"Not supported template hits extensions: {suffix}")
 
@@ -72,7 +74,8 @@ def main(args: argparse.Namespace) -> None:
             template_hits=template_hits,
             template_hit_featurizer=template_featurizer,
             max_release_date=args.max_template_date,
-            shuffling_seed=args.seed,
+            sort_by_sum_probs=sort_by_sum_probs,
+            # shuffling_seed=args.seed,
         )
 
     # Create MSA features:
@@ -95,7 +98,10 @@ def main(args: argparse.Namespace) -> None:
                 else:
                     raise RuntimeError(f"Not supported MSA search extensions: {suffix}")
             a3m_strings.append(a3m_str)
-    msa_features = create_msa_features(query_sequence, a3m_strings)
+    msa_features = create_msa_features(
+        a3m_strings,
+        sequence=query_sequence,
+    )
 
     logger.info("Write input features on {}".format(args.output_filepath))
     args.output_filepath.parent.mkdir(parents=True, exist_ok=True)

@@ -27,6 +27,7 @@ dependencies:
   # - cuda-libraries-dev=11.8
   - dacite
   - tqdm
+  - termcolor
   - hmmer=3.3.2
   - hhsuite=3.3.0
   - kalign2=2.04

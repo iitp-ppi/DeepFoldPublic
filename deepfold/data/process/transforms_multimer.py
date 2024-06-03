@@ -413,10 +413,7 @@ def random_crop_and_template_subsampling(
     else:
         crop_idxs = get_contiguous_crop_idx(protein, sequence_crop_size, g)
 
-    if "template_mask" in protein:
-        num_templates = protein["template_mask"].shape[-1]
-    else:
-        num_templates = 0
+    num_templates = protein["template_aatype"].shape[0]
 
     # No need to subsample templates if there aren't any
     subsample_templates = subsample_templates and num_templates

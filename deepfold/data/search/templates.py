@@ -112,6 +112,7 @@ class TemplateHitFeaturizer:
         template_hits: List[TemplateHit],
         max_template_date: datetime.datetime,
         query_pdb_id: str | None = None,
+        sort_by_sum_probs: bool = True,
         shuffling_seed: int | None = None,
     ) -> dict:
         if len(template_hits) == 0:
@@ -128,11 +129,12 @@ class TemplateHitFeaturizer:
             verbose=self.verbose,
         )
 
-        prefiltered_template_hits = sorted(
-            prefiltered_template_hits,
-            key=lambda x: x.sum_probs,
-            reverse=True,
-        )
+        if sort_by_sum_probs:
+            prefiltered_template_hits = sorted(
+                prefiltered_template_hits,
+                key=lambda x: x.sum_probs,
+                reverse=True,
+            )
 
         if self.shuffle_top_k_prefiltered is not None:
             top = prefiltered_template_hits[: self.shuffle_top_k_prefiltered]

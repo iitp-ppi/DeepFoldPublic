@@ -93,6 +93,7 @@ class AlphaFold(nn.Module):
         self,
         batch: Dict[str, torch.Tensor],
         recycle_hook: Callable[[int, dict, dict], None] | None = None,
+        save_all: bool = True,
     ) -> Dict[str, torch.Tensor]:
         # Initialize previous recycling embeddings:
         prevs = self._initialize_prevs(batch)
@@ -114,7 +115,7 @@ class AlphaFold(nn.Module):
                 )
 
                 if recycle_hook is not None:  # Inference
-                    aux_outputs = self.auxiliary_heads(outputs, asym_id)
+                    aux_outputs = self.auxiliary_heads(outputs, feats["seq_mask"], asym_id)
                     outputs.update(aux_outputs)
                     recycle_hook(recycle_iter, feats, outputs)
 
@@ -139,11 +140,15 @@ class AlphaFold(nn.Module):
         outputs["single"] = outputs["single"].to(dtype=torch.float32)
 
         # Run auxiliary heads:
-        aux_outputs = self.auxiliary_heads(outputs, asym_id)
+        aux_outputs = self.auxiliary_heads(outputs, feats["seq_mask"], asym_id)
         outputs.update(aux_outputs)
 
         if recycle_hook is not None:  # Inference
             recycle_hook(recycle_iter, feats, outputs)
+
+        if not save_all:
+            outputs.pop("msa", None)
+            outputs.pop("pair", None)
 
         return outputs
 
@@ -230,9 +235,10 @@ class AlphaFold(nn.Module):
             )
             # multichain_mask_2d: [batch, N_res, N_res, N_templ]
 
-            # z = z + template_embeds["template_pair_embedding"]
-            z = add(z, template_embeds["template_pair_embedding"], inplace_safe)
+            t = template_embeds["template_pair_embedding"]
+            z = add(z, t, inplace_safe)
             # z: [batch, N_res, N_res, c_z]
+            del t
 
             if self.config.embed_template_torsion_angles:
                 m = torch.cat([m, template_embeds["template_angle_embedding"]], dim=-3)

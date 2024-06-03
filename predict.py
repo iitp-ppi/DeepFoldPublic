@@ -1,4 +1,5 @@
 import argparse
+import gc
 import json
 import logging
 import os
@@ -26,7 +27,7 @@ from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
 from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.random import NUMPY_SEED_MODULUS
-from deepfold.utils.tensor_utils import tensor_tree_map
+from deepfold.utils.tensor_utils import masked_mean, tensor_tree_map
 
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
@@ -77,6 +78,12 @@ def parse_args() -> argparse.Namespace:
         help="Model parallelism (MP) size. Set 0 to disable mp.",
     )
     parser.add_argument(
+        "--precision",
+        type=str,
+        default="fp32",
+        help="Floating-point data type used in prediction.",
+    )
+    parser.add_argument(
         "--save_recycle",
         action="store_true",
         help="Whether to save a recycling outputs.",
@@ -106,6 +113,11 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of recycling iterations.",
     )
     parser.add_argument(
+        "--save_all",
+        action="store_true",
+        help="Save msa representation and pair representation.",
+    )
+    parser.add_argument(
         "--benchmark",
         action="store_true",
         help="Don't write result pickle.",
@@ -114,6 +126,7 @@ def parse_args() -> argparse.Namespace:
     #
     if args.mp_size != 0:
         assert torch.cuda.device_count() == args.mp_size
+    assert args.precision in ("fp32", "bf16")
     #
     return args
 
@@ -129,6 +142,10 @@ def create_alphafold_module(
     np.random.seed(seed % NUMPY_SEED_MODULUS)
     torch.manual_seed(seed)
     alphafold = AlphaFold(config=alphafold_config)
+    if alphafold_config == "bf16":
+        alphafold.to(dtype=torch.bfloat16)
+        alphafold.structure_module.to(dtype=torch.float32)
+        alphafold.auxiliary_heads.to(dtype=torch.float32)
     alphafold.to(device=device)
     torch.cuda.set_rng_state(torch_cuda_rng_state, device=device)
     torch.set_rng_state(torch_rng_state)
@@ -139,7 +156,7 @@ def create_alphafold_module(
 def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
     is_multimer = "multimer" in preset
     enable_ptm = "ptm" in preset or is_multimer
-    enable_templates = not any(preset.endswith(x) for x in ["_3", "_4", "_5"])
+    enable_templates = not any(preset.endswith(x) for x in ["_3", "_4", "_5"]) or is_multimer
     fuse_projection_weights = preset.endswith("multimer_v3")
 
     model_cfg_kwargs = dict(
@@ -158,6 +175,9 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         enable_templates=enable_templates,
         fuse_projection_weights=fuse_projection_weights,
     )
+
+    if preset.startswith("deepfold"):
+        feat_cfg_kwargs["max_recycling_iters"] = 10
 
     model_name = {
         "deepfold_model_1": "model_1",
@@ -204,7 +224,7 @@ def _recycle_hook(
     save_recycle: bool = False,
 ) -> None:
     # Calculate mean plDDT
-    outputs["mean_plddt"] = torch.mean(outputs["plddt"])
+    outputs["mean_plddt"] = torch.sum(outputs["plddt"] * feats["seq_mask"]) / torch.sum(feats["seq_mask"])
 
     print_line = ""
     for k, v in [
@@ -214,7 +234,7 @@ def _recycle_hook(
         ("weighted_ptm_score", "Confidence"),
     ]:
         if k in outputs:
-            print_line += f" {v}={outputs[k]:.3g}"
+            print_line += f" {v}={outputs[k]:05.3f}"
 
     logger.info(f"Pred: recycle={recycle_iter}{print_line}")
 
@@ -262,6 +282,7 @@ def _save_summary(
     - seed
     - sequence
     - asym_id
+    - seq_mask
     - residue_index
     - plddt
     - ptm
@@ -285,6 +306,9 @@ def _save_summary(
         summary["chain_index"] = chain_id.tolist()
     else:
         summary["chain_index"] = [0] * len(aatype)
+    seq_mask = processed_features.get("seq_mask", None)
+    if seq_mask is not None:
+        summary["seq_mask"] = seq_mask.astype(np.int64).tolist()
 
     residue_index = processed_features["residue_index"] + 1
     summary["residue_index"] = residue_index.tolist()
@@ -307,7 +331,7 @@ def _allocate_memory():
     torch.cuda.empty_cache()
     free_mem, total_mem = torch.cuda.mem_get_info()
     used_mem = total_mem - free_mem
-    size = int(total_mem * 0.90 - used_mem) // 4
+    size = int(total_mem * 0.9 - used_mem) // 4
     t = torch.empty(size, dtype=torch.float32, device="cuda")
     del t
     torch.cuda.reset_peak_memory_stats()
@@ -325,9 +349,12 @@ def predict(args: argparse.Namespace) -> None:
     # Setup suffix:
     suffix = f"_{args.suffix}" if args.suffix else ""
 
+    # Create output directory:
+    args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
+
     # Setup logging:
     if dist.is_main_process():
-        setup_logging(f"predict.{model_name}{suffix}.log")
+        setup_logging(args.output_dirpath / f"predict.{model_name}{suffix}.log")
 
     if args.mp_size > 0:
         # Assuming model parallelized prediction:
@@ -362,19 +389,18 @@ def predict(args: argparse.Namespace) -> None:
                 device_ids=[dist.local_rank()],
             )
 
-    # Create output directory:
-    args.output_dirpath.mkdir(parents=True, exist_ok=args.force)
-    # figures_dirpath = args.output_dirpath / "figures"
-    # figures_dirpath.mkdir(parents=True, exist_ok=args.force)
-
     # Maximum recycling iterations:
     if args.max_recycling_iters > 0:
         feat_cfg_kwargs["max_recycling_iters"] = args.max_recycling_iters
 
     # Get configs:
-    model_config = AlphaFoldConfig.from_preset(**model_cfg_kwargs)
+    model_config = AlphaFoldConfig.from_preset(
+        precision=args.precision,
+        **model_cfg_kwargs,
+    )
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
+        # subsample_templates=True,
         seed=seed,
         **feat_cfg_kwargs,
     )
@@ -399,15 +425,16 @@ def predict(args: argparse.Namespace) -> None:
     if args.multimer_templates != "":
         templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
-            logger.info(f"Multimer template enabled for {','.join(map(str, templ_idx))}")
+            logger.info(f"Multimer template enabled for {templ_idx}")
         # Initialize:
         mask = torch.zeros([seqlen, seqlen, feat_config.max_templates, feat_config.max_recycling_iters])
         asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
+        assert all([i < feat_config.max_templates for i in templ_idx])
         for i in range(feat_config.max_templates):
             if i in templ_idx:
-                mask[..., i, :] = 1.0
+                mask[..., i, :].fill_(1.0)
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
 
@@ -439,7 +466,7 @@ def predict(args: argparse.Namespace) -> None:
     )
 
     if dist.is_master_process():
-        logger.info(f"seqlen={seqlen}")
+        logger.info(f"seqlen={seqlen} -> {batch['seq_mask'].shape[-2]}")
         logger.info("Start inference procedure:")
         tiem_begin = time.perf_counter()
         if args.save_recycle:
@@ -460,9 +487,12 @@ def predict(args: argparse.Namespace) -> None:
     out = model(
         batch,
         recycle_hook=recycle_hook,
+        save_all=args.save_all,
     )
 
     if args.mp_size > 0:
+        gc.collect()
+        torch.cuda.empty_cache()
         torch.distributed.barrier()
 
     if dist.is_master_process():

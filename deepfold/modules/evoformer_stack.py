@@ -171,9 +171,11 @@ class EvoformerStack(nn.Module):
                 m = mp.gather(m, dim=-2)
             else:
                 m = mp.gather(m, dim=-3)
-            m = m[..., : m.size(-3) - msa_row_pad_size, : m.size(-2) - msa_col_pad_size, :]
+            if msa_col_pad_size != 0:
+                m = m[..., : m.size(-3) - msa_row_pad_size, : m.size(-2) - msa_col_pad_size, :]
             z = mp.gather(z, dim=-3)
-            z = z[..., : z.size(-3) - pair_pad_size, : z.size(-2) - pair_pad_size, :]
+            if pair_pad_size != 0:
+                z = z[..., : z.size(-3) - pair_pad_size, : z.size(-2) - pair_pad_size, :]
         return m, z
 
     def _forward_blocks_with_gradient_checkpointing(

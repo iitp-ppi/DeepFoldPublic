@@ -97,6 +97,7 @@ def create_template_features(
     template_hit_featurizer: TemplateHitFeaturizer,
     max_release_date: str,
     pdb_id: str | None = None,  # Optional query pdb id
+    sort_by_sum_probs: bool = True,
     shuffling_seed: int | None = None,
 ) -> dict:
     query_release_date = datetime_from_string(max_release_date, r"%Y-%m-%d")
@@ -105,6 +106,7 @@ def create_template_features(
         template_hits=list(template_hits),
         max_template_date=query_release_date,
         query_pdb_id=pdb_id,
+        sort_by_sum_probs=sort_by_sum_probs,
         shuffling_seed=shuffling_seed,
     )
     return template_features
@@ -151,8 +153,8 @@ def create_template_features_from_hmmsearch_sto_string(
 
 
 def create_msa_features(
-    sequence: str,
     a3m_strings: List[str],
+    sequence: str | None = None,
     use_identifiers: bool = False,
 ) -> dict:
     msas = []
@@ -167,6 +169,7 @@ def create_msa_features(
         descriptions.append(desc)
 
     if len(msas) == 0:
+        assert sequence is not None
         msas.append([sequence])
         deletion_matrices.append([[0 for _ in sequence]])
         descriptions.append([""])

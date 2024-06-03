@@ -4,7 +4,6 @@
 """Utilities for extracting identifiers from MSA sequence desecriptions."""
 
 
-import dataclasses
 import re
 
 # Sequence coming from UniProtKB database:
