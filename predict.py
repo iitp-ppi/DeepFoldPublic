@@ -438,6 +438,10 @@ def predict(args: argparse.Namespace) -> None:
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
 
+        num_chunks = 8
+        pad_width = (seqlen + num_chunks - 1) // num_chunks * num_chunks
+        mask = np.pad(mask, ((0, pad_width), (0, pad_width), (0, 0), (0, 0)))
+
         batch["template_multichain_mask_2d"] = mask
 
     pipeline_duration = time.perf_counter() - start_time
