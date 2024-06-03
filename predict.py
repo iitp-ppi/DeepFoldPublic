@@ -440,7 +440,7 @@ def predict(args: argparse.Namespace) -> None:
                 mask[..., i, :] = block_diag_mask[..., None]
 
         num_chunks = 8
-        pad_width = num_chunks - seqlen % num_chunks
+        pad_width = (num_chunks - seqlen % num_chunks) % num_chunks
         mask = F.pad(mask, (0, 0, 0, 0, 0, pad_width, 0, pad_width))
 
         batch["template_multichain_mask_2d"] = mask
