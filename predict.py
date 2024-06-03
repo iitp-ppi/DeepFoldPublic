@@ -417,7 +417,6 @@ def predict(args: argparse.Namespace) -> None:
     # Load input features:
     feats = load_pickle(args.input_features_filepath)
     seqlen = feats["residue_index"].shape[-1]
-    asym_id = torch.from_numpy(feats["asym_id"]).to(torch.int64)
 
     # Process input features:
     start_time = time.perf_counter()
@@ -425,6 +424,9 @@ def predict(args: argparse.Namespace) -> None:
 
     # Template multi-chain mask
     if args.multimer_templates != "":
+        assert model_config.is_multimer
+        asym_id = torch.from_numpy(feats["asym_id"]).to(torch.int64)
+
         templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
             logger.info(f"Multimer template enabled for {templ_idx}")
