@@ -20,9 +20,10 @@ import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.config import AlphaFoldConfig, FeaturePipelineConfig
+from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
+from deepfold.utils.crop_utils import unpad_to_schema_shape_
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
@@ -298,23 +299,26 @@ def _save_summary(
     summary["suffix"] = suffix
     summary["seed"] = seed
 
-    aatype = processed_features["aatype"]
+    seq_mask = processed_features.get("seq_mask", None)
+    if seq_mask is None:
+        seq_mask = np.ones_like(processed_features["aatype"], dtype="bool")
+    else:
+        seq_mask = seq_mask.astype("bool")
+
+    aatype = processed_features["aatype"][seq_mask]
     summary["sequence"] = "".join(rc.restypes_with_x[i] for i in aatype)
 
     asym_id = processed_features.get("asym_id", None)
     if asym_id is not None:
-        chain_id = asym_id - 1
+        chain_id = asym_id[seq_mask] - 1
         summary["chain_index"] = chain_id.tolist()
     else:
         summary["chain_index"] = [0] * len(aatype)
-    seq_mask = processed_features.get("seq_mask", None)
-    if seq_mask is not None:
-        summary["seq_mask"] = seq_mask.astype(np.int64).tolist()
 
-    residue_index = processed_features["residue_index"] + 1
+    residue_index = processed_features["residue_index"][seq_mask] + 1
     summary["residue_index"] = residue_index.tolist()
 
-    summary["plddt"] = result["plddt"].tolist()
+    summary["plddt"] = result["plddt"][seq_mask].tolist()
 
     if "ptm_score" in result:
         summary["ptm"] = float(result["ptm_score"])
@@ -403,6 +407,8 @@ def predict(args: argparse.Namespace) -> None:
         preset="predict",
         # subsample_templates=True,
         seed=seed,
+        # num_chunks=args.mp_size if args.mp_size > 0 else 1,
+        num_chunks=8,
         **feat_cfg_kwargs,
     )
 
@@ -441,7 +447,7 @@ def predict(args: argparse.Namespace) -> None:
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
 
-        num_chunks = 8
+        num_chunks = feat_config.num_chunks
         pad_width = (num_chunks - seqlen % num_chunks) % num_chunks
         mask = F.pad(mask, (0, 0, 0, 0, 0, pad_width, 0, pad_width))
 
@@ -508,12 +514,6 @@ def predict(args: argparse.Namespace) -> None:
         logger.info(f"CUDA max memory allocated: {torch.cuda.max_memory_allocated() / 1024/ 1024:.2f} MB")
 
         # Remove batch dimension:
-        # batch_last = tensor_tree_map(
-        #     fn=lambda x: np.array(x[..., -1].squeeze(0).cpu()),
-        #     tree=batch,
-        # )
-
-        # Remove batch dimension:
         out = tensor_tree_map(
             fn=lambda x: np.array(x.squeeze(0).cpu()),
             tree=out,
@@ -541,6 +541,10 @@ def predict(args: argparse.Namespace) -> None:
         )
 
         if not args.benchmark:
+            if model_config.is_multimer:
+                out = unpad_to_schema_shape_(out, MULTIMER_OUPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
+            else:
+                out = unpad_to_schema_shape_(out, MONOMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
     # Exit:

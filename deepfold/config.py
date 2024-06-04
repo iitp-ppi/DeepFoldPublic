@@ -530,6 +530,7 @@ class FeaturePipelineConfig:
     preset: str = ""
     is_multimer: bool = False
     seed: int = 0
+    num_chunks: int = 8
 
     # Fix input sizes:
     fixed_size: bool = True
@@ -563,7 +564,7 @@ class FeaturePipelineConfig:
     resample_msa_in_recycling: bool = True
 
     # Concatenate template sequences to MSA clusters:
-    reduce_msa_clusters_by_max_templates: bool = True
+    # reduce_msa_clusters_by_max_templates: bool = True
 
     # Sequence crop & pad size (for "train" mode only):
     residue_cropping_enabled: bool = False
@@ -895,6 +896,60 @@ MULTIMER_FEATURE_SHAPES = {
     "template_pseudo_beta": (NUM_TEMPLATES, NUM_RES, 3),
     "template_sum_probs": (NUM_TEMPLATES, 1),
     "true_msa": (NUM_MSA_SEQ, NUM_RES),
+}
+
+
+MONOMER_OUTPUT_SHAPES = {
+    "single": (NUM_RES, 384),
+    "sm_frames": (8, NUM_RES, 4, 4),
+    "sm_sidechain_frames": (8, NUM_RES, 8, 4, 4),
+    "sm_unnormalized_angles": (8, NUM_RES, 7, 2),
+    "sm_angles": (8, NUM_RES, 7, 2),
+    "sm_positions": (8, NUM_RES, 14, 3),
+    "sm_states": (8, NUM_RES, 384),
+    "sm_single": (NUM_RES, 384),
+    "final_atom_positions": (NUM_RES, 37, 3),
+    "final_atom_mask": (NUM_RES, 37),
+    "final_affine_tensor": (NUM_RES, 4, 4),
+    "lddt_logits": (NUM_RES, 50),
+    "plddt": (NUM_RES,),
+    "distogram_logits": (NUM_RES, NUM_RES, 64),
+    "masked_msa_logits": (NUM_MSA_SEQ, NUM_RES, 23),
+    "experimentally_resolved_logits": (NUM_RES, 37),
+    "tm_logits": (NUM_RES, NUM_RES, 64),
+    "ptm_score": (),
+    "aligned_confidence_probs": (NUM_RES, NUM_RES, 64),
+    "predicted_aligned_error": (NUM_RES, NUM_RES),
+    "max_predicted_aligned_error": (),
+    "mean_plddt": (),
+}
+
+
+MULTIMER_OUPUT_SHAPES = {
+    "single": (NUM_RES, 384),
+    "sm_frames": (8, NUM_RES, 4, 4),
+    "sm_sidechain_frames": (8, NUM_RES, 8, 4, 4),
+    "sm_unnormalized_angles": (8, NUM_RES, 7, 2),
+    "sm_angles": (8, NUM_RES, 7, 2),
+    "sm_positions": (8, NUM_RES, 14, 3),
+    "sm_states": (8, NUM_RES, 384),
+    "sm_single": (NUM_RES, 384),
+    "final_atom_positions": (NUM_RES, 37, 3),
+    "final_atom_mask": (NUM_RES, 37),
+    "final_affine_tensor": (NUM_RES, 4, 4),
+    "lddt_logits": (NUM_RES, 50),
+    "plddt": (NUM_RES,),
+    "distogram_logits": (NUM_RES, NUM_RES, 64),
+    "masked_msa_logits": (NUM_MSA_SEQ, NUM_RES, 22),
+    "experimentally_resolved_logits": (NUM_RES, 37),
+    "tm_logits": (NUM_RES, NUM_RES, 64),
+    "ptm_score": (),
+    "iptm_score": (),
+    "weighted_ptm_score": (),
+    "aligned_confidence_probs": (NUM_RES, NUM_RES, 64),
+    "predicted_aligned_error": (NUM_RES, NUM_RES),
+    "max_predicted_aligned_error": (),
+    "mean_plddt": (),
 }
 
 
