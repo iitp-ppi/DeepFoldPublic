@@ -517,7 +517,7 @@ def predict(args: argparse.Namespace) -> None:
             fn=lambda x: np.array(x.squeeze(0).cpu()),
             tree=out,
         )
-        logger.info("Save outputs...")
+        logger.info("Save predicted structure to PDB format...")
 
         prot = protein.from_prediction(
             processed_features=batch_last,
@@ -528,6 +528,7 @@ def predict(args: argparse.Namespace) -> None:
         with open(args.output_dirpath / f"unrelaxed_{model_name}{suffix}.pdb", "w") as fp:
             fp.write(protein.to_pdb(prot))
 
+        logger.info("Save summary informations...")
         summary_filepath = args.output_dirpath / f"summary_{model_name}{suffix}.json"
         _save_summary(
             batch_last,
@@ -540,6 +541,7 @@ def predict(args: argparse.Namespace) -> None:
         )
 
         if not args.benchmark:
+            logger.info("Save result outputs...")
             if model_config.is_multimer:
                 out = unpad_to_schema_shape_(out, MULTIMER_OUPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             else:
