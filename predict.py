@@ -407,8 +407,7 @@ def predict(args: argparse.Namespace) -> None:
         preset="predict",
         # subsample_templates=True,
         seed=seed,
-        # num_chunks=args.mp_size if args.mp_size > 0 else 1,
-        num_chunks=8,
+        num_chunks=args.mp_size if args.mp_size > 0 else 1,
         **feat_cfg_kwargs,
     )
 
