@@ -900,8 +900,10 @@ MULTIMER_FEATURE_SHAPES = {
 
 
 MONOMER_OUTPUT_SHAPES = {
+    "msa": (NUM_MSA_SEQ, NUM_RES, 256),
+    "pair": (NUM_RES, NUM_RES, 128),
     "single": (NUM_RES, 384),
-    "sm_frames": (8, NUM_RES, 4, 4),
+    "sm_frames": (8, NUM_RES, 7),
     "sm_sidechain_frames": (8, NUM_RES, 8, 4, 4),
     "sm_unnormalized_angles": (8, NUM_RES, 7, 2),
     "sm_angles": (8, NUM_RES, 7, 2),
@@ -910,7 +912,7 @@ MONOMER_OUTPUT_SHAPES = {
     "sm_single": (NUM_RES, 384),
     "final_atom_positions": (NUM_RES, 37, 3),
     "final_atom_mask": (NUM_RES, 37),
-    "final_affine_tensor": (NUM_RES, 4, 4),
+    "final_affine_tensor": (NUM_RES, 7),
     "lddt_logits": (NUM_RES, 50),
     "plddt": (NUM_RES,),
     "distogram_logits": (NUM_RES, NUM_RES, 64),
@@ -926,6 +928,8 @@ MONOMER_OUTPUT_SHAPES = {
 
 
 MULTIMER_OUPUT_SHAPES = {
+    "msa": (NUM_MSA_SEQ, NUM_RES, 256),
+    "pair": (NUM_RES, NUM_RES, 128),
     "single": (NUM_RES, 384),
     "sm_frames": (8, NUM_RES, 4, 4),
     "sm_sidechain_frames": (8, NUM_RES, 8, 4, 4),
