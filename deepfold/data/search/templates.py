@@ -634,13 +634,13 @@ def extract_template_features(
             verbose=verbose,
         )
         if verbose:
-            logger.info("_extract_template_features: ...realigned" f" {repr(template_id)} to {repr(seqres)} successfully!")
+            logger.info(f"_extract_template_features: ...realigned {repr(template_id)} to {repr(seqres)} successfully!")
         # The template sequence changed.
         template_sequence = seqres
         # No mapping offset, the query is aligned to the actual sequence.
         mapping_offset = 0
         # set warning message:
-        warning = "Realignment Warning ;" f" realigned template ({repr(template_id)})" f" sequence={repr(template_sequence)} to {repr(seqres)}"
+        warning = f"Realignment Warning ; realigned template ({repr(template_id)}) sequence={repr(template_sequence)} to {repr(seqres)}"
 
     try:
         # Essentially set to infinity - we don't want to reject templates unless
