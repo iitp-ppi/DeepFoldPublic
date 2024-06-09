@@ -29,6 +29,8 @@ def main(args: argparse.Namespace) -> None:
 
     domain_name = description.split()[0]
     sequence_features = create_sequence_features(query_sequence, domain_name)
+    if args.offset:
+        sequence_features["residue_index"] += args.offset
 
     # Featurize template hits:
     template_features = create_empty_template_feats(len(query_sequence))
@@ -180,6 +182,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Shuffling seeds for the template featurizer.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Offset for the residue numbers.",
     )
     args = parser.parse_args()
 
