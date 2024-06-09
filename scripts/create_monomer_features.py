@@ -30,7 +30,7 @@ def main(args: argparse.Namespace) -> None:
     domain_name = description.split()[0]
     sequence_features = create_sequence_features(query_sequence, domain_name)
     if args.offset:
-        logger.info(f"Shift residue index for {args.offest}")
+        logger.info(f"Shift residue index for {args.offset}")
         sequence_features["residue_index"] += args.offset
 
     # Featurize template hits:
