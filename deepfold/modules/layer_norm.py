@@ -29,7 +29,8 @@ class LayerNorm(nn.Module):
         self.bias = nn.Parameter(torch.zeros(in_channels))
 
         self._ln_eager_func = F.layer_norm
-        self._ln_inductor_func = torch.compile(F.layer_norm)
+        # self._ln_inductor_func = torch.compile(F.layer_norm)
+        self._ln_inductor_func = self._ln_eager_func
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training or inductor.enable():
