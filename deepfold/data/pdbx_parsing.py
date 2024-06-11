@@ -20,13 +20,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 import numpy as np
 import requests
 from Bio.Data.PDBData import protein_letters_3to1_extended as protein_letters_3to1
-
-# from Bio.Data.PDBData import protein_letters_3to1
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 from Bio.PDB.PDBExceptions import PDBConstructionException, PDBConstructionWarning
 from Bio.PDB.Structure import Structure
 from Bio.PDB.StructureBuilder import StructureBuilder
-from tqdm.auto import tqdm
 
 from deepfold.common import residue_constants as rc
 from deepfold.data.errors import PDBxConstructionError, PDBxConstructionWarning, PDBxError, PDBxWarning
