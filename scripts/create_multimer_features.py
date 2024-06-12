@@ -126,7 +126,7 @@ def main(args: argparse.Namespace):
     )
 
     with open(args.log_filepath, "a") as fp:
-        tee = Tee(sys.stdout)
+        tee = Tee(sys.stdout, fp)
 
         tee.write(f"#\n")
 
