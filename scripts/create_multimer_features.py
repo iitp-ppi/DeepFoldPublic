@@ -153,6 +153,8 @@ def main(args: argparse.Namespace):
 
             tee.write(f"{name} ")
             tee.write(" ".join(pair))
+            tee.write("\n")
+            tee.flush()
 
 
 if __name__ == "__main__":
