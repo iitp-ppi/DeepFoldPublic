@@ -23,17 +23,20 @@ from deepfold.common import residue_constants as rc
 from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
+from deepfold.modules.tweaks import evo_attn
 from deepfold.utils.crop_utils import unpad_to_schema_shape_
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
 from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.random import NUMPY_SEED_MODULUS
-from deepfold.utils.tensor_utils import masked_mean, tensor_tree_map
+from deepfold.utils.tensor_utils import tensor_tree_map
 
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
 
+evo_attn.enable()
+# evo_attn.disable()
 
 logger = logging.getLogger(__name__)
 
@@ -165,8 +168,8 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         is_multimer=is_multimer,
         enable_ptm=enable_ptm,
         enable_templates=enable_templates,
-        inference_chunk_size=4,
-        inference_block_size=128,
+        inference_chunk_size=128,
+        inference_block_size=256,
     )
     feat_cfg_kwargs = dict(
         is_multimer=is_multimer,
@@ -384,7 +387,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Set device:
     torch.cuda.set_device(device=device)
-    _allocate_memory()
+    # _allocate_memory()
 
     # Distributed warm-up:
     if args.mp_size > 0:
