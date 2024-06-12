@@ -141,14 +141,14 @@ def main(args: argparse.Namespace):
                 # ,
                 a3m_strings_with_identifiers=(collections.defaultdict(str) if args.non_pair else a3m_strings),
             )
-            out_path = args.output_dirpath.joinpath(f"{target_id}/{name}/features.pkz")
+            out_path = args.output_dirpath.joinpath(f"{name}/features.pkz")
             out_path.parent.mkdir(parents=True, exist_ok=True)
 
             dump_pickle(example, out_path)
 
             fig = plot_msa(example)
             # plt.show(fig)
-            fig.savefig(args.output_dirpath.joinpath(f"{target_id}/{name}/msa_depth.png"))
+            fig.savefig(args.output_dirpath.joinpath(f"{name}/msa_depth.png"))
             plt.close(fig)
 
             tee.write(f"{name} ")
