@@ -198,7 +198,7 @@ def create_multimer_features(
 ) -> dict:
     """Create multimer features from paired MSA strings."""
     valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")
-    return {
+    feats = {
         f"{k}_all_seq": v
         for k, v in create_msa_features(
             paired_a3m_strings,
@@ -207,6 +207,10 @@ def create_multimer_features(
         ).items()
         if k in valid_feats
     }
+    for i in range(len(feats["msa_identifiers_all_seq"])):
+        feats["msa_identifiers_all_seq"][i] = f"pair:{i:d}"
+
+    return feats
 
 
 def process_multimer_features(
