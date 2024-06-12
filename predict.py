@@ -35,8 +35,8 @@ from deepfold.utils.tensor_utils import tensor_tree_map
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
 
-evo_attn.enable()
-# evo_attn.disable()
+# evo_attn.enable()
+evo_attn.disable()
 
 logger = logging.getLogger(__name__)
 
