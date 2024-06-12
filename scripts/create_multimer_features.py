@@ -93,7 +93,7 @@ def process_uniprot(
     a3m_strings = {}
     for i in range(num_chains):
         chain_id = f"T{target_id[1:]}s{i+1}"
-        output_filepath = output_dirpath.joinpath(f"/msas/{chain_id}.uniprot.a3m")
+        output_filepath = output_dirpath.joinpath(f"msas/{chain_id}.uniprot.a3m")
         if output_filepath.exists():
             with open(output_filepath, "r") as fp:
                 a3m_strings[chain_id] = fp.read()
