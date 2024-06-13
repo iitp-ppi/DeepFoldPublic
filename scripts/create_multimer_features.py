@@ -157,7 +157,7 @@ def main(args: argparse.Namespace):
             plt.close(fig)
 
             tee.write(f"{name:12s} ")
-            tee.write(" ".join(f"{p:3s}" if n > 0 else "-" for p, n in zip(pair, cardinality)))
+            tee.write(" ".join(f"{s:^3s}" if n > 0 else "-" for s, n in zip(pair, cardinality)))
             tee.write("\n")
             tee.flush()
 
