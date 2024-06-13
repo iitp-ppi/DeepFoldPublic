@@ -204,9 +204,10 @@ def main(args: argparse.Namespace):
     cardinality = parse_stoi(stoichiom)
     chain_ids = [f"T{target_id[1:]}s{i}" for i in range(1, len(cardinality) + 1)]
 
-    # Process UniProt:
-    if args.pairing == "uniprot":
-        a3m_strings = process_uniprot(
+    a3m_strings_with_identifiers = collections.defaultdict(str)
+    paired_a3m_strings = None
+    if args.pairing == "uniprot":  # Process UniProt:
+        paired_a3m_strings = process_uniprot(
             num_chains=len(cardinality),
             target_id=target_id,
             target_dirpath=args.target_dirpath,
@@ -216,6 +217,7 @@ def main(args: argparse.Namespace):
         with open(args.colab_a3m, "r") as fp:
             a3m_lines = fp.read()
         _, paired_msa, query_seqs_unique, _ = unserialize_msa([a3m_lines])
+        paired_a3m_strings = {k: v for k, v in zip(chain_ids, paired_msa)}
         assert len(query_seqs_unique) == len(cardinality)
     else:
         pass
@@ -234,16 +236,10 @@ def main(args: argparse.Namespace):
             in_car = [n for n in cardinality if n > 0]
 
             complex = ComplexInfo(in_cid, in_car)
-            if args.pairing == "uniprot":
-                a3m_strings_with_identifiers = a3m_strings
-            elif args.paring == "colab":
-                paired_a3m_strings = None
-            else:
-                a3m_strings_with_identifiers = collections.defaultdict(str)
             example = process_multimer_features(
                 complex=complex,
                 all_monomer_features=feats,
-                paired_a3m_strings={k: v for k, v in zip(chain_ids, paired_msa)},
+                paired_a3m_strings=paired_a3m_strings,
                 a3m_strings_with_identifiers=a3m_strings_with_identifiers,
             )
             out_path = args.output_dirpath.joinpath(f"{name}/features.pkz")
