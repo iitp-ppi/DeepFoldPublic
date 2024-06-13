@@ -31,7 +31,7 @@ class Tee:
 
 
 def parse_stoi(stoi_str: str):
-    m = re.findall("[A-Z]([1-9][0-9]*)", stoi_str)
+    m = re.findall("[A-Z]([0-9]*)", stoi_str)
     return list(map(int, m))
 
 
