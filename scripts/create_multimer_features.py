@@ -134,7 +134,10 @@ def main(args: argparse.Namespace):
             feats = {cid: load_pickle(args.target_dirpath / f"{cid}/{y}/features.pkz") for cid, y in zip(chain_ids, pair)}
             name = f"{stoichiom}_{i}"
 
-            complex = ComplexInfo(chain_ids, cardinality)
+            in_cid = [cid for cid, n in zip(chain_ids, cardinality) if n > 0]
+            in_car = [n for n in cardinality if n > 0]
+
+            complex = ComplexInfo(in_cid, in_car)
             example = process_multimer_features(
                 complex=complex,
                 all_monomer_features=feats,
