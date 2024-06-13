@@ -2,6 +2,7 @@ import argparse
 import collections
 import logging
 import re
+import string
 import sys
 from pathlib import Path
 from typing import List, Tuple
@@ -132,7 +133,8 @@ def main(args: argparse.Namespace):
 
         for i, pair in enumerate(recipes, start=args.start_num):
             feats = {cid: load_pickle(args.target_dirpath / f"{cid}/{y}/features.pkz") for cid, y in zip(chain_ids, pair)}
-            name = f"{stoichiom}_{i}"
+            name = "".join(f"{a}{n}" for a, n in zip(string.ascii_uppercase, cardinality) if n > 0)
+            name += f"_{i}"
 
             in_cid = [cid for cid, n in zip(chain_ids, cardinality) if n > 0]
             in_car = [n for n in cardinality if n > 0]
@@ -154,7 +156,7 @@ def main(args: argparse.Namespace):
             fig.savefig(args.output_dirpath.joinpath(f"{name}/msa_depth.png"))
             plt.close(fig)
 
-            tee.write(f"{name} ")
+            tee.write(f"{name:12s} ")
             tee.write(" ".join(f"{p:3s}" if n > 0 else "-" for p, n in zip(pair, cardinality)))
             tee.write("\n")
             tee.flush()
