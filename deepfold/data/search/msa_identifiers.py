@@ -21,6 +21,9 @@ _UNIPROT_PATTERN = re.compile(
     re.VERBOSE,
 )
 
+# PLM
+_VDB_PATTERN = re.compile(r"^.*taxId=(?P<TaxId>[1-9][0-9]+).*")
+
 
 # @dataclasses.dataclass(frozen=True)
 # class Identifier:
@@ -28,15 +31,19 @@ _UNIPROT_PATTERN = re.compile(
 Identifier = str
 
 
-def _parse_sequence_identifier_uniprot(msa_sequence_identifier: str) -> Identifier:
+def _parse_sequence_identifier(msa_sequence_identifier: str) -> Identifier:
     """Gets species from an MSA sequence identifier."""
 
     matches = re.search(_UNIPROT_PATTERN, msa_sequence_identifier.strip())
     if matches:
-        return matches.group("EntryName").split("_")[-1]
+        return "uniprot:" + matches.group("EntryName").split("_")[-1]
+    else:
+        matches = re.search(_VDB_PATTERN, msa_sequence_identifier.strip())
+        if matches:
+            return "vdb:" + matches.group("TaxId")[-1]
     return Identifier()
 
 
-def get_uniprot_identifiers(description: str) -> Identifier:
+def get_identifiers(description: str) -> Identifier:
     """Compute extra MSA features from the description."""
-    return _parse_sequence_identifier_uniprot(description)
+    return _parse_sequence_identifier(description)

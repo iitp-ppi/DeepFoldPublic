@@ -41,21 +41,25 @@ def parse_args() -> argparse.Namespace:
         "-i",
         "--input_filepath",
         required=True,
+        type=Path,
     )
     parser.add_argument(
         "-d",
         "--target_dirpath",
         default=Path.cwd(),
+        type=Path,
     )
     parser.add_argument(
         "-o",
         "--output_dirpath",
         default=Path.cwd(),
+        type=Path,
     )
     parser.add_argument(
         "-l",
         "--log_filepath",
         default=Path.cwd().joinpath("list.multimer"),
+        type=Path,
     )
     parser.add_argument(
         "-s",
