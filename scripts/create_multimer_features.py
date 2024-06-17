@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
     )
     parser.add_argument(
-        "-s",
+        "-n",
         "--start_num",
         default=0,
         type=int,
