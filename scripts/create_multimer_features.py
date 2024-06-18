@@ -209,7 +209,7 @@ def main(args: argparse.Namespace):
     chain_ids = [f"T{target_id[1:]}s{i}" for i in range(1, len(cardinality) + 1)]
 
     a3m_strings_with_identifiers = collections.defaultdict(str)
-    paired_a3m_strings = None
+    paired_a3m_strings = dict()
     if args.pairing == "uniprot":  # Process UniProt:
         paired_a3m_strings = process_uniprot(
             num_chains=len(cardinality),
