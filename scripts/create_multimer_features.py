@@ -258,6 +258,7 @@ def main(args: argparse.Namespace):
 
             tee.write(f"{name:12s} ")
             tee.write(" ".join(f"{s:^3s}" if n > 0 else "-" for s, n in zip(pair, cardinality)))
+            tee.write(f"  # pair={args.pairing}")
             tee.write("\n")
             tee.flush()
 
