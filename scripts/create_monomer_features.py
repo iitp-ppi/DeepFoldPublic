@@ -181,7 +181,7 @@ def main(args: argparse.Namespace) -> None:
         additional_template_features = get_domains(domains, domain_name, query_sequence)
 
     if additional_template_features:
-        for k, v in template_features:
+        for k, v in template_features.items():
             template_features[k] = np.concatenate([v, additional_template_features[k]], axis=0)
 
     # Create MSA features:
