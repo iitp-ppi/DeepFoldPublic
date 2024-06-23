@@ -139,6 +139,7 @@ def main(args: argparse.Namespace) -> None:
         else:
             mode = args.template_mode
 
+        template_hits = []
         if mode == "hhm":
             template_hits = parse_hmmsearch_sto(query_sequence, template_str)
         elif mode == "hhr":
@@ -165,7 +166,7 @@ def main(args: argparse.Namespace) -> None:
         else:
             raise RuntimeError(f"Not supported template mode: {suffix}")
 
-        if len(template_hits) > 0:
+        if template_hits:
             template_features = create_template_features(
                 sequence=query_sequence,
                 template_hits=template_hits,
