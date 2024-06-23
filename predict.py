@@ -128,6 +128,10 @@ def parse_args() -> argparse.Namespace:
         help="Save msa representation and pair representation.",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+    )
+    parser.add_argument(
         "--benchmark",
         action="store_true",
         help="Don't write result pickle.",
@@ -463,6 +467,12 @@ def predict(args: argparse.Namespace) -> None:
     pipeline_duration = time.perf_counter() - start_time
     if dist.is_master_process():
         logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
+        if args.debug:
+            dump_pickle(
+                {k: torch.as_tensor(v).cpu().numpy() for k, v in batch.items()},
+                args.output_dirpath / f"batch_{model_name}{suffix}.pkz",
+            )
+            logger.info("Dump input batch tensors")
     batch_last = {k: np.array(v[..., -1].cpu()) for k, v in batch.items()}
 
     # Add batch dimension and copy processed features:
