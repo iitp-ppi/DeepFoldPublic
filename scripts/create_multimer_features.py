@@ -96,14 +96,13 @@ def parse_note(note_str: str) -> Tuple[str, str, List[str]]:
 
 
 def process_uniprot(
-    num_chains: int,
-    target_id: str,
+    chain_ids: List[str],
     target_dirpath: Path,
     output_dirpath: Path,
 ):
     a3m_strings = {}
-    for i in range(num_chains):
-        chain_id = f"T{target_id[1:]}s{i+1}"
+    for chain_id in chain_ids:
+        # chain_id = f"T{target_id[1:]}s{i+1}"
         output_filepath = output_dirpath.joinpath(f"msas/{chain_id}.uniprot.a3m")
         if output_filepath.exists():
             with open(output_filepath, "r") as fp:
@@ -212,8 +211,7 @@ def main(args: argparse.Namespace):
     paired_a3m_strings = dict()
     if args.pairing == "uniprot":  # Process UniProt:
         paired_a3m_strings = process_uniprot(
-            num_chains=len(cardinality),
-            target_id=target_id,
+            chain_ids=chain_ids,
             target_dirpath=args.target_dirpath,
             output_dirpath=args.output_dirpath,
         )
@@ -232,7 +230,17 @@ def main(args: argparse.Namespace):
         tee.write(f"#\n")
 
         for i, pair in enumerate(recipes, start=args.start_num):
-            feats = {cid: load_pickle(args.target_dirpath / f"{cid}/{y}/features.pkz") for cid, y in zip(chain_ids, pair)}
+            feats = {}
+            for cid, y in zip(chain_ids, pair):
+                ys = y.split("/")
+                assert len(ys) >= 1
+                if len(ys) == 1:
+                    feat_filepath = args.target_dirpath / f"{cid}/{y}/features.pkz"
+                else:
+                    feat_filepath = args.target_dirpath / f"{y}/features.pkz"
+                feat = load_pickle(feat_filepath)
+                feats[cid] = feat
+
             name = "".join(f"{a}{n}" for a, n in zip(string.ascii_uppercase, cardinality) if n > 0)
             name += f"_{i}"
 
