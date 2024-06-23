@@ -83,8 +83,8 @@ def get_domains(
         "template_domain_names": np.array(template_domain_names, dtype=np.object_),
         "template_sequence": np.array(template_sequence, dtype=np.object_),
         "template_aatype": np.array(template_aatype, dtype=np.int32),
-        "template_all_atom_positions": np.array(template_all_atom_positions, dtype=np.float32),
-        "template_all_atom_mask": np.array(template_all_atom_mask, dtype=np.float32),
+        "template_all_atom_positions": np.stack(template_all_atom_positions, dtype=np.float32),
+        "template_all_atom_mask": np.stack(template_all_atom_mask, dtype=np.float32),
         "template_sum_probs": np.array(template_sum_probs, dtype=np.float32),
     }
 
