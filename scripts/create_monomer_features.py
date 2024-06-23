@@ -1,16 +1,86 @@
 import argparse
+import dataclasses
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import List, Tuple
 
+import numpy as np
+
+from deepfold.common import residue_constants as rc
 from deepfold.data.search.crfalign import parse_crf
 from deepfold.data.search.input_features import create_msa_features, create_sequence_features, create_template_features
-from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_a3m, parse_hmmsearch_sto
+from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_sto
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
-from deepfold.utils.file_utils import dump_pickle
+from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.log_utils import setup_logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass(frozen=True)
+class Domain:
+    doi: int
+    start: int
+    end: int
+    model_name: str
+
+
+def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
+    dom_str = dom_str.strip()
+    lines = [s.partition("#")[0].strip() for s in dom_str.strip().splitlines()]
+    lines = list(filter(lambda s: bool(s), lines))
+
+    crf_codes = []
+    domains = []
+    for line in lines:
+        ls = line.split()
+        doi = int(ls[0])
+        if doi == 0:
+            crf_codes.extend(ls[1:])
+        else:
+            assert len(ls) == 3
+            start, end = ls[1].split("-")
+            start -= 1
+            name = ls[2]
+            domain = Domain(doi=1, start=start, end=end, model_name=name)
+            domains.append(domain)
+
+    return domains, crf_codes
+
+
+def get_domains(
+    domains: List[Domain],
+    query_seq: str,
+) -> dict:
+    template_features = {
+        "template_domain_names": [],
+        "template_sequence": [],
+        "template_aatype": [],
+        "template_all_atom_positions": [],
+        "template_all_atom_mask": [],
+        "template_sum_probs": [],
+    }
+    seqlen = len(query_seq)
+
+    aatype = rc.sequence_to_onehot(aatype, rc.HHBLITS_AA_TO_ID)
+
+    for dom in domains:
+        ns = dom.model_name.split("/")
+        path = "/".join(ns[:-1] + [f"result_{ns[-1]}.pkz"])
+        results = load_pickle(path)
+
+        pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
+        mask = np.pad(results["final_atom_mask"], ((dom.start, seqlen - dom.end), (0, 0)))
+
+        template_features["template_sum_probs"].append(1.0)
+        template_features["template_domain_names"].append(dom.model_name)
+        template_features["template_sequence"].append(query_seq.encode())
+        template_features["template_aatype"].append(aatype.copy())
+        template_features["template_all_atom_positions"].append(pos)
+        template_features["template_all_atom_mask"].append(mask)
+
+    return template_features
 
 
 def main(args: argparse.Namespace) -> None:
@@ -22,6 +92,7 @@ def main(args: argparse.Namespace) -> None:
 
     query_sequence = sequences[0]
     description = descriptions[0]
+    seqlen = len(query_sequence)
 
     logger.info("Input FASTA path: {}".format(args.fasta_filepath))
     logger.info("Description: {}".format(description))
@@ -34,7 +105,8 @@ def main(args: argparse.Namespace) -> None:
         sequence_features["residue_index"] += args.offset
 
     # Featurize template hits:
-    template_features = create_empty_template_feats(len(query_sequence))
+    template_features = create_empty_template_feats(seqlen)
+    additional_template_features = None
     if args.template_filepath is not None:
         logger.info("Prepare template featurzer...")
         logger.info("PDB mmCIF directory path: {}".format(args.pdb_mmcif_dirpath))
@@ -53,13 +125,25 @@ def main(args: argparse.Namespace) -> None:
             template_str = fp.read()
 
         sort_by_sum_probs = True
-        if suffix == ".sto":
+        mode = None
+
+        if args.template_mode == "auto":
+            if suffix == ".sto":
+                mode = "hhm"
+            elif suffix == ".hhr":
+                mode = "hhr"
+            elif suffix == ".crf":
+                mode = "crf"
+            else:
+                raise RuntimeError(f"Not supported template hits extensions: {suffix}")
+        else:
+            mode = args.template_mode
+
+        if mode == "hhm":
             template_hits = parse_hmmsearch_sto(query_sequence, template_str)
-        elif suffix == ".a3m":
-            template_hits = parse_hmmsearch_a3m(query_sequence, template_str, skip_first=False)
-        elif suffix == ".hhr":
+        elif mode == "hhr":
             template_hits = parse_hhr(template_str)
-        elif suffix == ".crf":
+        elif mode == "crf":
             if args.crf_alignment_dirpath is None:
                 raise ValueError("CRFalign hits are provided. However, args.crf_alignment_dirpath is None")
             else:
@@ -69,17 +153,34 @@ def main(args: argparse.Namespace) -> None:
                     alignment_dir=args.crf_alignment_dirpath,
                 )
                 sort_by_sum_probs = False
+        elif mode == "dom":
+            domains, crf_chains = parse_dom(template_str)
+            if crf_chains:
+                template_hits = parse_crf(
+                    "\n".join(crf_chains),
+                    query_id=domain_name,
+                    alignment_dir=args.crf_alignment_dirpath,
+                )
+            sort_by_sum_probs = False
         else:
-            raise RuntimeError(f"Not supported template hits extensions: {suffix}")
+            raise RuntimeError(f"Not supported template mode: {suffix}")
 
-        template_features = create_template_features(
-            sequence=query_sequence,
-            template_hits=template_hits,
-            template_hit_featurizer=template_featurizer,
-            max_release_date=args.max_template_date,
-            sort_by_sum_probs=sort_by_sum_probs,
-            # shuffling_seed=args.seed,
-        )
+        if len(template_hits) > 0:
+            template_features = create_template_features(
+                sequence=query_sequence,
+                template_hits=template_hits,
+                template_hit_featurizer=template_featurizer,
+                max_release_date=args.max_template_date,
+                sort_by_sum_probs=sort_by_sum_probs,
+                # shuffling_seed=args.seed,
+            )
+
+    if domains:
+        additional_template_features = get_domains(domains, query_sequence)
+
+    if additional_template_features:
+        for k, v in template_features:
+            template_features[k] = np.concatenate([v, additional_template_features[k]], axis=0)
 
     # Create MSA features:
     a3m_strings = []
@@ -167,6 +268,12 @@ def parse_args() -> argparse.Namespace:
         help="Maximum template hits.",
     )
     parser.add_argument(
+        "--template_mode",
+        type=str,
+        default="auto",
+        help="Template mode.",
+    )
+    parser.add_argument(
         "--crf_alignment_dirpath",
         type=Path,
         default=None,
@@ -191,6 +298,8 @@ def parse_args() -> argparse.Namespace:
         help="Offset for the residue numbers.",
     )
     args = parser.parse_args()
+
+    assert args.template_mode in ["auto", "hhr", "hhm", "crf", "dom"]
 
     setup_logging("features.log", mode="a")
 
