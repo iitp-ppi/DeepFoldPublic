@@ -40,7 +40,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
             crf_codes.extend(ls[1:])
         else:
             assert len(ls) == 3
-            start, end = ls[1].split("-")
+            start, end = map(int, ls[1].split("-"))
             start -= 1
             name = ls[2]
             domain = Domain(doi=1, start=start, end=end, model_name=name)
