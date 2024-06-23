@@ -118,6 +118,11 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of recycling iterations.",
     )
     parser.add_argument(
+        "--subsample_templates",
+        action="store_true",
+        help="Sub-sample templates.",
+    )
+    parser.add_argument(
         "--save_all",
         action="store_true",
         help="Save msa representation and pair representation.",
@@ -408,7 +413,7 @@ def predict(args: argparse.Namespace) -> None:
     )
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
-        # subsample_templates=True,
+        subsample_templates=args.subsample_templates,
         seed=seed,
         num_chunks=args.mp_size if args.mp_size > 0 else 1,
         **feat_cfg_kwargs,
