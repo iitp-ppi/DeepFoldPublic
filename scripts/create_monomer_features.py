@@ -178,7 +178,7 @@ def main(args: argparse.Namespace) -> None:
             )
 
     if domains:
-        additional_template_features = get_domains(domains, description, query_sequence)
+        additional_template_features = get_domains(domains, domain_name, query_sequence)
 
     if additional_template_features:
         for k, v in template_features:
