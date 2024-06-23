@@ -63,7 +63,7 @@ def get_domains(
     }
     seqlen = len(query_seq)
 
-    aatype = rc.sequence_to_onehot(aatype, rc.HHBLITS_AA_TO_ID)
+    aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
 
     for dom in domains:
         ns = dom.model_name.split("/")
