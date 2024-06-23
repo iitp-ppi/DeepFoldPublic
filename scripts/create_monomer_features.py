@@ -51,6 +51,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
 
 def get_domains(
     domains: List[Domain],
+    query_name: str,
     query_seq: str,
 ) -> dict:
     template_features = {
@@ -67,7 +68,7 @@ def get_domains(
 
     for dom in domains:
         ns = dom.model_name.split("/")
-        path = "/".join(ns[:-1] + [f"result_{ns[-1]}.pkz"])
+        path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
         results = load_pickle(path)
 
         pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
@@ -177,7 +178,7 @@ def main(args: argparse.Namespace) -> None:
             )
 
     if domains:
-        additional_template_features = get_domains(domains, query_sequence)
+        additional_template_features = get_domains(domains, description, query_sequence)
 
     if additional_template_features:
         for k, v in template_features:
