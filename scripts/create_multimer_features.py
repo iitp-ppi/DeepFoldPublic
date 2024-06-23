@@ -1,6 +1,7 @@
 import argparse
 import collections
 import logging
+import os
 import re
 import string
 import sys
@@ -243,7 +244,10 @@ def main(args: argparse.Namespace):
                 if len(ys) == 1:
                     feat_filepath = args.target_dirpath / f"{cid}/{y}/features.pkz"
                 else:
-                    feat_filepath = args.target_dirpath / f"{y}/features.pkz"
+                    if os.path.splitext(y)[1] == ".pkz":
+                        feat_filepath = args.target_dirpath.joinpath(y)
+                    else:
+                        feat_filepath = args.target_dirpath / f"{y}/features.pkz"
                 feat = load_pickle(feat_filepath)
                 feats[cid] = feat
 
