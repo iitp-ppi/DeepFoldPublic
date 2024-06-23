@@ -54,16 +54,14 @@ def get_domains(
     query_name: str,
     query_seq: str,
 ) -> dict:
-    template_features = {
-        "template_domain_names": [],
-        "template_sequence": [],
-        "template_aatype": [],
-        "template_all_atom_positions": [],
-        "template_all_atom_mask": [],
-        "template_sum_probs": [],
-    }
-    seqlen = len(query_seq)
+    template_domain_names = []
+    template_sequence = []
+    template_aatype = []
+    template_all_atom_positions = []
+    template_all_atom_mask = []
+    template_sum_probs = []
 
+    seqlen = len(query_seq)
     aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
 
     for dom in domains:
@@ -74,12 +72,21 @@ def get_domains(
         pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
         mask = np.pad(results["final_atom_mask"], ((dom.start, seqlen - dom.end), (0, 0)))
 
-        template_features["template_sum_probs"].append(1.0)
-        template_features["template_domain_names"].append(dom.model_name)
-        template_features["template_sequence"].append(query_seq.encode())
-        template_features["template_aatype"].append(aatype.copy())
-        template_features["template_all_atom_positions"].append(pos)
-        template_features["template_all_atom_mask"].append(mask)
+        template_sum_probs.append(1.0)
+        template_domain_names.append(dom.model_name.encode())
+        template_sequence.append(query_seq.encode())
+        template_aatype.append(aatype.copy())
+        template_all_atom_positions.append(pos)
+        template_all_atom_mask.append(mask)
+
+    template_features = {
+        "template_domain_names": np.array(template_domain_names, dtype=np.object_),
+        "template_sequence": np.array(template_sequence, dtype=np.object_),
+        "template_aatype": np.array(template_aatype, dtype=np.int32),
+        "template_all_atom_positions": np.array(template_all_atom_positions, dtype=np.float32),
+        "template_all_atom_mask": np.array(template_all_atom_mask, dtype=np.float32),
+        "template_sum_probs": np.array(template_sum_probs, dtype=np.float32),
+    }
 
     return template_features
 
