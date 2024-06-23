@@ -83,16 +83,22 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def parse_note(note_str: str) -> Tuple[str, str, List[str]]:
+def parse_note(note_str: str) -> Tuple[str, str, str | None, List[str]]:
     lines = [s.partition("#")[0].strip() for s in note_str.strip().splitlines()]
     lines = list(filter(lambda s: bool(s), lines))
-    target_id, stoi = lines[0].split()
+    ls = lines[0].split()
+    target_id = ls[0]
+    stoi = ls[1]
+    if len(ls) >= 2:
+        suffix = ls[2]
+    else:
+        suffix = None
 
     recipes = []
     for line in lines[1:]:
         recipes.append(line.split()[1:])
 
-    return target_id, stoi, recipes
+    return target_id, stoi, suffix, recipes
 
 
 def process_uniprot(
@@ -203,7 +209,7 @@ def main(args: argparse.Namespace):
     # Parse recipes:
     with open(args.input_filepath, "r") as fp:
         note_str = fp.read()
-    target_id, stoichiom, recipes = parse_note(note_str)
+    target_id, stoichiom, suffix, recipes = parse_note(note_str)
     cardinality = parse_stoi(stoichiom)
     chain_ids = [f"T{target_id[1:]}s{i}" for i in range(1, len(cardinality) + 1)]
 
@@ -242,6 +248,8 @@ def main(args: argparse.Namespace):
                 feats[cid] = feat
 
             name = "".join(f"{a}{n}" for a, n in zip(string.ascii_uppercase, cardinality) if n > 0)
+            if suffix:
+                name += f"_{suffix}"
             name += f"_{i}"
 
             in_cid = [cid for cid, n in zip(chain_ids, cardinality) if n > 0]
