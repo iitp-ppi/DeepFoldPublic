@@ -192,7 +192,6 @@ def main(args: argparse.Namespace) -> None:
 
     if additional_template_features:
         for k, v in template_features.items():
-            print(">>", k, v.dtype, v.shape)
             template_features[k] = np.concatenate([v, additional_template_features[k]], axis=0)
 
     # Create MSA features:
