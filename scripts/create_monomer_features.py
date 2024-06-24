@@ -43,7 +43,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
             start, end = map(int, ls[1].split("-"))
             start -= 1
             name = ls[2]
-            domain = Domain(doi=1, start=start, end=end, model_name=name)
+            domain = Domain(doi=doi, start=start, end=end, model_name=name)
             domains.append(domain)
 
     return domains, crf_codes
@@ -72,7 +72,7 @@ def get_domains(
         pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
         mask = np.pad(results["final_atom_mask"], ((dom.start, seqlen - dom.end), (0, 0)))
 
-        print(f"{dom.doi}>", dom.model_name, f"[{dom.start}, {dom.end})", "->", pos.shape, mask.shape)
+        print(">", f"[{dom.doi}]", dom.model_name, f"[{dom.start}, {dom.end})", "->", pos.shape, mask.shape)
 
         template_sum_probs.append(1.0)
         template_domain_names.append(dom.model_name.encode())
@@ -87,7 +87,7 @@ def get_domains(
         "template_aatype": np.array(template_aatype, dtype=np.int32),
         "template_all_atom_positions": np.stack(template_all_atom_positions, dtype=np.float32),
         "template_all_atom_mask": np.stack(template_all_atom_mask, dtype=np.float32),
-        "template_sum_probs": np.array(template_sum_probs, dtype=np.float32),
+        "template_sum_probs": np.array(template_sum_probs, dtype=np.float32).reshape([-1, 1]),
     }
 
     return template_features
@@ -166,6 +166,7 @@ def main(args: argparse.Namespace) -> None:
                 sort_by_sum_probs = False
         elif mode == "dom":
             domains, crf_chains = parse_dom(template_str)
+            template_features = create_empty_template_feats(seqlen, empty=True)
             if crf_chains:
                 template_hits = parse_crf(
                     "\n".join(crf_chains),
@@ -191,6 +192,7 @@ def main(args: argparse.Namespace) -> None:
 
     if additional_template_features:
         for k, v in template_features.items():
+            print(">>", k, v.dtype, v.shape)
             template_features[k] = np.concatenate([v, additional_template_features[k]], axis=0)
 
     # Create MSA features:

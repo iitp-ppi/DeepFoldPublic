@@ -239,8 +239,8 @@ def load_pdb_obsolete_mapping(pdb_obsolete_filepath: Path) -> Dict[str, str]:
     return mapping
 
 
-def create_empty_template_feats(seqlen: int) -> dict:
-    return {
+def create_empty_template_feats(seqlen: int, empty: bool = False) -> dict:
+    feats = {
         "template_domain_names": np.array(["".encode()], dtype=np.object_),
         "template_sequence": np.array(["".encode()], dtype=np.object_),
         "template_aatype": np.zeros(shape=(0, seqlen, 22), dtype=np.int32),
@@ -248,6 +248,10 @@ def create_empty_template_feats(seqlen: int) -> dict:
         "template_all_atom_mask": np.zeros(shape=(0, seqlen, rc.atom_type_num), dtype=np.float32),
         "template_sum_probs": np.zeros(shape=(0, 1), dtype=np.float32),
     }
+    if empty:
+        feats["template_domain_names"] = np.zeros((0,), dtype=np.object_)
+        feats["template_sequence"] = np.zeros((0,), dtype=np.object_)
+    return feats
 
 
 def _prefilter_template_hits(
