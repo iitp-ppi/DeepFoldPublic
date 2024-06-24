@@ -90,7 +90,7 @@ def parse_note(note_str: str) -> Tuple[str, str, str | None, List[str]]:
     ls = lines[0].split()
     target_id = ls[0]
     stoi = ls[1]
-    if len(ls) >= 2:
+    if len(ls) > 2:
         suffix = ls[2]
     else:
         suffix = None
