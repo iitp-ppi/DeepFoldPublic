@@ -72,7 +72,7 @@ def get_domains(
         pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
         mask = np.pad(results["final_atom_mask"], ((dom.start, seqlen - dom.end), (0, 0)))
 
-        print(">", dom.model_name, pos.shape, mask.shape)
+        print(f"{dom.doi}>", dom.model_name, f"[{dom.start}, {dom.end})", "->", pos.shape, mask.shape)
 
         template_sum_probs.append(1.0)
         template_domain_names.append(dom.model_name.encode())
