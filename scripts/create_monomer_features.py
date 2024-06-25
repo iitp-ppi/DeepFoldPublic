@@ -69,8 +69,9 @@ def get_domains(
         path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
         results = load_pickle(path)
 
-        pos = np.pad(results["final_atom_positions"], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
-        mask = np.pad(results["final_atom_mask"], ((dom.start, seqlen - dom.end), (0, 0)))
+        i1 = dom.end - dom.start  # Crop the first chain
+        pos = np.pad(results["final_atom_positions"][:i1], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
+        mask = np.pad(results["final_atom_mask"][:i1], ((dom.start, seqlen - dom.end), (0, 0)))
 
         print(">", f"[{dom.doi}]", dom.model_name, f"[{dom.start}, {dom.end})", "->", pos.shape, mask.shape)
 
@@ -116,6 +117,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Featurize template hits:
     template_features = create_empty_template_feats(seqlen)
+    domains = None
     additional_template_features = None
     if args.template_filepath is not None:
         logger.info("Prepare template featurzer...")
