@@ -13,25 +13,30 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed
+import torch.nn.functional as F
 
 import deepfold.distributed as dist
 import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.config import AlphaFoldConfig, FeaturePipelineConfig
+from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
+from deepfold.modules.tweaks import evo_attn
+from deepfold.utils.crop_utils import unpad_to_schema_shape_
 from deepfold.utils.file_utils import dump_pickle, load_pickle
 from deepfold.utils.import_utils import import_jax_weights_
 from deepfold.utils.iter_utils import flatten_dict
 from deepfold.utils.log_utils import setup_logging
 from deepfold.utils.random import NUMPY_SEED_MODULUS
-from deepfold.utils.tensor_utils import masked_mean, tensor_tree_map
+from deepfold.utils.tensor_utils import tensor_tree_map
 
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
 
+# evo_attn.enable()
+evo_attn.disable()
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +118,18 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of recycling iterations.",
     )
     parser.add_argument(
+        "--subsample_templates",
+        action="store_true",
+        help="Sub-sample templates.",
+    )
+    parser.add_argument(
         "--save_all",
         action="store_true",
         help="Save msa representation and pair representation.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
     )
     parser.add_argument(
         "--benchmark",
@@ -163,8 +177,8 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         is_multimer=is_multimer,
         enable_ptm=enable_ptm,
         enable_templates=enable_templates,
-        inference_chunk_size=4,
-        inference_block_size=128,
+        inference_chunk_size=128,
+        inference_block_size=256,
     )
     feat_cfg_kwargs = dict(
         is_multimer=is_multimer,
@@ -297,23 +311,26 @@ def _save_summary(
     summary["suffix"] = suffix
     summary["seed"] = seed
 
-    aatype = processed_features["aatype"]
+    seq_mask = processed_features.get("seq_mask", None)
+    if seq_mask is None:
+        seq_mask = np.ones_like(processed_features["aatype"], dtype="bool")
+    else:
+        seq_mask = seq_mask.astype("bool")
+
+    aatype = processed_features["aatype"][seq_mask]
     summary["sequence"] = "".join(rc.restypes_with_x[i] for i in aatype)
 
     asym_id = processed_features.get("asym_id", None)
     if asym_id is not None:
-        chain_id = asym_id - 1
+        chain_id = asym_id[seq_mask] - 1
         summary["chain_index"] = chain_id.tolist()
     else:
         summary["chain_index"] = [0] * len(aatype)
-    seq_mask = processed_features.get("seq_mask", None)
-    if seq_mask is not None:
-        summary["seq_mask"] = seq_mask.astype(np.int64).tolist()
 
-    residue_index = processed_features["residue_index"] + 1
+    residue_index = processed_features["residue_index"][seq_mask] + 1
     summary["residue_index"] = residue_index.tolist()
 
-    summary["plddt"] = result["plddt"].tolist()
+    summary["plddt"] = result["plddt"][seq_mask].tolist()
 
     if "ptm_score" in result:
         summary["ptm"] = float(result["ptm_score"])
@@ -379,7 +396,7 @@ def predict(args: argparse.Namespace) -> None:
 
     # Set device:
     torch.cuda.set_device(device=device)
-    _allocate_memory()
+    # _allocate_memory()
 
     # Distributed warm-up:
     if args.mp_size > 0:
@@ -400,8 +417,9 @@ def predict(args: argparse.Namespace) -> None:
     )
     feat_config = FeaturePipelineConfig.from_preset(
         preset="predict",
-        # subsample_templates=True,
+        subsample_templates=args.subsample_templates,
         seed=seed,
+        num_chunks=args.mp_size if args.mp_size > 0 else 1,
         **feat_cfg_kwargs,
     )
 
@@ -423,12 +441,14 @@ def predict(args: argparse.Namespace) -> None:
 
     # Template multi-chain mask
     if args.multimer_templates != "":
+        assert model_config.is_multimer
+        asym_id = torch.from_numpy(feats["asym_id"]).to(torch.int64)
+
         templ_idx = list(map(int, args.multimer_templates.split(",")))
         if dist.is_master_process():
             logger.info(f"Multimer template enabled for {templ_idx}")
         # Initialize:
         mask = torch.zeros([seqlen, seqlen, feat_config.max_templates, feat_config.max_recycling_iters])
-        asym_id = batch["asym_id"][..., 0]
         block_diag_mask = asym_id[..., :, None] == asym_id[..., None, :]
 
         assert all([i < feat_config.max_templates for i in templ_idx])
@@ -438,12 +458,22 @@ def predict(args: argparse.Namespace) -> None:
             else:
                 mask[..., i, :] = block_diag_mask[..., None]
 
+        num_chunks = feat_config.num_chunks
+        pad_width = (num_chunks - seqlen % num_chunks) % num_chunks
+        mask = F.pad(mask, (0, 0, 0, 0, 0, pad_width, 0, pad_width))
+
         batch["template_multichain_mask_2d"] = mask
 
     pipeline_duration = time.perf_counter() - start_time
     if dist.is_master_process():
         logger.info(f"Feature processing done in {pipeline_duration:0.2f} sec")
-    batch_last = {k: np.array(v[..., -1].squeeze(0).cpu()) for k, v in batch.items()}
+        if args.debug:
+            dump_pickle(
+                {k: torch.as_tensor(v).cpu().numpy() for k, v in batch.items()},
+                args.output_dirpath / f"batch_{model_name}{suffix}.pkz",
+            )
+            logger.info("Dump input batch tensors")
+    batch_last = {k: np.array(v[..., -1].cpu()) for k, v in batch.items()}
 
     # Add batch dimension and copy processed features:
     batch = {k: torch.as_tensor(v[None, ...]).to(device=device) for k, v in batch.items()}
@@ -501,17 +531,11 @@ def predict(args: argparse.Namespace) -> None:
         logger.info(f"CUDA max memory allocated: {torch.cuda.max_memory_allocated() / 1024/ 1024:.2f} MB")
 
         # Remove batch dimension:
-        # batch_last = tensor_tree_map(
-        #     fn=lambda x: np.array(x[..., -1].squeeze(0).cpu()),
-        #     tree=batch,
-        # )
-
-        # Remove batch dimension:
         out = tensor_tree_map(
             fn=lambda x: np.array(x.squeeze(0).cpu()),
             tree=out,
         )
-        logger.info("Save outputs...")
+        logger.info("Save predicted structure to PDB format...")
 
         prot = protein.from_prediction(
             processed_features=batch_last,
@@ -522,6 +546,7 @@ def predict(args: argparse.Namespace) -> None:
         with open(args.output_dirpath / f"unrelaxed_{model_name}{suffix}.pdb", "w") as fp:
             fp.write(protein.to_pdb(prot))
 
+        logger.info("Save summary informations...")
         summary_filepath = args.output_dirpath / f"summary_{model_name}{suffix}.json"
         _save_summary(
             batch_last,
@@ -534,6 +559,11 @@ def predict(args: argparse.Namespace) -> None:
         )
 
         if not args.benchmark:
+            logger.info("Save result outputs...")
+            if model_config.is_multimer:
+                out = unpad_to_schema_shape_(out, MULTIMER_OUPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
+            else:
+                out = unpad_to_schema_shape_(out, MONOMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")
 
     # Exit:

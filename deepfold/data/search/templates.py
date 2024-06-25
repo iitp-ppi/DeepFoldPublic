@@ -239,8 +239,8 @@ def load_pdb_obsolete_mapping(pdb_obsolete_filepath: Path) -> Dict[str, str]:
     return mapping
 
 
-def create_empty_template_feats(seqlen: int) -> dict:
-    return {
+def create_empty_template_feats(seqlen: int, empty: bool = False) -> dict:
+    feats = {
         "template_domain_names": np.array(["".encode()], dtype=np.object_),
         "template_sequence": np.array(["".encode()], dtype=np.object_),
         "template_aatype": np.zeros(shape=(0, seqlen, 22), dtype=np.int32),
@@ -248,6 +248,10 @@ def create_empty_template_feats(seqlen: int) -> dict:
         "template_all_atom_mask": np.zeros(shape=(0, seqlen, rc.atom_type_num), dtype=np.float32),
         "template_sum_probs": np.zeros(shape=(0, 1), dtype=np.float32),
     }
+    if empty:
+        feats["template_domain_names"] = np.zeros((0,), dtype=np.object_)
+        feats["template_sequence"] = np.zeros((0,), dtype=np.object_)
+    return feats
 
 
 def _prefilter_template_hits(
@@ -435,7 +439,7 @@ def _featurize_template_hit(
         if template_hit_pdb_id in pdb_obsolete_mapping:
             template_hit_pdb_id = pdb_obsolete_mapping[template_hit_pdb_id]
 
-    index_mapping = _build_query_to_hit_index_mapping(
+    index_mapping = build_query_to_hit_index_mapping(
         original_query_sequence=query_sequence,
         hit_query_sequence=template_hit.query,
         hit_sequence=template_hit.hit_sequence,
@@ -503,7 +507,7 @@ def _featurize_template_hit(
         return TemplateFeaturesResult(features=None, error=error, warning=None)
 
 
-def _build_query_to_hit_index_mapping(
+def build_query_to_hit_index_mapping(
     original_query_sequence: str,
     hit_query_sequence: str,
     hit_sequence: str,
@@ -634,13 +638,13 @@ def extract_template_features(
             verbose=verbose,
         )
         if verbose:
-            logger.info("_extract_template_features: ...realigned" f" {repr(template_id)} to {repr(seqres)} successfully!")
+            logger.info(f"_extract_template_features: ...realigned {repr(template_id)} to {repr(seqres)} successfully!")
         # The template sequence changed.
         template_sequence = seqres
         # No mapping offset, the query is aligned to the actual sequence.
         mapping_offset = 0
         # set warning message:
-        warning = "Realignment Warning ;" f" realigned template ({repr(template_id)})" f" sequence={repr(template_sequence)} to {repr(seqres)}"
+        warning = f"Realignment Warning ; realigned template ({repr(template_id)}) sequence={repr(template_sequence)} to {repr(seqres)}"
 
     try:
         # Essentially set to infinity - we don't want to reject templates unless

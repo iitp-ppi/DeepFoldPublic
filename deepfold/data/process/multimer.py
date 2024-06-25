@@ -144,7 +144,7 @@ def ensembled_transform_fns(
         num_clustered_msa_seq = cfg.max_msa_clusters
         num_extra_msa_seq = cfg.max_extra_msa
         num_templates = cfg.max_templates
-        num_chunks = 8
+        num_chunks = cfg.num_chunks
 
         num_residues = (num_residues + num_chunks - 1) // num_chunks * num_chunks
         num_clustered_msa_seq = (num_clustered_msa_seq + num_chunks - 1) // num_chunks * num_chunks - num_templates

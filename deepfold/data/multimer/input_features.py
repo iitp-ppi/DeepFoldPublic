@@ -9,7 +9,7 @@ from deepfold.common import protein
 from deepfold.common import residue_constants as rc
 from deepfold.data.multimer import msa_pairing
 from deepfold.data.search.input_features import create_msa_features
-from deepfold.data.search.msa_identifiers import get_uniprot_identifiers
+from deepfold.data.search.msa_identifiers import get_identifiers
 
 REQUIRED_FEATURES = frozenset(
     {
@@ -173,7 +173,7 @@ def create_all_seq_msa_features(
         use_identifiers=True,
     )
 
-    species_id = [get_uniprot_identifiers(s) for s in all_seq_features["msa_identifiers"]]
+    species_id = [get_identifiers(s) for s in all_seq_features["msa_identifiers"]]
     all_seq_features["msa_identifiers"] = np.array(species_id, dtype=np.object_)
 
     valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")
@@ -198,7 +198,7 @@ def create_multimer_features(
 ) -> dict:
     """Create multimer features from paired MSA strings."""
     valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")
-    return {
+    feats = {
         f"{k}_all_seq": v
         for k, v in create_msa_features(
             paired_a3m_strings,
@@ -207,6 +207,10 @@ def create_multimer_features(
         ).items()
         if k in valid_feats
     }
+    for i in range(len(feats["msa_identifiers_all_seq"])):
+        feats["msa_identifiers_all_seq"][i] = f"pair:{i:d}"
+
+    return feats
 
 
 def process_multimer_features(

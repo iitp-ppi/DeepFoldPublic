@@ -234,9 +234,9 @@ def plot_msa(
     scale_with_len: bool = False,
 ) -> plt.Figure:
     scale = 1
-    seqlen = feature_dict["msa"][0]
+    seq = feature_dict["msa"][0]
     if scale_with_len:
-        scale = max(scale, 1 + seqlen // 200)
+        scale = max(scale, 1 + seq // 200)
 
     if "asym_id" in feature_dict:  # Multimer
         ls = [0]
@@ -248,7 +248,7 @@ def plot_msa(
                 ls.append(1)
             k = i
     else:
-        ls = [len(seqlen)]
+        ls = [len(seq)]
     ln = np.cumsum([0] + ls)
 
     try:
@@ -258,7 +258,7 @@ def plot_msa(
 
     msa = feature_dict["msa"][:n]
     gap = msa != 21
-    qid = msa == seqlen
+    qid = msa == seq
     gapid = np.stack([gap[:, ln[i] : ln[i + 1]].max(-1) for i in range(len(ls))], -1)
     lines = []
     nn = []
@@ -270,7 +270,7 @@ def plot_msa(
         non_gaps = gap_.astype(float)
         non_gaps[non_gaps == 0] = np.nan
         if sort_lines:
-            lines_ = non_gaps[seqid.argsort()] * seqid[::-1, None]
+            lines_ = non_gaps[seqid.argsort()] * seqid[seqid.argsort(), None]
         else:
             lines_ = non_gaps[::-1] * seqid[::-1, None]
         nn.append(len(lines_))
@@ -291,9 +291,9 @@ def plot_msa(
         extent=(0, lines.shape[1], 0, lines.shape[0]),
     )
     for i in ln[1:-1]:
-        ax.plot([i - 0.5, i - 0.5], [0, lines.shape[0]], color="black", alpha=0.6)
+        ax.plot([i, i], [0, lines.shape[0]], color="black", alpha=0.6)
     for j in nn[1:-1]:
-        ax.plot([0, lines.shape[1]], [j - 0.5, j - 0.5], color="black", alpha=0.6)
+        ax.plot([0, lines.shape[1]], [j, j], color="black", alpha=0.6)
 
     neff = compute_neff(msa)
     title = "MSA Depth"

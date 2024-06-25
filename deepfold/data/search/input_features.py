@@ -189,7 +189,7 @@ def create_msa_features(
             deletion_matrix.append(deletion_matrices[msa_index][sequence_index])
             identifiers.append(descriptions[msa_index][sequence_index])
 
-    num_res = len(msas[0][0])
+    num_res = len(msas[0][0])  # First sequence must be the query sequence.
     num_alignments = len(int_msa)
 
     msa_features = {}

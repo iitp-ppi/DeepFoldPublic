@@ -13,7 +13,7 @@ dependencies:
   - matplotlib
   - biopython=1.81
   - modelcif=0.7
-  - hydra-core
+  # - hydra-core
   - omegaconf=2.3.0
   - networkx=3.2.1
   - ply
