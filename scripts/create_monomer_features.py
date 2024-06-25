@@ -21,9 +21,11 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass(frozen=True)
 class Domain:
     doi: int
-    start: int
-    end: int
+    target_start: int
+    target_end: int
     model_name: str
+    result_start: int | None
+    result_end: int | None
 
 
 def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
@@ -39,11 +41,21 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
         if doi == 0:
             crf_codes.extend(ls[1:])
         else:
-            assert len(ls) == 3
+            if len(ls) == 4:
+                r1, r2 = map(int, ls[3].split("-"))
+            else:
+                r1, r2 = None, None
             start, end = map(int, ls[1].split("-"))
             start -= 1
             name = ls[2]
-            domain = Domain(doi=doi, start=start, end=end, model_name=name)
+            domain = Domain(
+                doi=doi,
+                target_start=start,
+                target_end=end,
+                model_name=name,
+                result_start=r1,
+                result_end=r2,
+            )
             domains.append(domain)
 
     return domains, crf_codes
@@ -69,11 +81,18 @@ def get_domains(
         path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
         results = load_pickle(path)
 
-        i1 = dom.end - dom.start  # Crop the first chain
-        pos = np.pad(results["final_atom_positions"][:i1], ((dom.start, seqlen - dom.end), (0, 0), (0, 0)))
-        mask = np.pad(results["final_atom_mask"][:i1], ((dom.start, seqlen - dom.end), (0, 0)))
+        if dom.result_end is None or dom.result_start is None:
+            i1 = 0
+            i2 = dom.target_end - dom.target_start  # Crop the first chain
+        else:
+            i1 = dom.result_start
+            i2 = dom.result_end
+        assert i2 - i1 == dom.target_end - dom.target_start
 
-        print(">", f"[{dom.doi}]", dom.model_name, f"[{dom.start}, {dom.end})", "->", pos.shape, mask.shape)
+        pos = np.pad(results["final_atom_positions"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
+        mask = np.pad(results["final_atom_mask"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0)))
+
+        print(">", f"[{dom.doi}]", dom.model_name, f"[{dom.target_start}, {dom.target_end})", "->", pos.shape, mask.shape)
 
         template_sum_probs.append(1.0)
         template_domain_names.append(dom.model_name.encode())
