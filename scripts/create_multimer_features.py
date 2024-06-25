@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         "--colab_a3m",
         type=Path,
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite output files.",
+    )
     args = parser.parse_args()
 
     assert args.pairing in ["none", "uniprot", "colab"]
@@ -237,6 +242,16 @@ def main(args: argparse.Namespace):
         tee.write(f"#\n")
 
         for i, pair in enumerate(recipes, start=args.start_num):
+            name = "".join(f"{a}{n}" for a, n in zip(string.ascii_uppercase, cardinality) if n > 0)
+            if suffix:
+                name += f"_{suffix}"
+            name += f"_{i}"
+            out_path = args.output_dirpath.joinpath(f"{name}/features.pkz")
+            if not args.force and out_path.exists():
+                logger.error(f"PASS! Output file exists: {str(out_path)}")
+                logger.info(f"Use --force to overwrite.")
+                continue
+
             feats = {}
             for cid, y in zip(chain_ids, pair):
                 ys = y.split("/")
@@ -251,11 +266,6 @@ def main(args: argparse.Namespace):
                 feat = load_pickle(feat_filepath)
                 feats[cid] = feat
 
-            name = "".join(f"{a}{n}" for a, n in zip(string.ascii_uppercase, cardinality) if n > 0)
-            if suffix:
-                name += f"_{suffix}"
-            name += f"_{i}"
-
             in_cid = [cid for cid, n in zip(chain_ids, cardinality) if n > 0]
             in_car = [n for n in cardinality if n > 0]
 
@@ -266,9 +276,8 @@ def main(args: argparse.Namespace):
                 paired_a3m_strings=paired_a3m_strings,
                 a3m_strings_with_identifiers=a3m_strings_with_identifiers,
             )
-            out_path = args.output_dirpath.joinpath(f"{name}/features.pkz")
-            out_path.parent.mkdir(parents=True, exist_ok=True)
 
+            out_path.parent.mkdir(parents=True, exist_ok=True)
             dump_pickle(example, out_path)
 
             fig = plot_msa(example)
