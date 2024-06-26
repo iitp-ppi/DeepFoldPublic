@@ -48,7 +48,7 @@ def initialize() -> None:
     assert torch.distributed.is_available()
     assert not torch.distributed.is_initialized()
 
-    torch.distributed.init_process_group(backend="cpu:gloo,cuda:nccl", init_method="env://")
+    torch.distributed.init_process_group(backend="nccl", init_method="env://")
     assert torch.distributed.is_initialized()
 
     rank = int(torch.distributed.get_rank())
