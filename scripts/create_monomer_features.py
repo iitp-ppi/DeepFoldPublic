@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
@@ -77,8 +78,11 @@ def get_domains(
     aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
 
     for dom in domains:
-        ns = dom.model_name.split("/")
-        path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
+        if os.path.splitext(dom.model_name)[1] in [".pkz", ".pkl"]:
+            path = Path(dom.model_name)
+        else:
+            ns = dom.model_name.split("/")
+            path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
         results = load_pickle(path)
 
         if dom.result_end is None or dom.result_start is None:
