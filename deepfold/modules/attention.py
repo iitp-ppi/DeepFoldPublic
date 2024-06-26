@@ -7,7 +7,8 @@ import torch.nn.functional as F
 
 import deepfold.modules.inductor as inductor
 from deepfold.modules.linear import Linear
-from deepfold.ops import evoformer_attention_core
+from deepfold.modules.tweaks import evo_attn
+from deepfold.ops.evoformer_attention import deepspeed_evo_attn
 from deepfold.utils.iter_utils import slice_generator
 
 
@@ -44,7 +45,6 @@ class SelfAttentionWithGate(nn.Module):
         num_heads: int,
         inf: float,
         chunk_size: Optional[int],
-        impl: str = "torch",
     ) -> None:
         super().__init__()
         self.c_qkv = c_qkv
@@ -52,7 +52,6 @@ class SelfAttentionWithGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
-        self.impl = impl
 
         total_dim = c_hidden * num_heads
         self.linear_q = Linear(c_qkv, total_dim, bias=False, init="glorot")
@@ -87,14 +86,23 @@ class SelfAttentionWithGate(nn.Module):
         # value: [*, num_heads, V, c_hidden]
         # gate:  [*, Q, num_heads * c_hidden]
 
-        if self.impl == "torch":
+        if evo_attn.is_enabled():
+            impl = "evo"
+        else:
+            impl = "torch"
+
+        if impl == "torch":
             output = self._attention_forward(query, key, value, mask, bias)
             # output: [*, num_heads, Q, c_hidden] for torch implementation.
             output = output.transpose(-2, -3)
             # output: [*, Q, num_heads, c_hidden]
-        elif self.impl == "evo":
+        elif impl == "evo":
             mask_bias = (mask - 1.0) * self.inf
-            output = _deepspeed_evo_attn(query / math.sqrt(self.c_hidden), key, value, [mask_bias, bias])
+            biases = [mask_bias]
+            if bias is not None:
+                biases.append(bias)
+            # output = deepspeed_evo_attn(query / math.sqrt(self.c_hidden), key, value, biases)
+            output = deepspeed_evo_attn(query, key, value, biases)
         else:
             raise ValueError(f"Unsupported implementation '{self.impl}'")
 
@@ -195,7 +203,6 @@ class CrossAttentionNoGate(nn.Module):
         num_heads: int,
         inf: float,
         chunk_size: Optional[int],
-        impl: str = "torch",
     ) -> None:
         super().__init__()
         self.c_q = c_q
@@ -204,7 +211,6 @@ class CrossAttentionNoGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
-        self.impl = impl
 
         self.linear_q = Linear(c_q, c_hidden * num_heads, bias=False, init="glorot")
         self.linear_k = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
@@ -235,16 +241,25 @@ class CrossAttentionNoGate(nn.Module):
         # key:   [*, num_heads, K, c_hidden]
         # value: [*, num_heads, V, c_hidden]
 
-        if self.impl == "torch":
+        if evo_attn.is_enabled():
+            impl = "evo"
+        else:
+            impl = "torch"
+
+        if impl == "torch":
             output = self._attention_forward(query, key, value, mask, bias)
             # output: [*, num_heads, Q, c_hidden] for torch implementation.
             output = output.transpose(-2, -3)
             # output: [*, Q, num_heads, c_hidden]
-        elif self.impl == "evo":
+        elif impl == "evo":
             mask_bias = (mask - 1.0) * self.inf
-            output = _deepspeed_evo_attn(query / math.sqrt(self.c_hidden), key, value, [mask_bias, bias])
+            biases = [mask_bias]
+            if bias is not None:
+                biases.append(bias)
+            # output = deepspeed_evo_attn(query / math.sqrt(self.c_hidden), key, value, biases)
+            output = deepspeed_evo_attn(query, key, value, biases)
         else:
-            raise ValueError(f"Unsupported implementation '{self.impl}'")
+            raise ValueError(f"Unsupported implementation '{impl}'")
 
         del query, key, value
 
@@ -404,63 +419,3 @@ def _linear_transpose_add(
     else:
         linear_transpose_add_fn = _linear_transpose_add_eager
     return linear_transpose_add_fn(x, w, b, y)
-
-
-@torch.jit.unused
-def _deepspeed_evo_attn(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    biases: List[torch.Tensor | None],
-):
-    """ ""
-    Compute attention using the DeepSpeed DS4Sci_EvoformerAttention kernel.
-
-    Args:
-        q:
-            [*, H, Q, C_hidden] query data
-        k:
-            [*, H, K, C_hidden] key data
-        v:
-            [*, H, V, C_hidden] value data
-        biases:
-            List of biases that broadcast to [*, H, Q, K]
-    """
-
-    def reshape_dims(x):
-        num_batch_dims = len(x.shape[:-3])
-        if num_batch_dims < 2:
-            return x.reshape(*((1,) * (2 - num_batch_dims) + x.shape))
-        if num_batch_dims > 2:
-            return x.reshape(*((x.shape[0], -1) + x.shape[-3:]))
-        return x
-
-    # [*, Q/K, H, C_hidden]
-    q = q.transpose(-2, -3)
-    k = k.transpose(-2, -3)
-    v = v.transpose(-2, -3)
-
-    # Reshape tensors to match expected input shape [B, N, Q/K, H, C_hidden]
-    orig_shape = q.shape
-    if len(orig_shape[:-3]) != 2:
-        q = reshape_dims(q)
-        k = reshape_dims(k)
-        v = reshape_dims(v)
-        biases = [reshape_dims(b) if b is not None else None for b in biases]
-
-    # DeepSpeed attn. kernel requires inputs to be type bf16 or fp16
-
-    orig_dtype = q.dtype
-    if orig_dtype not in [torch.bfloat16, torch.float16]:
-        o = evoformer_attention_core(
-            q.to(dtype=torch.bfloat16),
-            k.to(dtype=torch.bfloat16),
-            v.to(dtype=torch.bfloat16),
-            [b.to(dtype=torch.bfloat16) if b is not None else None for b in biases],
-        )
-        o = o.to(dtype=orig_dtype)
-    else:
-        o = evoformer_attention_core(q, k, v, biases)
-    o = o.reshape(orig_shape)
-
-    return o
