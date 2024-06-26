@@ -45,6 +45,7 @@ class SelfAttentionWithGate(nn.Module):
         num_heads: int,
         inf: float,
         chunk_size: Optional[int],
+        impl: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.c_qkv = c_qkv
@@ -52,6 +53,7 @@ class SelfAttentionWithGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
+        self.impl = impl
 
         total_dim = c_hidden * num_heads
         self.linear_q = Linear(c_qkv, total_dim, bias=False, init="glorot")
@@ -90,6 +92,9 @@ class SelfAttentionWithGate(nn.Module):
             impl = "evo"
         else:
             impl = "torch"
+
+        if self.impl is not None:
+            impl = self.impl
 
         if impl == "torch":
             output = self._attention_forward(query, key, value, mask, bias)
@@ -203,6 +208,7 @@ class CrossAttentionNoGate(nn.Module):
         num_heads: int,
         inf: float,
         chunk_size: Optional[int],
+        impl: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.c_q = c_q
@@ -211,6 +217,7 @@ class CrossAttentionNoGate(nn.Module):
         self.num_heads = num_heads
         self.inf = inf
         self.chunk_size = chunk_size
+        self.impl = impl
 
         self.linear_q = Linear(c_q, c_hidden * num_heads, bias=False, init="glorot")
         self.linear_k = Linear(c_kv, c_hidden * num_heads, bias=False, init="glorot")
@@ -245,6 +252,9 @@ class CrossAttentionNoGate(nn.Module):
             impl = "evo"
         else:
             impl = "torch"
+
+        if self.impl is not None:
+            impl = self.impl
 
         if impl == "torch":
             output = self._attention_forward(query, key, value, mask, bias)
