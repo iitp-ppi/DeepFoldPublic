@@ -104,7 +104,7 @@ class SelfAttentionWithGate(nn.Module):
             # output = deepspeed_evo_attn(query / math.sqrt(self.c_hidden), key, value, biases)
             output = deepspeed_evo_attn(query, key, value, biases)
         else:
-            raise ValueError(f"Unsupported implementation '{self.impl}'")
+            raise ValueError(f"Unsupported implementation '{impl}'")
 
         del query, key, value
 
