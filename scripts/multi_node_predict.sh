@@ -26,6 +26,7 @@ if [[ -n "$SLURM_JOB_ID" ]]; then
 
     NNODES=$SLURM_JOB_NUM_NODES
     JOB_ID=$SLURM_JOB_ID
+    NGPUS=$SLURM_GPUS_ON_NODE
 
     export MASTER_ADDR=$(echo $SLURM_NODELIST | cut -d ',' -f 1)
     export MASTER_PORT=$SLURM_JOB_ID
@@ -56,12 +57,12 @@ echo "SEED=${SEED}"
 # srun --export=ALL \
 torchrun \
     --nnodes=$NNODES \
-    --nproc_per_node=4 \
+    --nproc_per_node=$NGPUS \
     --rdzv_id=$JOB_ID \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     $BASE/predict.py \
-    --mp_size 4 \
+    --mp_size $NGPUS \
     --seed $SEED \
     --input_features_filepath $INPUT_FEAT \
     --output_dirpath $OUTPUT_DIR \
