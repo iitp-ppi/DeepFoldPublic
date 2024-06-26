@@ -20,7 +20,7 @@ import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
+from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUTPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
 from deepfold.modules.tweaks import evo_attn
@@ -561,7 +561,7 @@ def predict(args: argparse.Namespace) -> None:
         if not args.benchmark:
             logger.info("Save result outputs...")
             if model_config.is_multimer:
-                out = unpad_to_schema_shape_(out, MULTIMER_OUPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
+                out = unpad_to_schema_shape_(out, MULTIMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             else:
                 out = unpad_to_schema_shape_(out, MONOMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")

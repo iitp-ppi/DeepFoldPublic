@@ -927,7 +927,7 @@ MONOMER_OUTPUT_SHAPES = {
 }
 
 
-MULTIMER_OUPUT_SHAPES = {
+MULTIMER_OUTPUT_SHAPES = {
     "msa": (NUM_MSA_SEQ, NUM_RES, 256),
     "pair": (NUM_RES, NUM_RES, 128),
     "single": (NUM_RES, 384),
