@@ -186,7 +186,7 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         is_multimer=is_multimer,
         enable_ptm=enable_ptm,
         enable_templates=enable_templates,
-        inference_chunk_size=128,
+        inference_chunk_size=4,
         inference_block_size=256,
     )
     feat_cfg_kwargs = dict(
