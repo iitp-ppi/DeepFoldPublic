@@ -1,13 +1,7 @@
 from typing import List
 
 import torch
-
-from deepfold.modules.tweaks import evo_attn
-
-try:
-    from deepfold_kernels.evoformer_attn import DS4Sci_EvoformerAttention
-except ImportError:
-    evo_attn.disable()
+from deepfold_kernels.evoformer_attn import DS4Sci_EvoformerAttention
 
 
 @torch.jit.ignore
