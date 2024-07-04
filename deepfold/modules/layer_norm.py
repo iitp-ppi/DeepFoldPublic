@@ -33,7 +33,7 @@ class LayerNorm(nn.Module):
         self._ln_inductor_func = self._ln_eager_func
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.training or inductor.enable():
+        if self.training or inductor.is_enabled():
             return self._ln_inductor_func(x, self.normalized_shape, self.weight, self.bias, self.eps)
         else:
             return self._ln_eager_func(x, self.normalized_shape, self.weight, self.bias, self.eps)
