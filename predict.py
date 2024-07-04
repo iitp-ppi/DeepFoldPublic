@@ -263,11 +263,11 @@ def _recycle_hook(
 
     if save_recycle:
         batch_np = {
-            "residue_index": feats["residue_index"].squeeze(0).cpu().numpy(),
-            "aatype": feats["aatype"].squeeze(0).cpu().numpy(),
+            "residue_index": feats["residue_index"].cpu().squeeze(0).cpu().numpy(),
+            "aatype": feats["aatype"].cpu().squeeze(0).numpy(),
         }
         if "asym_id" in feats:
-            batch_np["asym_id"] = feats["asym_id"].squeeze(0).cpu().numpy()
+            batch_np["asym_id"] = feats["asym_id"].cpu().squeeze(0).numpy()
 
         outputs_np = {
             "final_atom_mask": outputs["final_atom_mask"].cpu().squeeze(0).numpy(),
