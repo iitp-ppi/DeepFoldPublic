@@ -20,7 +20,6 @@
 
 import dataclasses
 import io
-import string
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 import modelcif
@@ -159,7 +158,7 @@ def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None) -> Protein:
                 chain_count += 1
 
     # unique_chain_ids = np.unique(chain_ids)
-    chain_id_mapping = {cid: n for n, cid in enumerate(string.ascii_uppercase)}
+    chain_id_mapping = {cid: n for n, cid in enumerate(PDB_CHAIN_IDS)}
     chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
 
     return Protein(
@@ -439,7 +438,7 @@ def to_modelcif(prot: Protein) -> str:
         for chain_idx in value:
             entities_map[chain_idx] = model_e
 
-    chain_tags = string.ascii_uppercase
+    chain_tags = PDB_CHAIN_IDS
     asym_unit_map = {}
     for chain_idx in set(chain_index):
         # Define the model assembly
