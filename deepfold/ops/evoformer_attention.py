@@ -4,7 +4,7 @@ import torch
 
 try:
     from deepfold_kernels.evoformer_attn import DS4Sci_EvoformerAttention
-except ImportError:
+except ModuleNotFoundError:
     from deepfold_ops.evoformer_attn import DS4Sci_EvoformerAttention
 
 
