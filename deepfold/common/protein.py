@@ -312,7 +312,7 @@ def _single_protein_to_pdb(prot: Protein, model_id: int = 1) -> List[str]:
     atom_index = 1
     last_chain_index = chain_index[0]
     prev_chain_index = 0
-    chain_tags = string.ascii_uppercase
+    chain_tags = PDB_CHAIN_IDS
 
     # Add all atom sites.
     for i in range(aatype.shape[0]):
