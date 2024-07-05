@@ -36,7 +36,7 @@ class TemplateProjection(nn.Module):
         t = torch.mean(t, dim=-4)
         # t: [*, N_res, N_res, c_t]
 
-        if inductor.enable():
+        if inductor.is_enabled():
             z_update = _forward_template_projection_jit(t, self.linear_t.weight, self.linear_t.bias)
         else:
             z_update = _forward_template_projection_eager(t, self.linear_t.weight, self.linear_t.bias)

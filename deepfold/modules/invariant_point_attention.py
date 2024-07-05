@@ -25,7 +25,7 @@ class InvariantPointAttention(nn.Module):
         num_heads: Number of attention heads.
         num_qk_points: Number of query/key points.
         num_v_points: Number of value points.
-        is_multimer: Separate key/value projection.
+        separate_kv: Separate key/value projection.
         inf: Safe infinity value.
         eps: Epsilon to prevent division by zero.
 

@@ -113,7 +113,7 @@ def _openmm_minimize(
 def _get_pdb_string(topology: openmm_app.Topology, positions: unit.Quantity):
     """Returns a pdb string provided OpenMM topology and positions."""
     with io.StringIO() as f:
-        openmm_app.PDBFile.writeFile(topology, positions, f)
+        openmm_app.PDBFile.writeFile(topology, positions, f, keepIds=True)
         return f.getvalue()
 
 

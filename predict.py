@@ -20,7 +20,7 @@ import deepfold.distributed.model_parallel as mp
 import deepfold.modules.inductor as inductor
 from deepfold.common import protein
 from deepfold.common import residue_constants as rc
-from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
+from deepfold.config import MONOMER_OUTPUT_SHAPES, MULTIMER_OUTPUT_SHAPES, AlphaFoldConfig, FeaturePipelineConfig
 from deepfold.data.process.pipeline import example_to_features
 from deepfold.modules.alphafold import AlphaFold
 from deepfold.modules.tweaks import evo_attn
@@ -35,7 +35,6 @@ from deepfold.utils.tensor_utils import tensor_tree_map
 torch.set_float32_matmul_precision("high")
 torch.set_grad_enabled(False)
 
-# evo_attn.enable()
 evo_attn.disable()
 
 logger = logging.getLogger(__name__)
@@ -136,11 +135,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Don't write result pickle.",
     )
+    parser.add_argument(
+        "--tweaks",
+        default="",
+        type=str,
+    )
     args = parser.parse_args()
     #
     if args.mp_size != 0:
         assert torch.cuda.device_count() == args.mp_size
     assert args.precision in ("fp32", "bf16")
+    #
+    if args.tweaks:
+        tws = args.tweaks.strip().split(",")
+        if "evo_attn" in tws:
+            evo_attn.enable()
     #
     return args
 
@@ -177,7 +186,7 @@ def get_preset_opts(preset: str) -> Tuple[str, Tuple[dict, dict, dict]]:
         is_multimer=is_multimer,
         enable_ptm=enable_ptm,
         enable_templates=enable_templates,
-        inference_chunk_size=128,
+        inference_chunk_size=4,
         inference_block_size=256,
     )
     feat_cfg_kwargs = dict(
@@ -254,11 +263,11 @@ def _recycle_hook(
 
     if save_recycle:
         batch_np = {
-            "residue_index": feats["residue_index"].squeeze(0).cpu().numpy(),
-            "aatype": feats["aatype"].squeeze(0).cpu().numpy(),
+            "residue_index": feats["residue_index"].cpu().squeeze(0).cpu().numpy(),
+            "aatype": feats["aatype"].cpu().squeeze(0).numpy(),
         }
         if "asym_id" in feats:
-            batch_np["asym_id"] = feats["asym_id"].squeeze(0).cpu().numpy()
+            batch_np["asym_id"] = feats["asym_id"].cpu().squeeze(0).numpy()
 
         outputs_np = {
             "final_atom_mask": outputs["final_atom_mask"].cpu().squeeze(0).numpy(),
@@ -561,7 +570,7 @@ def predict(args: argparse.Namespace) -> None:
         if not args.benchmark:
             logger.info("Save result outputs...")
             if model_config.is_multimer:
-                out = unpad_to_schema_shape_(out, MULTIMER_OUPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
+                out = unpad_to_schema_shape_(out, MULTIMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             else:
                 out = unpad_to_schema_shape_(out, MONOMER_OUTPUT_SHAPES, seqlen, feat_config.max_msa_clusters)
             dump_pickle(out, args.output_dirpath / f"result_{model_name}{suffix}.pkz")

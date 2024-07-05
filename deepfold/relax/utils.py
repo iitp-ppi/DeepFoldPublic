@@ -29,7 +29,7 @@ def overwrite_pdb_coordinates(pdb_str: str, pos) -> str:
     structure = PdbStructure(pdb_file)
     topology = openmm_app.PDBFile(structure).getTopology()
     with io.StringIO() as f:
-        openmm_app.PDBFile.writeFile(topology, pos, f)
+        openmm_app.PDBFile.writeFile(topology, pos, f, keepIds=True)
         return f.getvalue()
 
 
