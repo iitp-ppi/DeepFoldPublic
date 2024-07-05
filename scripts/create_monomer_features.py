@@ -95,7 +95,7 @@ def get_domains(
 
             # TODO: Test aatype
 
-            assert len(prot.residue_index) == dom.target_end - dom.target_start + 1
+            assert len(prot.residue_index) == dom.target_end - dom.target_start
             pos = np.pad(prot.atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
             mask = np.pad(prot.atom_mask, ((dom.target_start, seqlen - dom.target_end), (0, 0)))
 
