@@ -53,6 +53,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
                     cid = None
                     r1, r2 = map(int, ls[3].split("-"))
             else:
+                cid = None
                 r1, r2 = None, None
             start, end = map(int, ls[1].split("-"))
             start -= 1
