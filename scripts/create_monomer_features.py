@@ -8,12 +8,13 @@ from typing import List, Tuple
 
 import numpy as np
 
+from deepfold.common import protein
 from deepfold.common import residue_constants as rc
 from deepfold.data.search.crfalign import parse_crf
 from deepfold.data.search.input_features import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_sto
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
-from deepfold.utils.file_utils import dump_pickle, load_pickle
+from deepfold.utils.file_utils import dump_pickle, load_pickle, read_text
 from deepfold.utils.log_utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class Domain:
     model_name: str
     result_start: int | None
     result_end: int | None
+    chain_id: int | str | None = None
 
 
 def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
@@ -43,7 +45,12 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
             crf_codes.extend(ls[1:])
         else:
             if len(ls) == 4:
-                r1, r2 = map(int, ls[3].split("-"))
+                if ls[3] in protein.PDB_CHAIN_IDS:
+                    cid = ls[3]
+                    r1, r2 = None, None
+                else:
+                    cid = None
+                    r1, r2 = map(int, ls[3].split("-"))
             else:
                 r1, r2 = None, None
             start, end = map(int, ls[1].split("-"))
@@ -56,6 +63,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
                 model_name=name,
                 result_start=r1,
                 result_end=r2,
+                chain_id=cid,
             )
             domains.append(domain)
 
@@ -78,25 +86,37 @@ def get_domains(
     aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
 
     for dom in domains:
-        if os.path.splitext(dom.model_name)[1] in [".pkz", ".pkl"]:
+        if os.path.splitext(dom.model_name)[1] == ".pdb":
+            # PDB
             path = Path(dom.model_name)
+            pdb_str = read_text(path)
+            prot = protein.from_pdb_string(pdb_str, chain_id=dom.chain_id)
+
+            assert len(prot.residue_index) == dom.target_end - dom.target_start + 1
+            pos = np.pad(prot.atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
+            mask = np.pad(prot.atom_mask, ((dom.target_start, seqlen - dom.target_end), (0, 0)))
+
         else:
-            ns = dom.model_name.split("/")
-            path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
-        results = load_pickle(path)
+            # Result PKZ
+            if os.path.splitext(dom.model_name)[1] in [".pkz", ".pkl"]:
+                path = Path(dom.model_name)
+            else:
+                ns = dom.model_name.split("/")
+                path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
+            results = load_pickle(path)
 
-        if dom.result_end is None or dom.result_start is None:
-            i1 = 0
-            i2 = dom.target_end - dom.target_start  # Crop the first chain
-        else:
-            i1 = dom.result_start
-            i2 = dom.result_end
-        assert i2 - i1 == dom.target_end - dom.target_start
+            if dom.result_end is None or dom.result_start is None:
+                i1 = 0
+                i2 = dom.target_end - dom.target_start  # Crop the first chain
+            else:
+                i1 = dom.result_start
+                i2 = dom.result_end
 
-        pos = np.pad(results["final_atom_positions"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
-        mask = np.pad(results["final_atom_mask"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0)))
+            assert i2 - i1 == dom.target_end - dom.target_start
+            pos = np.pad(results["final_atom_positions"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
+            mask = np.pad(results["final_atom_mask"][i1:i2], ((dom.target_start, seqlen - dom.target_end), (0, 0)))
 
-        print(">", f"[{dom.doi}]", dom.model_name, f"[{dom.target_start}, {dom.target_end})", "->", pos.shape, mask.shape)
+        logger.info(f"[{dom.doi}] {dom.model_name} [{dom.target_start}, {dom.target_end}) -> {pos.shape} {mask.shape}")
 
         template_sum_probs.append(1.0)
         template_domain_names.append(dom.model_name.encode())
