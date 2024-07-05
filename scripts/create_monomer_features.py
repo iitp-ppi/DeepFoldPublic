@@ -45,7 +45,8 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
             crf_codes.extend(ls[1:])
         else:
             if len(ls) == 4:
-                if ls[3] in protein.PDB_CHAIN_IDS:
+                # TODO: Use regex
+                if "-" not in ls[3]:
                     cid = ls[3]
                     r1, r2 = None, None
                 else:
@@ -91,6 +92,8 @@ def get_domains(
             path = Path(dom.model_name)
             pdb_str = read_text(path)
             prot = protein.from_pdb_string(pdb_str, chain_id=dom.chain_id)
+
+            # TODO: Test aatype
 
             assert len(prot.residue_index) == dom.target_end - dom.target_start + 1
             pos = np.pad(prot.atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
