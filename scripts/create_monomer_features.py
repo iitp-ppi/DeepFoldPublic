@@ -50,6 +50,7 @@ def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
                     cid = ls[3]
                     r1, r2 = None, None
                 else:
+                    raise NotImplementedError("Domain cropping is not supported")
                     cid = None
                     r1, r2 = map(int, ls[3].split("-"))
             else:
@@ -85,7 +86,7 @@ def get_domains(
     template_sum_probs = []
 
     seqlen = len(query_seq)
-    aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
+    query_aatype = rc.sequence_to_onehot(query_seq, rc.HHBLITS_AA_TO_ID)
 
     for dom in domains:
         if os.path.splitext(dom.model_name)[1] == ".pdb":
@@ -94,11 +95,21 @@ def get_domains(
             pdb_str = read_text(path)
             prot = protein.from_pdb_string(pdb_str, chain_id=dom.chain_id)
 
-            # TODO: Test aatype
+            index_map = prot.residue_index - prot.residue_index.min()
+            residue_index = np.arange(prot.residue_index.min(), prot.residue_index.max() + 1, 1, dtype=np.int32)
 
-            assert len(prot.residue_index) == dom.target_end - dom.target_start
-            pos = np.pad(prot.atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
-            mask = np.pad(prot.atom_mask, ((dom.target_start, seqlen - dom.target_end), (0, 0)))
+            atom_positions = np.zeros((len(residue_index), 37, 3), dtype=np.float32)
+            atom_positions[index_map] = prot.atom_positions
+            atom_mask = np.zeros((len(residue_index), 37), dtype=np.float32)
+            atom_mask[index_map] = prot.atom_mask
+
+            dom_seq = rc.aatype_to_str_sequence(prot.aatype)
+            if dom_seq != query_seq[dom.target_start - 1, dom.target_end]:
+                logger.warning("The domain sequence is not equal to query sequence. %s", dom_seq)
+
+            assert len(residue_index) == dom.target_end - dom.target_start
+            pos = np.pad(atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
+            mask = np.pad(atom_mask, ((dom.target_start, seqlen - dom.target_end), (0, 0)))
 
         else:
             # Result PKZ
@@ -125,7 +136,7 @@ def get_domains(
         template_sum_probs.append(1.0)
         template_domain_names.append(dom.model_name.encode())
         template_sequence.append(query_seq.encode())
-        template_aatype.append(aatype.copy())
+        template_aatype.append(query_aatype.copy())
         template_all_atom_positions.append(pos)
         template_all_atom_mask.append(mask)
 
