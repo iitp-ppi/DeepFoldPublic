@@ -98,9 +98,9 @@ def get_domains(
             index_map = prot.residue_index - prot.residue_index.min()
             residue_index = np.arange(prot.residue_index.min(), prot.residue_index.max() + 1, 1, dtype=np.int32)
 
-            atom_positions = np.zeros((len(residue_index), 37, 3), dtype=np.float32)
+            atom_positions = np.zeros((len(residue_index), rc.atom_type_num, 3), dtype=np.float32)
             atom_positions[index_map] = prot.atom_positions
-            atom_mask = np.zeros((len(residue_index), 37), dtype=np.float32)
+            atom_mask = np.zeros((len(residue_index), rc.atom_type_num), dtype=np.float32)
             atom_mask[index_map] = prot.atom_mask
 
             dom_seq = rc.aatype_to_str_sequence(prot.aatype)
