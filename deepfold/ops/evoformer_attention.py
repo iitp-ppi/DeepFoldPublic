@@ -5,7 +5,10 @@ import torch
 try:
     from deepfold_kernels.evoformer_attn import DS4Sci_EvoformerAttention
 except ModuleNotFoundError:
-    from deepfold_ops.evoformer_attn import DS4Sci_EvoformerAttention
+    from deepfold.modules.tweaks import evo_attn
+
+    # Disable evoformer attention
+    evo_attn.disable()
 
 
 @torch.jit.ignore
