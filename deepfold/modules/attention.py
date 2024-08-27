@@ -61,6 +61,14 @@ class SelfAttentionWithGate(nn.Module):
         self.linear_g = Linear(c_qkv, total_dim, init="gating")
         self.linear_o = Linear(c_hidden * num_heads, c_qkv, bias=True, init="final")
 
+        try:
+            from deepfold_kernels.evoformer_attn import DS4Sci_EvoformerAttention
+        except ModuleNotFoundError:
+            from deepfold.modules.tweaks import evo_attn
+
+            # Disable evoformer attention
+            evo_attn.disable()
+
     def forward(
         self,
         input_qkv: torch.Tensor,
@@ -248,7 +256,6 @@ class CrossAttentionNoGate(nn.Module):
         # query: [*, num_heads, Q, c_hidden]
         # key:   [*, num_heads, K, c_hidden]
         # value: [*, num_heads, V, c_hidden]
-
         if evo_attn.is_enabled():
             impl = "evo"
         else:
