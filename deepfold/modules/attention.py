@@ -8,7 +8,6 @@ import torch.nn.functional as F
 import deepfold.modules.inductor as inductor
 from deepfold.modules.linear import Linear
 from deepfold.modules.tweaks import evo_attn
-from deepfold.ops.evoformer_attention import deepspeed_evo_attn
 from deepfold.utils.iter_utils import slice_generator
 
 
@@ -102,6 +101,8 @@ class SelfAttentionWithGate(nn.Module):
             output = output.transpose(-2, -3)
             # output: [*, Q, num_heads, c_hidden]
         elif impl == "evo":
+            from deepfold.ops.evoformer_attention import deepspeed_evo_attn
+
             mask_bias = (mask - 1.0) * self.inf
             biases = [mask_bias]
             if bias is not None:
@@ -262,6 +263,8 @@ class CrossAttentionNoGate(nn.Module):
             output = output.transpose(-2, -3)
             # output: [*, Q, num_heads, c_hidden]
         elif impl == "evo":
+            from deepfold.ops.evoformer_attention import deepspeed_evo_attn
+
             mask_bias = (mask - 1.0) * self.inf
             biases = [mask_bias]
             if bias is not None:
