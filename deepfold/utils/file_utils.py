@@ -7,6 +7,8 @@ from glob import glob
 from pathlib import Path
 from typing import Any, List, Sequence
 
+import numpy as np
+
 __all__ = ["read_text", "load_pickle", "dump_pickle", "find_paths"]
 
 
@@ -35,6 +37,8 @@ def load_pickle(path: os.PathLike) -> Any:
             return _load_gz_pkl(path)
         elif ext == ".pkz":
             return _load_pkz(path)
+        elif ext == ".npz":
+            return np.load(path)
         else:
             return _load_pkl(path)
     except FileNotFoundError:
@@ -57,12 +61,16 @@ def _load_pkl(path: os.PathLike) -> Any:
 
 def dump_pickle(obj: Any, path: os.PathLike, level: int = 5) -> None:
     f, ext = os.path.splitext(path)
-    assert ext in (".pkl", ".pkz", ".gz")
-    if ext == ".pkl":
-        path = f + ".pkz"
-        warnings.warn(f"Write on '{path}'")
-    with gzip.open(path, "wb", compresslevel=level) as fp:
-        pickle.dump(obj, fp)
+    assert ext in (".pkl", ".pkz", ".gz", ".npz")
+
+    if ext == ".npz":
+        np.savez_compressed(path, **obj)
+    else:
+        if ext == ".pkl":
+            path = f + ".pkz"
+            warnings.warn(f"Write on '{path}'")
+        with gzip.open(path, "wb", compresslevel=level) as fp:
+            pickle.dump(obj, fp)
 
 
 def find_paths(paths: Sequence[os.PathLike]) -> List[Path]:

@@ -1,4 +1,4 @@
-# DeepFold
+# DeepFold 2
 
 ## Features
 
