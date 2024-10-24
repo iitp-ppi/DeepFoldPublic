@@ -104,8 +104,8 @@ def get_domains(
             atom_mask[index_map] = prot.atom_mask
 
             dom_seq = rc.aatype_to_str_sequence(prot.aatype)
-            if dom_seq != query_seq[dom.target_start - 1 : dom.target_end]:
-                logger.warning("The domain sequence is not equal to query sequence. %s", dom_seq)
+            if dom_seq != query_seq[dom.target_start : dom.target_end]:
+                logger.warning("The domain sequence is not equal to query sequence: %s", dom_seq)
 
             assert len(residue_index) == dom.target_end - dom.target_start
             pos = np.pad(atom_positions, ((dom.target_start, seqlen - dom.target_end), (0, 0), (0, 0)))
