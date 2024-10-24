@@ -6,7 +6,7 @@ import re
 import string
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from matplotlib import pyplot as plt
 
@@ -37,6 +37,9 @@ def parse_stoi(stoi_str: str):
 
 
 def parse_args() -> argparse.Namespace:
+
+    pairing_preset = ["none", "uniprot", "colab", "taxid"]
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-i",
@@ -72,6 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--pairing",
         default="uniprot",
+        choices=pairing_preset,
     )
     parser.add_argument(
         "--colab_a3m",
@@ -83,8 +87,6 @@ def parse_args() -> argparse.Namespace:
         help="Overwrite output files.",
     )
     args = parser.parse_args()
-
-    assert args.pairing in ["none", "uniprot", "colab"]
 
     return args
 
@@ -231,10 +233,16 @@ def main(args: argparse.Namespace):
         with open(args.colab_a3m, "r") as fp:
             a3m_lines = fp.read()
         _, paired_msa, query_seqs_unique, _ = unserialize_msa([a3m_lines])
+        assert paired_msa  # Check paired MSA is not None.
         paired_a3m_strings = {k: v for k, v in zip(chain_ids, paired_msa)}
         assert len(query_seqs_unique) == len(cardinality)
-    else:
+    elif args.pairing == "taxid":
+        paired_a3m_strings = {}
+        a3m_strings_with_identifiers = None
+    elif args.pairing == "none":
         pass
+    else:
+        raise ValueError(f"Wrong pairing strategy: '{args.pairing}'")
 
     with open(args.log_filepath, "a") as fp:
         tee = Tee(sys.stdout, fp)
