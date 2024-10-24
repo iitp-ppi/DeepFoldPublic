@@ -86,6 +86,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Overwrite output files.",
     )
+    parser.add_argument(
+        "--casp",
+        action="store_true",
+        help="Apply the CASP name converntion.",
+    )
     args = parser.parse_args()
 
     return args
@@ -219,7 +224,10 @@ def main(args: argparse.Namespace):
         note_str = fp.read()
     target_id, stoichiom, suffix, recipes = parse_note(note_str)
     cardinality = parse_stoi(stoichiom)
-    chain_ids = [f"T{target_id[1:]}s{i}" for i in range(1, len(cardinality) + 1)]
+    if args.casp:
+        chain_ids = [f"T{target_id[1:]}s{i}" for i in range(1, len(cardinality) + 1)]
+    else:
+        chain_ids = [f"{target_id}s{i}" for i in range(1, len(cardinality) + 1)]
 
     a3m_strings_with_identifiers = collections.defaultdict(str)
     paired_a3m_strings = dict()
