@@ -28,7 +28,7 @@ class Domain:
     model_name: str
     result_start: int | None
     result_end: int | None
-    chain_id: int | str | None = None
+    chain_id: str | None = None
 
 
 def parse_dom(dom_str: str) -> Tuple[List[Domain], List[str]]:
@@ -117,7 +117,7 @@ def get_domains(
                 path = Path(dom.model_name)
             else:
                 ns = dom.model_name.split("/")
-                path = "/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"])
+                path = Path("/".join([f"{query_name}_{dom.doi}"] + ns[:-1] + [f"result_{ns[-1]}.pkz"]))
             results = load_pickle(path)
 
             if dom.result_end is None or dom.result_start is None:
@@ -190,7 +190,7 @@ def main(args: argparse.Namespace) -> None:
         )
 
         logger.info("Parse {}".format(args.template_filepath))
-        suffix = args.template_filepath.suffix
+        suffix = str(args.template_filepath.suffix)
         with open(args.template_filepath, "r") as fp:
             template_str = fp.read()
 
@@ -235,7 +235,7 @@ def main(args: argparse.Namespace) -> None:
                 )
             sort_by_sum_probs = False
         else:
-            raise RuntimeError(f"Not supported template mode: {suffix}")
+            raise RuntimeError(f"Not supported template mode: {mode}")
 
         if template_hits:
             template_features = create_template_features(
@@ -272,12 +272,9 @@ def main(args: argparse.Namespace) -> None:
                 elif path.suffix == ".sto":
                     a3m_str = convert_stockholm_to_a3m(fp.read(), max_sequences=max_num_seqs.get(path.stem, None))
                 else:
-                    raise RuntimeError(f"Not supported MSA search extensions: {suffix}")
+                    raise RuntimeError(f"Not supported MSA search extensions: {path.suffix}")
             a3m_strings.append(a3m_str)
-    msa_features = create_msa_features(
-        a3m_strings,
-        sequence=query_sequence,
-    )
+    msa_features = create_msa_features(a3m_strings, sequence=query_sequence, use_identifiers=True)
 
     logger.info("Write input features on {}".format(args.output_filepath))
     args.output_filepath.parent.mkdir(parents=True, exist_ok=True)

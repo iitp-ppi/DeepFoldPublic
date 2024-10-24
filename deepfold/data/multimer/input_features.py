@@ -168,7 +168,7 @@ def create_all_seq_msa_features(
     """Get MSA features for paring."""
 
     all_seq_features = create_msa_features(
-        a3m_strings,
+        list(a3m_strings),
         sequence=sequence,
         use_identifiers=True,
     )
@@ -216,7 +216,7 @@ def create_multimer_features(
 def process_multimer_features(
     complex: ComplexInfo,
     all_monomer_features: Mapping[str, dict],
-    a3m_strings_with_identifiers: Mapping[str, str],
+    a3m_strings_with_identifiers: Mapping[str, str] | None = None,
     paired_a3m_strings: Mapping[str, str] = dict(),
     max_num_clusters: int = 508,
 ) -> dict:
@@ -229,12 +229,19 @@ def process_multimer_features(
         assert cid is not None
         chain_features = all_monomer_features[desc]
 
-        # Process UniProt features:
-        chain_features = process_single_chain(
-            chain_features,
-            is_homomer_or_monomer,
-            a3m_strings_for_paring=[a3m_strings_with_identifiers[desc]],
-        )
+        if a3m_strings_with_identifiers is not None:
+            # Process UniProt features:
+            chain_features = process_single_chain(
+                chain_features,
+                is_homomer_or_monomer,
+                a3m_strings_for_paring=[a3m_strings_with_identifiers[desc]],
+            )
+        else:
+            chain_features = process_single_chain(
+                chain_features=chain_features,
+                is_homomer_or_monomer=is_homomer_or_monomer,
+                a3m_strings_for_paring=None,
+            )
 
         # Process custom paired MSA:
         paired_a3m_str = paired_a3m_strings.get(desc, "")
@@ -311,7 +318,12 @@ def pair_and_merge(all_chain_features: MutableMapping[str, dict]) -> dict:
     return np_example
 
 
-def crop_chains(chains_list: List[dict], msa_crop_size: int, pair_msa_sequences: bool, max_templates: int) -> List[dict]:
+def crop_chains(
+    chains_list: List[dict],
+    msa_crop_size: int,
+    pair_msa_sequences: bool,
+    max_templates: int,
+) -> List[dict]:
     """Crops the MSAs for a set of chains.
 
     Args:
