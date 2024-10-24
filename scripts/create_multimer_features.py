@@ -291,6 +291,7 @@ def main(args: argparse.Namespace):
                 all_monomer_features=feats,
                 paired_a3m_strings=paired_a3m_strings,
                 a3m_strings_with_identifiers=a3m_strings_with_identifiers,
+                pair_with_identifier=(args.pairing == "taxid"),
             )
 
             out_path.parent.mkdir(parents=True, exist_ok=True)
