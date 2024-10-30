@@ -105,7 +105,8 @@ class AlphaFold(nn.Module):
 
         # Forward iterations with autograd disabled:
         num_recycling_iters = batch["aatype"].shape[-1] - 1
-        for recycle_iter in range(num_recycling_iters):
+        recycle_iter = 0
+        for _ in range(num_recycling_iters):
             feats = tensor_tree_map(fn=lambda t: t[..., recycle_iter].contiguous(), tree=batch)
             with torch.no_grad():
                 outputs, prevs = self._forward_iteration(
@@ -120,7 +121,7 @@ class AlphaFold(nn.Module):
                     recycle_hook(recycle_iter, feats, outputs)
 
                 del outputs
-        recycle_iter += 1  # For the last iteration
+            recycle_iter += 1  # For the last iteration
 
         # https://github.com/pytorch/pytorch/issues/65766
         if torch.is_autocast_enabled():
@@ -405,6 +406,7 @@ class AlphaFold(nn.Module):
                 t = self.template_pair_embedder(t)
                 # t: [batch, N_res, N_res, c_t]
             else:
+                assert asym_id is not None
                 if single_multichain_mask_2d is None:
                     single_multichain_mask_2d = asym_id[..., :, None] == asym_id[..., None, :]
                 # single_multichain_mask_2d: [batch, N_res, N_res]
