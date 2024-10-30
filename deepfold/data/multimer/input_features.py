@@ -99,16 +99,21 @@ def process_single_chain(
     chain_features: dict,
     is_homomer_or_monomer: bool,
     a3m_strings_for_paring: Sequence[str] | None = None,
+    use_identifier: bool = False,
 ) -> dict:
     """Process a single chain features."""
     new_chain_features = copy.deepcopy(chain_features)
     if a3m_strings_for_paring is None:
         a3m_strings_for_paring = [""]
     if not is_homomer_or_monomer:
-        all_seq_msa_features = create_all_seq_msa_features(
+        all_seq_msa_features = create_all_seq_msa_features_from_a3m(
             a3m_strings_for_paring,
             sequence=chain_features["sequence"].item().decode("utf-8"),
         )
+        if use_identifier:
+            all_msa_features = create_all_seq_msa_features(chain_features)
+            for k, v in all_seq_msa_features.items():
+                all_seq_msa_features[k] = np.concatenate([all_msa_features[k], v], axis=0)
         new_chain_features.update(all_seq_msa_features)
     return new_chain_features
 
@@ -161,18 +166,30 @@ def pad_msa(example: dict, min_num_cluster) -> dict:
     return example
 
 
-def create_all_seq_msa_features(
+def create_all_seq_msa_features_from_a3m(
     a3m_strings: Sequence[str],
     sequence: str | None = None,
 ) -> dict:
     """Get MSA features for paring."""
 
     all_seq_features = create_msa_features(
-        a3m_strings,
+        list(a3m_strings),
         sequence=sequence,
         use_identifiers=True,
     )
 
+    species_id = [get_identifiers(s) for s in all_seq_features["msa_identifiers"]]
+    all_seq_features["msa_identifiers"] = np.array(species_id, dtype=np.object_)
+
+    valid_feats = (*msa_pairing.MSA_FEATURES, "msa_identifiers")
+    feats = {f"{k}_all_seq": v for k, v in all_seq_features.items() if k in valid_feats}
+
+    return feats
+
+
+def create_all_seq_msa_features(
+    all_seq_features: dict,
+) -> dict:
     species_id = [get_identifiers(s) for s in all_seq_features["msa_identifiers"]]
     all_seq_features["msa_identifiers"] = np.array(species_id, dtype=np.object_)
 
@@ -216,7 +233,8 @@ def create_multimer_features(
 def process_multimer_features(
     complex: ComplexInfo,
     all_monomer_features: Mapping[str, dict],
-    a3m_strings_with_identifiers: Mapping[str, str],
+    pair_with_identifier: bool = False,
+    a3m_strings_with_identifiers: Mapping[str, str] | None = None,
     paired_a3m_strings: Mapping[str, str] = dict(),
     max_num_clusters: int = 508,
 ) -> dict:
@@ -229,12 +247,21 @@ def process_multimer_features(
         assert cid is not None
         chain_features = all_monomer_features[desc]
 
-        # Process UniProt features:
-        chain_features = process_single_chain(
-            chain_features,
-            is_homomer_or_monomer,
-            a3m_strings_for_paring=[a3m_strings_with_identifiers[desc]],
-        )
+        if a3m_strings_with_identifiers is not None:
+            # Process UniProt features:
+            chain_features = process_single_chain(
+                chain_features,
+                is_homomer_or_monomer,
+                a3m_strings_for_paring=[a3m_strings_with_identifiers[desc]],
+                use_identifier=pair_with_identifier,
+            )
+        else:
+            chain_features = process_single_chain(
+                chain_features=chain_features,
+                is_homomer_or_monomer=is_homomer_or_monomer,
+                a3m_strings_for_paring=None,
+                use_identifier=pair_with_identifier,
+            )
 
         # Process custom paired MSA:
         paired_a3m_str = paired_a3m_strings.get(desc, "")
@@ -311,7 +338,12 @@ def pair_and_merge(all_chain_features: MutableMapping[str, dict]) -> dict:
     return np_example
 
 
-def crop_chains(chains_list: List[dict], msa_crop_size: int, pair_msa_sequences: bool, max_templates: int) -> List[dict]:
+def crop_chains(
+    chains_list: List[dict],
+    msa_crop_size: int,
+    pair_msa_sequences: bool,
+    max_templates: int,
+) -> List[dict]:
     """Crops the MSAs for a set of chains.
 
     Args:
