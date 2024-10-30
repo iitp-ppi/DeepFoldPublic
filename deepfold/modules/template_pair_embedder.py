@@ -53,8 +53,8 @@ class TemplatePairEmbedder(nn.Module):
     def build_template_pair_feat(
         self,
         feats: Dict[str, torch.Tensor],
-        min_bin: int,
-        max_bin: int,
+        min_bin: float,
+        max_bin: float,
         num_bins: int,
         use_unit_vector: bool,
         inf: float,
@@ -128,8 +128,8 @@ class TemplatePairEmbedder(nn.Module):
 
     def _initialize_buffers(
         self,
-        min_bin: int,
-        max_bin: int,
+        min_bin: float,
+        max_bin: float,
         num_bins: int,
         inf: float,
         device: torch.device,
@@ -271,8 +271,8 @@ class TemplatePairEmbedderMultimer(nn.Module):
     def build_template_pair_feat(
         self,
         feats: Dict[str, torch.Tensor],
-        min_bin: int,
-        max_bin: int,
+        min_bin: float,
+        max_bin: float,
         num_bins: int,
         inf: float,
         eps: float,
@@ -390,7 +390,7 @@ def _pseudo_beta_fn_eager(
     aatype: torch.Tensor,
     all_atom_positions: torch.Tensor,
     all_atom_mask: torch.Tensor,
-) -> torch.Tensor:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     is_gly = torch.eq(aatype, rc.restype_order["G"])
     ca_idx = rc.atom_order["CA"]
     cb_idx = rc.atom_order["CB"]
