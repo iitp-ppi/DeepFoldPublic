@@ -416,7 +416,7 @@ def predict(args: argparse.Namespace) -> None:
             )
 
     # Maximum recycling iterations:
-    if args.max_recycling_iters > 0:
+    if args.max_recycling_iters >= 0:
         feat_cfg_kwargs["max_recycling_iters"] = args.max_recycling_iters
 
     # Get configs:
