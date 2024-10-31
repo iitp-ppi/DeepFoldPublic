@@ -15,6 +15,7 @@ import warnings
 from dataclasses import dataclass, field
 from io import BytesIO, StringIO
 from itertools import product
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 import numpy as np
@@ -674,9 +675,9 @@ def fetch_mmcif(rcsb_id: str) -> str:
     )
     if r.status_code == 200:
         data = r.content
-        text = gzip.GzipFile(mode="r", fileobj=BytesIO(data)).read()
-        return text.decode()
-    RuntimeError(f"Cannot fetch '{rcsb_id}'")
+        text = gzip.GzipFile(mode="r", fileobj=BytesIO(data)).read().decode()
+        return text
+    raise RuntimeError(f"Cannot fetch '{rcsb_id}'")
 
 
 def read_mmcif(
@@ -691,8 +692,8 @@ def read_mmcif(
     rcsb_id = rcsb_id.lower()
     dv = rcsb_id[1:3]
 
-    mmcif_path = "." if mmcif_path is None else mmcif_path
-    mmcif_path = os.path.join(mmcif_path, dv, f"{rcsb_id}.cif.gz")
+    mmcif_path = Path.cwd() if mmcif_path is None else Path(mmcif_path)
+    mmcif_path = mmcif_path / dv / f"{rcsb_id}.cif.gz"
     if mmcif_path is not None and os.path.exists(mmcif_path):
         return read_text(mmcif_path)
     else:
@@ -938,11 +939,11 @@ def print_chain_features(feats, file=sys.stdout):
         for x, y in zip(mask, std_mask):
             if x and y:
                 b = "O"
-            if not x and y:
+            elif not x and y:
                 b = "X"
-            if x and not y:
+            elif x and not y:
                 b = "?"
-            if not x and not y:
+            else:  # if not x and not y:
                 b = " "
             print(f"{b}", end="|", file=file)
         print(file=file)

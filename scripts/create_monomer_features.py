@@ -14,7 +14,7 @@ from deepfold.data.search.crfalign import parse_crf
 from deepfold.data.search.input_features import create_msa_features, create_sequence_features, create_template_features
 from deepfold.data.search.parsers import convert_stockholm_to_a3m, parse_fasta, parse_hhr, parse_hmmsearch_sto
 from deepfold.data.search.templates import TemplateHitFeaturizer, create_empty_template_feats
-from deepfold.utils.file_utils import dump_pickle, load_pickle, read_text
+from deepfold.utils.file_utils import dump_pickle, get_file_content_and_extension, load_pickle
 from deepfold.utils.log_utils import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def get_domains(
         if os.path.splitext(dom.model_name)[1] == ".pdb":
             # PDB
             path = Path(dom.model_name)
-            pdb_str = read_text(path)
+            pdb_str, _ = get_file_content_and_extension(path)
             prot = protein.from_pdb_string(pdb_str, chain_id=dom.chain_id)
 
             index_map = prot.residue_index - prot.residue_index.min()
@@ -154,8 +154,7 @@ def get_domains(
 
 def main(args: argparse.Namespace) -> None:
     # Parse input FASTA file:
-    with open(args.fasta_filepath, "r") as fp:
-        fasta_str = fp.read().strip()
+    fasta_str, _ = get_file_content_and_extension(args.fasta_filepath)
     sequences, descriptions = parse_fasta(fasta_str)
     assert len(sequences) == len(descriptions) == 1
 
@@ -189,10 +188,8 @@ def main(args: argparse.Namespace) -> None:
             verbose=True,
         )
 
-        logger.info("Parse {}".format(args.template_filepath))
-        suffix = str(args.template_filepath.suffix)
-        with open(args.template_filepath, "r") as fp:
-            template_str = fp.read()
+        logger.info(f"Parse {args.template_filepath}")
+        template_str, suffix = get_file_content_and_extension(args.template_filepath)
 
         sort_by_sum_probs = True
         mode = None
@@ -266,11 +263,12 @@ def main(args: argparse.Namespace) -> None:
         logger.info("Parse MSA search results...")
         for path in args.alignment_filepaths:
             logger.info("Parse {}".format(path))
+            a3m_str, suffix = get_file_content_and_extension(path)
             with open(path, "r") as fp:
-                if path.suffix == ".a3m":
-                    a3m_str = fp.read()
-                elif path.suffix == ".sto":
-                    a3m_str = convert_stockholm_to_a3m(fp.read(), max_sequences=max_num_seqs.get(path.stem, None))
+                if suffix == ".a3m":
+                    pass
+                elif path.suffix == ".sto":  # If not a3m-format, then convert.
+                    a3m_str = convert_stockholm_to_a3m(a3m_str, max_sequences=max_num_seqs.get(str(path).split(".")[0]))
                 else:
                     raise RuntimeError(f"Not supported MSA search extensions: {path.suffix}")
             a3m_strings.append(a3m_str)
