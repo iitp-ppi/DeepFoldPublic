@@ -215,7 +215,7 @@ def load_mmcif_dict(
     pdb_id: str,
 ) -> dict:
     """Load mmCIF dict for `pdb_id`."""
-    mmcif_dicts_filename = pdb_id[1:3] + "/" + pdb_id + ".cif"
+    mmcif_dicts_filename = pdb_id[1:3] + "/" + pdb_id + ".cif.gz"
     mmcif_dicts_filepath = mmcif_dirpath / mmcif_dicts_filename
     mmcif_string = load_mmcif_file(mmcif_dicts_filepath)
     mmcif_dict = parse_mmcif_string(mmcif_string)
