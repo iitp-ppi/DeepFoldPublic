@@ -267,10 +267,10 @@ def main(args: argparse.Namespace) -> None:
             with open(path, "r") as fp:
                 if suffix == ".a3m":
                     pass
-                elif path.suffix == ".sto":  # If not a3m-format, then convert.
+                elif suffix == ".sto":  # If not a3m-format, then convert.
                     a3m_str = convert_stockholm_to_a3m(a3m_str, max_sequences=max_num_seqs.get(str(path).split(".")[0]))
                 else:
-                    raise RuntimeError(f"Not supported MSA search extensions: {path.suffix}")
+                    raise RuntimeError(f"Not supported MSA search extensions: {suffix}")
             a3m_strings.append(a3m_str)
     msa_features = create_msa_features(a3m_strings, sequence=query_sequence, use_identifiers=True)
 
