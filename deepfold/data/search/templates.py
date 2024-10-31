@@ -19,7 +19,7 @@ from typing import Dict, List, Sequence, Set, Tuple
 import numpy as np
 
 from deepfold.common import residue_constants as rc
-from deepfold.data.search.mmcif import load_mmcif_gz_file, parse_mmcif_string, zero_center_atom_positions
+from deepfold.data.search.mmcif import load_mmcif_file, parse_mmcif_string, zero_center_atom_positions
 from deepfold.data.search.parsers import TemplateHit, parse_a3m
 from deepfold.data.tools.kalign import Kalign
 from deepfold.utils.datetime_utils import datetime_from_string
@@ -215,9 +215,9 @@ def load_mmcif_dict(
     pdb_id: str,
 ) -> dict:
     """Load mmCIF dict for `pdb_id`."""
-    mmcif_dicts_filename = pdb_id[1:3] + "/" + pdb_id + ".cif.gz"
+    mmcif_dicts_filename = pdb_id[1:3] + "/" + pdb_id + ".cif"
     mmcif_dicts_filepath = mmcif_dirpath / mmcif_dicts_filename
-    mmcif_string = load_mmcif_gz_file(mmcif_dicts_filepath)
+    mmcif_string = load_mmcif_file(mmcif_dicts_filepath)
     mmcif_dict = parse_mmcif_string(mmcif_string)
     return mmcif_dict
 
