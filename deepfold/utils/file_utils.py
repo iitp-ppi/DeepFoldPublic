@@ -5,11 +5,63 @@ import pickle
 import warnings
 from glob import glob
 from pathlib import Path
-from typing import Any, List, Sequence
+from typing import Any, List, Sequence, Tuple
 
 import numpy as np
 
-__all__ = ["read_text", "load_pickle", "dump_pickle", "find_paths"]
+
+def restore_wrapper(func):
+    @functools.wraps(func.__wrapped__)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@restore_wrapper
+@functools.lru_cache(maxsize=16)
+def get_file_content_and_extension(file_path: os.PathLike) -> Tuple[str, str]:
+    """
+    Reads the content of a text file or compressed text file and returns its content
+    along with the real extension (excluding compression extensions like .gz).
+
+    Args:
+        file_path (str): Path to the text file or compressed text file.
+
+    Returns:
+        tuple: A tuple containing the file content (str) and the real extension (str).
+    """
+    # Determine if the file is gzipped by checking the magic number
+    with open(file_path, "rb") as f:
+        magic_number = f.read(2)
+    if magic_number == b"\x1f\x8b":
+        # It's a gzipped file
+        open_func = lambda x: gzip.open(x, "rt")
+    else:
+        # It's a regular text file
+        open_func = lambda x: open(x, "rt")
+
+    # Get the real extension by removing compression suffixes
+    path = Path(file_path)
+    compression_suffixes = [".gz"]
+    suffixes = path.suffixes
+
+    # Remove compression extensions from the end
+    real_suffixes = []
+    for s in reversed(suffixes):
+        if s.lower() in compression_suffixes:
+            continue
+        else:
+            real_suffixes.insert(0, s)
+            break  # Stop after finding the real extension
+
+    real_extension = "".join(real_suffixes) if real_suffixes else ""
+
+    # Read the content of the file
+    with open_func(file_path) as f:
+        content = f.read()
+
+    return str(content), str(real_extension)
 
 
 def read_text(path: os.PathLike) -> str:

@@ -77,6 +77,7 @@ def parse_pir(pir_string: str, index: int = 0) -> TemplateHit:
             indices_query.append(qi)
             qi += 1
 
+    assert hit_name
     hit = TemplateHit(
         index=index,
         name=hit_name,

@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 from deepfold.data.multimer.input_features import ComplexInfo, process_multimer_features
 from deepfold.data.search.parsers import convert_stockholm_to_a3m
 from deepfold.eval.plot import plot_msa
-from deepfold.utils.file_utils import dump_pickle, load_pickle
+from deepfold.utils.file_utils import dump_pickle, get_file_content_and_extension, load_pickle
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +125,11 @@ def process_uniprot(
         output_filepath = output_dirpath.joinpath(f"msas/{chain_id}.uniprot.a3m")
         if output_filepath.exists():
             with open(output_filepath, "r") as fp:
-                a3m_strings[chain_id] = fp.read()
+                a3m_strings[chain_id] = get_file_content_and_extension(output_filepath)[0]
         else:
-            with open(target_dirpath / f"{chain_id}/msas/uniprot_hits.sto", "r") as fp:
-                a3m_str = convert_stockholm_to_a3m(fp.read(), max_sequences=50000)
+            sto_str, suffix = get_file_content_and_extension(target_dirpath / f"{chain_id}/msas/uniprot_hits.sto")
+            assert suffix == ".sto"
+            a3m_str = convert_stockholm_to_a3m(sto_str, max_sequences=50000)
             if not output_filepath.parent.exists():
                 output_filepath.parent.mkdir(parents=True)
             with open(output_filepath, "w") as fp:
@@ -220,8 +221,7 @@ def unserialize_msa(a3m_lines: List[str]) -> Tuple[
 
 def main(args: argparse.Namespace):
     # Parse recipes:
-    with open(args.input_filepath, "r") as fp:
-        note_str = fp.read()
+    note_str, _ = get_file_content_and_extension(args.input_filepath)
     target_id, stoichiom, suffix, recipes = parse_note(note_str)
     cardinality = parse_stoi(stoichiom)
     if args.casp:
@@ -238,8 +238,7 @@ def main(args: argparse.Namespace):
             output_dirpath=args.output_dirpath,
         )
     elif args.pairing == "colab":
-        with open(args.colab_a3m, "r") as fp:
-            a3m_lines = fp.read()
+        a3m_lines, _ = get_file_content_and_extension(args.colab_a3m)
         _, paired_msa, query_seqs_unique, _ = unserialize_msa([a3m_lines])
         assert paired_msa  # Check paired MSA is not None.
         paired_a3m_strings = {k: v for k, v in zip(chain_ids, paired_msa)}

@@ -8,7 +8,6 @@
 
 
 import datetime
-import gzip
 import io
 import math
 from collections import defaultdict, namedtuple
@@ -23,6 +22,7 @@ from Bio.PDB.Model import Model as PDBModel
 from Bio.PDB.Structure import Structure as PDBStructure
 
 from deepfold.common import residue_constants as rc
+from deepfold.utils.file_utils import get_file_content_and_extension
 from deepfold.utils.iter_utils import list_zip
 
 # internal types:
@@ -47,20 +47,8 @@ def load_mmcif_file(mmcif_filepath: Path) -> str:
     """Load `.cif` file into mmcif string."""
     if not isinstance(mmcif_filepath, Path):
         raise TypeError(f"mmcif_filepath should be of type {Path}," f" but is of type {type(mmcif_filepath)}")
-    assert mmcif_filepath.suffix == ".cif"
-    with open(mmcif_filepath, "r") as f:
-        mmcif_string = f.read()
-    return mmcif_string
-
-
-def load_mmcif_gz_file(mmcif_gz_filepath: Path) -> str:
-    """Load `.cif.gz` file into mmcif string."""
-    if not isinstance(mmcif_gz_filepath, Path):
-        raise TypeError(f"mmcif_gz_filepath should be of type {Path}," f" but is of type {type(mmcif_gz_filepath)}")
-    assert "".join(mmcif_gz_filepath.suffixes) == ".cif.gz"
-    with gzip.open(mmcif_gz_filepath, "rb") as f:
-        mmcif_bytes = f.read()
-    mmcif_string = mmcif_bytes.decode("utf-8")
+    mmcif_string, suffix = get_file_content_and_extension(mmcif_filepath)
+    assert suffix == ".cif"
     return mmcif_string
 
 
@@ -129,6 +117,8 @@ def _get_exptl_method(mmcif_parser_dict: dict) -> str:
         exptl_method = exptl_method_list[0]
     elif len(exptl_method_list) > 1:
         exptl_method = ";".join(exptl_method_list)
+    else:
+        raise ValueError("Something wrong happened with `_exptl.method`")
     return exptl_method
 
 
